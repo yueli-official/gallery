@@ -21,7 +21,7 @@ func (c *Public) GetDiscovery(ctx context.Context, _ *v1.GetDiscoveryReq) (*v1.G
 		return nil, err
 	}
 	return &v1.GetDiscoveryRes{
-		Site: value.Site, Featured: value.Featured, Latest: value.Latest, Categories: value.Categories,
+		Site: value.Site, Featured: value.Featured, Latest: value.Latest, Facets: value.Facets, Categories: value.Categories,
 	}, nil
 }
 

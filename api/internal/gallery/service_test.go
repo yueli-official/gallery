@@ -13,6 +13,7 @@ type fakeStore struct {
 	settings   *model.SiteSettings
 	featured   []model.ArtworkCard
 	latest     []model.ArtworkCard
+	facets     []model.Facet
 	categories []model.Category
 	artwork    *model.ArtworkDetail
 }
@@ -27,6 +28,10 @@ func (f fakeStore) Featured(context.Context, int) ([]model.ArtworkCard, error) {
 
 func (f fakeStore) Latest(context.Context, int) ([]model.ArtworkCard, error) {
 	return f.latest, nil
+}
+
+func (f fakeStore) Facets(context.Context) ([]model.Facet, error) {
+	return f.facets, nil
 }
 
 func (f fakeStore) Categories(context.Context) ([]model.Category, error) {
@@ -46,28 +51,29 @@ func TestDiscoveryRequiresSiteSettings(t *testing.T) {
 }
 
 func TestDiscoveryUsesEmptyArraysInsteadOfNull(t *testing.T) {
-	discovery, err := New(fakeStore{settings: &model.SiteSettings{Name: "PLN Gallery"}}).Discovery(context.Background())
+	discovery, err := New(fakeStore{settings: &model.SiteSettings{Name: "月离图库"}}).Discovery(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if discovery.Featured == nil || discovery.Latest == nil || discovery.Categories == nil {
+	if discovery.Featured == nil || discovery.Latest == nil || discovery.Facets == nil || discovery.Categories == nil {
 		t.Fatalf("discovery collections must serialize as arrays: %#v", discovery)
 	}
 }
 
 func TestDiscoveryKeepsEditorialAndLatestSeparate(t *testing.T) {
-	settings := &model.SiteSettings{Name: "PLN Gallery"}
+	settings := &model.SiteSettings{Name: "月离图库"}
 	featured := []model.ArtworkCard{{ID: "featured"}}
 	latest := []model.ArtworkCard{{ID: "latest"}}
+	facets := []model.Facet{{ID: "medium"}}
 	categories := []model.Category{{ID: "illustration"}}
 
 	discovery, err := New(fakeStore{
-		settings: settings, featured: featured, latest: latest, categories: categories,
+		settings: settings, featured: featured, latest: latest, facets: facets, categories: categories,
 	}).Discovery(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if discovery.Site.Name != settings.Name || discovery.Featured[0].ID != "featured" || discovery.Latest[0].ID != "latest" || discovery.Categories[0].ID != "illustration" {
+	if discovery.Site.Name != settings.Name || discovery.Featured[0].ID != "featured" || discovery.Latest[0].ID != "latest" || discovery.Facets[0].ID != "medium" || discovery.Categories[0].ID != "illustration" {
 		t.Fatalf("unexpected discovery response: %#v", discovery)
 	}
 }

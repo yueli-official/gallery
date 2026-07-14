@@ -28,10 +28,20 @@ export interface GalleryArtworkCard {
 
 export interface GalleryCategory {
   id: string;
+  facetId: string;
+  parentId: string;
   slug: string;
   name: string;
   description: string;
   artworkCount: number;
+}
+
+export interface GalleryFacet {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  selectionMode: "single" | "multiple";
 }
 
 export interface GalleryAsset {
@@ -59,6 +69,6 @@ export interface GalleryDiscovery {
   site: GallerySite;
   featured: GalleryArtworkCard[];
   latest: GalleryArtworkCard[];
+  facets: GalleryFacet[];
   categories: GalleryCategory[];
 }
-

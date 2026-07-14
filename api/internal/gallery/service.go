@@ -12,6 +12,7 @@ type Store interface {
 	SiteSettings(context.Context) (*model.SiteSettings, error)
 	Featured(context.Context, int) ([]model.ArtworkCard, error)
 	Latest(context.Context, int) ([]model.ArtworkCard, error)
+	Facets(context.Context) ([]model.Facet, error)
 	Categories(context.Context) ([]model.Category, error)
 	Artwork(context.Context, string) (*model.ArtworkDetail, error)
 }
@@ -40,6 +41,10 @@ func (s *Service) Discovery(ctx context.Context) (*model.Discovery, error) {
 	if err != nil {
 		return nil, err
 	}
+	facets, err := s.store.Facets(ctx)
+	if err != nil {
+		return nil, err
+	}
 	categories, err := s.store.Categories(ctx)
 	if err != nil {
 		return nil, err
@@ -50,10 +55,13 @@ func (s *Service) Discovery(ctx context.Context) (*model.Discovery, error) {
 	if latest == nil {
 		latest = []model.ArtworkCard{}
 	}
+	if facets == nil {
+		facets = []model.Facet{}
+	}
 	if categories == nil {
 		categories = []model.Category{}
 	}
-	return &model.Discovery{Site: *settings, Featured: featured, Latest: latest, Categories: categories}, nil
+	return &model.Discovery{Site: *settings, Featured: featured, Latest: latest, Facets: facets, Categories: categories}, nil
 }
 
 func (s *Service) Artwork(ctx context.Context, id string) (*model.ArtworkDetail, error) {

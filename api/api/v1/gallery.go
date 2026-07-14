@@ -14,6 +14,7 @@ type GetDiscoveryRes struct {
 	Site       model.SiteSettings  `json:"site"`
 	Featured   []model.ArtworkCard `json:"featured"`
 	Latest     []model.ArtworkCard `json:"latest"`
+	Facets     []model.Facet       `json:"facets"`
 	Categories []model.Category    `json:"categories"`
 }
 

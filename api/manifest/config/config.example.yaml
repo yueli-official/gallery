@@ -12,15 +12,14 @@ database:
     port: "5432"
     user: "postgres"
     pass: "postgres"
-    name: "gallery_pln"
+    name: "gallery_ae"
 
 gallery:
-  siteSlug: "pln-ae"
-  brand: "PLN Gallery"
+  siteSlug: "gallery-ae"
+  brand: "月离图库"
   operatorSubs:
     - "ac73d232-ce55-487d-bb39-fd336f1a9806"
   jwks:
     url: "http://localhost:8081/oauth2/jwks.json"
     issuer: "http://localhost:8081"
-    audience: "pln-ae-web"
-
+    audience: "gallery-ae-web"

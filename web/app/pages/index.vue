@@ -44,7 +44,7 @@ useSeoMeta({
 
     <template v-else-if="data">
       <header class="max-w-3xl space-y-4">
-        <p class="text-sm font-medium text-primary">多创作者图片社区</p>
+        <p class="text-sm font-medium text-primary">开放的多创作者视觉社区</p>
         <h1 class="font-display text-4xl font-semibold tracking-tight text-highlighted sm:text-5xl">
           {{ data.site.title }}
         </h1>
@@ -64,6 +64,8 @@ useSeoMeta({
         </div>
         <GalleryArtworkGrid :items="data.featured" priority />
       </section>
+
+      <GalleryFacetBrowser :facets="data.facets" :categories="data.categories" />
 
       <section aria-labelledby="latest-heading">
         <div class="mb-6">

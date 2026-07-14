@@ -73,14 +73,27 @@ LIMIT ?`
 	return values, nil
 }
 
+func (p *PG) Facets(ctx context.Context) ([]model.Facet, error) {
+	var values []model.Facet
+	if err := p.db.Model("gallery_facets").Ctx(ctx).
+		Fields("id", "slug", "name", "description", "selection_mode").
+		Order("sort_order ASC, name ASC").Scan(&values); err != nil {
+		return nil, gerror.Wrap(err, "query gallery facets")
+	}
+	return values, nil
+}
+
 func (p *PG) Categories(ctx context.Context) ([]model.Category, error) {
 	const query = `
-SELECT c.id, c.slug, c.name, c.description, COUNT(a.id)::int AS artwork_count
+SELECT c.id, c.facet_id, COALESCE(c.parent_id, '') AS parent_id,
+       c.slug, c.name, c.description, COUNT(a.id)::int AS artwork_count
 FROM gallery_categories c
-LEFT JOIN gallery_artworks a ON a.category_id = c.id
+JOIN gallery_facets f ON f.id = c.facet_id
+LEFT JOIN gallery_artwork_categories ac ON ac.category_id = c.id
+LEFT JOIN gallery_artworks a ON a.id = ac.artwork_id
   AND a.status = 'published' AND a.visibility = 'public'
-GROUP BY c.id, c.slug, c.name, c.description, c.sort_order
-ORDER BY c.sort_order, c.name`
+GROUP BY c.id, c.facet_id, c.parent_id, c.slug, c.name, c.description, c.sort_order, f.sort_order
+ORDER BY f.sort_order, c.sort_order, c.name`
 	var values []model.Category
 	if err := p.db.Ctx(ctx).Raw(query).Scan(&values); err != nil {
 		return nil, gerror.Wrap(err, "query gallery categories")
