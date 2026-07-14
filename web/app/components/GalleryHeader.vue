@@ -3,6 +3,8 @@ defineProps<{
   brandName?: string;
   brandTagline?: string;
 }>();
+
+const { isAdmin } = useAuth();
 </script>
 
 <template>
@@ -33,16 +35,26 @@ defineProps<{
 
       <nav class="ml-4 hidden items-center gap-1 md:flex" aria-label="主要导航">
         <UButton to="/" color="neutral" variant="ghost" label="发现" />
+        <UButton to="/studio" color="neutral" variant="ghost" label="创作中心" />
       </nav>
 
       <div class="ml-auto flex items-center gap-1">
+        <UButton to="/studio" color="neutral" variant="ghost" icon="i-tabler-brush" class="md:hidden" aria-label="创作中心" />
         <UTooltip text="切换颜色模式">
-          <UColorModeButton
+        <UColorModeButton
             color="neutral"
             variant="ghost"
             aria-label="切换颜色模式"
-          />
+        />
         </UTooltip>
+        <UButton
+          v-if="isAdmin"
+          to="/manage/reviews"
+          color="neutral"
+          variant="ghost"
+          icon="i-tabler-shield-check"
+          aria-label="内容审核"
+        />
         <ConsumerAccountControl />
       </div>
     </div>

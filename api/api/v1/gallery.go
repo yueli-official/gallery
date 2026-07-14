@@ -27,3 +27,13 @@ type GetArtworkReq struct {
 type GetArtworkRes struct {
 	Artwork model.ArtworkDetail `json:"artwork"`
 }
+
+type GetCreatorReq struct {
+	g.Meta `path:"/api/v1/gallery/creators/{handle}" method:"GET" tags:"Gallery" summary:"Get one public creator and published artworks"`
+	Handle string `p:"handle" v:"required"`
+}
+
+type GetCreatorRes struct {
+	Creator  model.PublicCreator `json:"creator"`
+	Artworks []model.ArtworkCard `json:"artworks"`
+}

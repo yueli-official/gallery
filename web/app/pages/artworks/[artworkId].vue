@@ -50,7 +50,9 @@ useSeoMeta({
       </div>
       <aside class="h-fit space-y-6 lg:sticky lg:top-24">
         <div>
-          <p class="text-sm text-primary">{{ data.creator.displayName }}</p>
+          <NuxtLink :to="`/creators/${data.creator.handle}`" class="text-sm text-primary hover:underline">
+            {{ data.creator.displayName }} · @{{ data.creator.handle }}
+          </NuxtLink>
           <h1 class="mt-2 text-3xl font-semibold tracking-tight text-highlighted">
             {{ data.title }}
           </h1>
@@ -73,4 +75,3 @@ useSeoMeta({
     </article>
   </div>
 </template>
-

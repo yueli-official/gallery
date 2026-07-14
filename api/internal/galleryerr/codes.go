@@ -4,15 +4,47 @@ import (
 	"net/http"
 
 	"platform/gokit/errs"
+	"platform/gokit/response"
 )
 
 var (
-	CodeNotFound       = errs.Register("gallery.not_found", http.StatusNotFound)
-	CodeNotInitialized = errs.Register("gallery.not_initialized", 503)
+	CodeNotFound        = errs.Register("gallery.not_found", http.StatusNotFound)
+	CodeNotInitialized  = errs.Register("gallery.not_initialized", 503)
+	CodeForbidden       = errs.Register("gallery.forbidden", http.StatusForbidden)
+	CodeConflict        = errs.Register("gallery.conflict", http.StatusConflict)
+	CodeCreatorInactive = errs.Register("gallery.creator_not_active", http.StatusForbidden)
+	CodeInvalidState    = errs.Register("gallery.invalid_state", http.StatusConflict)
+	CodeUpstreamFailed  = errs.Register("gallery.upstream_failed", http.StatusBadGateway)
 )
 
 func NotFound(resource, id string) *errs.Coded {
 	return errs.New(CodeNotFound, "gallery resource not found", map[string]any{"resource": resource, "id": id})
+}
+
+func Forbidden() *errs.Coded {
+	return errs.New(CodeForbidden, "gallery operation is forbidden", nil)
+}
+
+func Conflict(resource string) *errs.Coded {
+	return errs.New(CodeConflict, "gallery resource conflicts with an existing record", map[string]any{"resource": resource})
+}
+
+func CreatorNotActive() *errs.Coded {
+	return errs.New(CodeCreatorInactive, "an active creator profile is required", nil)
+}
+
+func Validation(field, detail string) *errs.Coded {
+	return errs.New(errs.CommonValidationFailed, "validation failed", map[string]any{
+		"details": []response.ValidationDetail{{Field: field, Code: "invalid", Params: map[string]any{"detail": detail}}},
+	})
+}
+
+func InvalidState(resource, state string) *errs.Coded {
+	return errs.New(CodeInvalidState, "gallery resource is not in an allowed state", map[string]any{"resource": resource, "state": state})
+}
+
+func UpstreamFailed(code string) *errs.Coded {
+	return errs.New(CodeUpstreamFailed, "gallery asset operation failed", map[string]any{"upstreamCode": code})
 }
 
 func NotInitialized(resource string) *errs.Coded {

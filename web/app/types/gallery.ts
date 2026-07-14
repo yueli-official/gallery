@@ -42,6 +42,7 @@ export interface GalleryAsset {
   thumbnailUrl: string;
   cardUrl: string;
   detailUrl: string;
+  originalUrl: string;
 }
 
 export interface GalleryArtwork extends GalleryArtworkCard {
@@ -58,4 +59,61 @@ export interface GalleryDiscovery {
   latest: GalleryArtworkCard[];
   facets: GalleryFacet[];
   facetValues: GalleryFacetValue[];
+}
+
+export interface GalleryCreatorProfile {
+  id: string;
+  handle: string;
+  displayName: string;
+  bio: string;
+  coverAssetId: string;
+  status: "pending" | "active" | "rejected" | "suspended";
+  applicationNote: string;
+  reviewNote: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface GalleryPublicCreator {
+  id: string;
+  handle: string;
+  displayName: string;
+  bio: string;
+  coverAssetId: string;
+  createdAt?: string;
+}
+
+export interface GalleryFacetAssignment {
+  facetId: string;
+  valueId: string;
+}
+
+export interface GalleryStudioArtwork {
+  id: string;
+  creatorId: string;
+  title: string;
+  description: string;
+  status: "draft" | "pending_review" | "published" | "rejected" | "restricted" | "archived";
+  visibility: "public" | "unlisted" | "private";
+  contentRating: "general" | "sensitive" | "adult";
+  aiUsage: "none" | "assistive" | "mostly_generated";
+  aiTrainingPermission: "unspecified" | "allow" | "disallow";
+  rightsBasis: "original" | "authorized_repost" | "public_domain" | "licensed_material";
+  license: string;
+  reviewNote: string;
+  createdAt?: string;
+  updatedAt?: string;
+  publishedAt?: string;
+  creator?: GalleryCreatorProfile;
+  assets: GalleryAsset[];
+  facetAssignments: GalleryFacetAssignment[];
+}
+
+export interface GalleryUploadedAsset {
+  id: string;
+  filename: string;
+  mime: string;
+  size: number;
+  width?: number;
+  height?: number;
 }

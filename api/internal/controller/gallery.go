@@ -32,3 +32,11 @@ func (c *Public) GetArtwork(ctx context.Context, req *v1.GetArtworkReq) (*v1.Get
 	}
 	return &v1.GetArtworkRes{Artwork: *value}, nil
 }
+
+func (c *Public) GetCreator(ctx context.Context, req *v1.GetCreatorReq) (*v1.GetCreatorRes, error) {
+	value, err := c.service.CreatorPage(ctx, req.Handle)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.GetCreatorRes{Creator: value.Creator, Artworks: value.Artworks}, nil
+}

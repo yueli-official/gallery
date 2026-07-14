@@ -48,6 +48,7 @@ export default defineNuxtConfig({
       assetNamespace: process.env.NUXT_PUBLIC_ASSET_NAMESPACE || "ae",
       assetProfile:
         process.env.NUXT_PUBLIC_ASSET_PROFILE || "gallery-default",
+      operatorSubs: process.env.NUXT_PUBLIC_OPERATOR_SUBS || "",
     },
   },
   devtools: { enabled: true },
