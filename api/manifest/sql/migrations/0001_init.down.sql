@@ -1,0 +1,20 @@
+DROP TABLE IF EXISTS gallery_moderation_cases;
+DROP TABLE IF EXISTS gallery_reports;
+DROP TABLE IF EXISTS gallery_editorial_features;
+DROP TABLE IF EXISTS gallery_interaction_events;
+DROP TABLE IF EXISTS gallery_view_history;
+DROP TABLE IF EXISTS gallery_collection_items;
+DROP TABLE IF EXISTS gallery_collections;
+DROP TABLE IF EXISTS gallery_bookmarks;
+DROP TABLE IF EXISTS gallery_follows;
+DROP TABLE IF EXISTS gallery_series_items;
+DROP TABLE IF EXISTS gallery_series;
+DROP TABLE IF EXISTS gallery_artwork_tags;
+DROP TABLE IF EXISTS gallery_tag_aliases;
+DROP TABLE IF EXISTS gallery_tags;
+DROP TABLE IF EXISTS gallery_artwork_assets;
+DROP TABLE IF EXISTS gallery_artworks;
+DROP TABLE IF EXISTS gallery_categories;
+DROP TABLE IF EXISTS gallery_creator_profiles;
+DROP TABLE IF EXISTS gallery_site_settings;
+

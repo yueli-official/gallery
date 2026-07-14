@@ -1,0 +1,40 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+@import "@platform/ui/theme.css";
+@import "@fontsource-variable/space-grotesk";
+@import "@fontsource-variable/dm-sans";
+
+:root {
+  color-scheme: light;
+  --gallery-canvas: color-mix(
+    in srgb,
+    var(--ui-primary) 3%,
+    var(--platform-surface-page)
+  );
+}
+
+.dark {
+  color-scheme: dark;
+  --gallery-canvas: color-mix(
+    in srgb,
+    var(--ui-primary) 4%,
+    var(--platform-surface-page)
+  );
+}
+
+body {
+  min-width: 320px;
+  background: var(--gallery-canvas);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+

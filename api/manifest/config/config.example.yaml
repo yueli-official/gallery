@@ -1,0 +1,26 @@
+server:
+  address: "127.0.0.1:8091"
+  openapiPath: "/api.json"
+  swaggerPath: "/swagger"
+logger:
+  level: "info"
+  stdout: true
+database:
+  default:
+    type: "pgsql"
+    host: "127.0.0.1"
+    port: "5432"
+    user: "postgres"
+    pass: "postgres"
+    name: "gallery_pln"
+
+gallery:
+  siteSlug: "pln-ae"
+  brand: "PLN Gallery"
+  operatorSubs:
+    - "ac73d232-ce55-487d-bb39-fd336f1a9806"
+  jwks:
+    url: "http://localhost:8081/oauth2/jwks.json"
+    issuer: "http://localhost:8081"
+    audience: "pln-ae-web"
+
