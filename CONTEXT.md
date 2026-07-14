@@ -16,13 +16,17 @@ _Avoid_: 作品、附件
 在 Gallery 内拥有公开创作身份并发布作品的平台用户。
 _Avoid_: 管理员、上传者
 
-**Facet（分类维度）**:
-运营方治理的浏览轴，例如媒介、题材、风格和用途；每个维度包含一组 Category。
+**Facet（维度）**:
+运营方治理的离散浏览轴，例如媒介、题材、风格和用途；每个维度包含一组 Facet Value。
 _Avoid_: 标签组、栏目
 
-**Category（分类）**:
-某个 Facet 下可分层的受控分类节点；同一作品可跨多个维度关联多个分类。
-_Avoid_: Tag、唯一主分类
+**Facet Value（维度值）**:
+某个 Facet 下可分层的受控候选值；同一作品可跨多个维度关联多个值。
+_Avoid_: Category、Tag、唯一主分类
+
+**Artwork Facet Assignment（作品归类）**:
+Artwork 与一个 Facet Value 之间的受控关系。
+_Avoid_: 标签、作品属性
 
 **Tag（标签）**:
 创作者用于描述角色、对象、技法或细节的自由词，并通过别名归一化。

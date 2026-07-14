@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"platform/gokit/facet"
 	"platform/products/gallery/api/internal/galleryerr"
 	"platform/products/gallery/api/internal/model"
 )
@@ -12,8 +13,8 @@ type Store interface {
 	SiteSettings(context.Context) (*model.SiteSettings, error)
 	Featured(context.Context, int) ([]model.ArtworkCard, error)
 	Latest(context.Context, int) ([]model.ArtworkCard, error)
-	Facets(context.Context) ([]model.Facet, error)
-	Categories(context.Context) ([]model.Category, error)
+	Facets(context.Context) ([]facet.Facet, error)
+	FacetValues(context.Context) ([]facet.Value, error)
 	Artwork(context.Context, string) (*model.ArtworkDetail, error)
 }
 
@@ -45,7 +46,7 @@ func (s *Service) Discovery(ctx context.Context) (*model.Discovery, error) {
 	if err != nil {
 		return nil, err
 	}
-	categories, err := s.store.Categories(ctx)
+	values, err := s.store.FacetValues(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -55,13 +56,14 @@ func (s *Service) Discovery(ctx context.Context) (*model.Discovery, error) {
 	if latest == nil {
 		latest = []model.ArtworkCard{}
 	}
-	if facets == nil {
-		facets = []model.Facet{}
+	catalog, err := facet.NewCatalog(facets, values)
+	if err != nil {
+		return nil, err
 	}
-	if categories == nil {
-		categories = []model.Category{}
-	}
-	return &model.Discovery{Site: *settings, Featured: featured, Latest: latest, Facets: facets, Categories: categories}, nil
+	return &model.Discovery{
+		Site: *settings, Featured: featured, Latest: latest,
+		Facets: catalog.Facets(), FacetValues: catalog.Values(),
+	}, nil
 }
 
 func (s *Service) Artwork(ctx context.Context, id string) (*model.ArtworkDetail, error) {

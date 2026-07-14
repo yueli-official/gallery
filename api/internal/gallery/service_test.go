@@ -6,16 +6,17 @@ import (
 	"testing"
 
 	"platform/gokit/errs"
+	"platform/gokit/facet"
 	"platform/products/gallery/api/internal/model"
 )
 
 type fakeStore struct {
-	settings   *model.SiteSettings
-	featured   []model.ArtworkCard
-	latest     []model.ArtworkCard
-	facets     []model.Facet
-	categories []model.Category
-	artwork    *model.ArtworkDetail
+	settings *model.SiteSettings
+	featured []model.ArtworkCard
+	latest   []model.ArtworkCard
+	facets   []facet.Facet
+	values   []facet.Value
+	artwork  *model.ArtworkDetail
 }
 
 func (f fakeStore) SiteSettings(context.Context) (*model.SiteSettings, error) {
@@ -30,12 +31,12 @@ func (f fakeStore) Latest(context.Context, int) ([]model.ArtworkCard, error) {
 	return f.latest, nil
 }
 
-func (f fakeStore) Facets(context.Context) ([]model.Facet, error) {
+func (f fakeStore) Facets(context.Context) ([]facet.Facet, error) {
 	return f.facets, nil
 }
 
-func (f fakeStore) Categories(context.Context) ([]model.Category, error) {
-	return f.categories, nil
+func (f fakeStore) FacetValues(context.Context) ([]facet.Value, error) {
+	return f.values, nil
 }
 
 func (f fakeStore) Artwork(context.Context, string) (*model.ArtworkDetail, error) {
@@ -55,7 +56,7 @@ func TestDiscoveryUsesEmptyArraysInsteadOfNull(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if discovery.Featured == nil || discovery.Latest == nil || discovery.Facets == nil || discovery.Categories == nil {
+	if discovery.Featured == nil || discovery.Latest == nil || discovery.Facets == nil || discovery.FacetValues == nil {
 		t.Fatalf("discovery collections must serialize as arrays: %#v", discovery)
 	}
 }
@@ -64,16 +65,16 @@ func TestDiscoveryKeepsEditorialAndLatestSeparate(t *testing.T) {
 	settings := &model.SiteSettings{Name: "月离图库"}
 	featured := []model.ArtworkCard{{ID: "featured"}}
 	latest := []model.ArtworkCard{{ID: "latest"}}
-	facets := []model.Facet{{ID: "medium"}}
-	categories := []model.Category{{ID: "illustration"}}
+	facets := []facet.Facet{{ID: "medium", Slug: "medium", Name: "媒介", SelectionMode: facet.SelectionMultiple, Filterable: true, Status: facet.StatusActive}}
+	values := []facet.Value{{ID: "illustration", FacetID: "medium", Slug: "illustration", Name: "插画", Status: facet.StatusActive}}
 
 	discovery, err := New(fakeStore{
-		settings: settings, featured: featured, latest: latest, facets: facets, categories: categories,
+		settings: settings, featured: featured, latest: latest, facets: facets, values: values,
 	}).Discovery(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if discovery.Site.Name != settings.Name || discovery.Featured[0].ID != "featured" || discovery.Latest[0].ID != "latest" || discovery.Facets[0].ID != "medium" || discovery.Categories[0].ID != "illustration" {
+	if discovery.Site.Name != settings.Name || discovery.Featured[0].ID != "featured" || discovery.Latest[0].ID != "latest" || discovery.Facets[0].ID != "medium" || discovery.FacetValues[0].ID != "illustration" {
 		t.Fatalf("unexpected discovery response: %#v", discovery)
 	}
 }

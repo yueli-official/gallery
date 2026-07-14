@@ -1,3 +1,5 @@
+import type { Facet, FacetValue } from "@platform/facet";
+
 export interface GallerySite {
   name: string;
   title: string;
@@ -26,23 +28,8 @@ export interface GalleryArtworkCard {
   creator: GalleryCreator;
 }
 
-export interface GalleryCategory {
-  id: string;
-  facetId: string;
-  parentId: string;
-  slug: string;
-  name: string;
-  description: string;
-  artworkCount: number;
-}
-
-export interface GalleryFacet {
-  id: string;
-  slug: string;
-  name: string;
-  description: string;
-  selectionMode: "single" | "multiple";
-}
+export type GalleryFacet = Facet;
+export type GalleryFacetValue = FacetValue;
 
 export interface GalleryAsset {
   id: string;
@@ -70,5 +57,5 @@ export interface GalleryDiscovery {
   featured: GalleryArtworkCard[];
   latest: GalleryArtworkCard[];
   facets: GalleryFacet[];
-  categories: GalleryCategory[];
+  facetValues: GalleryFacetValue[];
 }

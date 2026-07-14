@@ -1,19 +1,24 @@
 <script setup lang="ts">
-import type { GalleryCategory, GalleryFacet } from "~/types/gallery";
+import { groupFacetValues } from "@platform/facet";
 
-const { facets, categories } = defineProps<{
+import type { GalleryFacet, GalleryFacetValue } from "~/types/gallery";
+
+const { facets, values } = defineProps<{
   facets: GalleryFacet[];
-  categories: GalleryCategory[];
+  values: GalleryFacetValue[];
 }>();
 
-const groups = computed(() => groupCategoriesByFacet(facets, categories));
+const groups = computed(() => groupFacetValues(facets, values));
 </script>
 
 <template>
   <section v-if="groups.length" aria-labelledby="facets-heading">
     <div class="mb-6 max-w-2xl">
       <p class="text-sm font-medium text-primary">不只按一个分类浏览</p>
-      <h2 id="facets-heading" class="mt-1 text-2xl font-semibold text-highlighted">
+      <h2
+        id="facets-heading"
+        class="mt-1 text-2xl font-semibold text-highlighted"
+      >
         多维度探索
       </h2>
       <p class="mt-2 text-sm leading-6 text-muted">
@@ -29,21 +34,28 @@ const groups = computed(() => groupCategoriesByFacet(facets, categories));
       >
         <div class="flex items-start justify-between gap-4">
           <div>
-            <h3 class="font-semibold text-highlighted">{{ group.facet.name }}</h3>
-            <p class="mt-1 text-sm leading-6 text-muted">{{ group.facet.description }}</p>
+            <h3 class="font-semibold text-highlighted">
+              {{ group.facet.name }}
+            </h3>
+            <p class="mt-1 text-sm leading-6 text-muted">
+              {{ group.facet.description }}
+            </p>
           </div>
           <UBadge color="neutral" variant="subtle">
-            {{ group.categories.length }} 类
+            {{ group.values.length }} 项
           </UBadge>
         </div>
-        <ul class="mt-4 flex flex-wrap gap-2" :aria-label="`${group.facet.name}分类`">
-          <li v-for="category in group.categories" :key="category.id">
+        <ul
+          class="mt-4 flex flex-wrap gap-2"
+          :aria-label="`${group.facet.name}分类`"
+        >
+          <li v-for="value in group.values" :key="value.id">
             <span
               class="inline-flex items-center gap-2 rounded-full border border-default bg-default px-3 py-1.5 text-sm text-toned"
             >
-              {{ category.name }}
-              <span v-if="category.artworkCount" class="text-xs text-dimmed">
-                {{ category.artworkCount }}
+              {{ value.name }}
+              <span v-if="value.count" class="text-xs text-dimmed">
+                {{ value.count }}
               </span>
             </span>
           </li>

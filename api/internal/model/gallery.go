@@ -1,6 +1,10 @@
 package model
 
-import "github.com/gogf/gf/v2/os/gtime"
+import (
+	"github.com/gogf/gf/v2/os/gtime"
+
+	"platform/gokit/facet"
+)
 
 type SiteSettings struct {
 	Name              string `json:"name" orm:"name"`
@@ -33,24 +37,6 @@ type ArtworkCard struct {
 	CreatorName    string      `json:"-" orm:"creator_name"`
 }
 
-type Category struct {
-	ID           string `json:"id" orm:"id"`
-	FacetID      string `json:"facetId" orm:"facet_id"`
-	ParentID     string `json:"parentId" orm:"parent_id"`
-	Slug         string `json:"slug" orm:"slug"`
-	Name         string `json:"name" orm:"name"`
-	Description  string `json:"description" orm:"description"`
-	ArtworkCount int    `json:"artworkCount" orm:"artwork_count"`
-}
-
-type Facet struct {
-	ID            string `json:"id" orm:"id"`
-	Slug          string `json:"slug" orm:"slug"`
-	Name          string `json:"name" orm:"name"`
-	Description   string `json:"description" orm:"description"`
-	SelectionMode string `json:"selectionMode" orm:"selection_mode"`
-}
-
 type Asset struct {
 	ID             string `json:"id" orm:"id"`
 	AssetID        string `json:"assetId" orm:"asset_id"`
@@ -74,9 +60,9 @@ type ArtworkDetail struct {
 }
 
 type Discovery struct {
-	Site       SiteSettings  `json:"site"`
-	Featured   []ArtworkCard `json:"featured"`
-	Latest     []ArtworkCard `json:"latest"`
-	Facets     []Facet       `json:"facets"`
-	Categories []Category    `json:"categories"`
+	Site        SiteSettings  `json:"site"`
+	Featured    []ArtworkCard `json:"featured"`
+	Latest      []ArtworkCard `json:"latest"`
+	Facets      []facet.Facet `json:"facets"`
+	FacetValues []facet.Value `json:"facetValues"`
 }

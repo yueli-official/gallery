@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { GalleryCategory, GalleryFacet } from "../app/types/gallery";
-import { groupCategoriesByFacet } from "../app/utils/taxonomy";
+import { groupFacetValues } from "@platform/facet";
+
+import type { GalleryFacet, GalleryFacetValue } from "../app/types/gallery";
 
 const facets: GalleryFacet[] = [
   {
@@ -10,6 +11,10 @@ const facets: GalleryFacet[] = [
     name: "媒介",
     description: "",
     selectionMode: "multiple",
+    requiredOnPublish: true,
+    filterable: true,
+    status: "active",
+    sortOrder: 10,
   },
   {
     id: "style",
@@ -17,27 +22,32 @@ const facets: GalleryFacet[] = [
     name: "风格",
     description: "",
     selectionMode: "multiple",
+    requiredOnPublish: false,
+    filterable: true,
+    status: "active",
+    sortOrder: 20,
   },
 ];
 
-const illustration: GalleryCategory = {
+const illustration: GalleryFacetValue = {
   id: "illustration",
   facetId: "medium",
-  parentId: "",
   slug: "illustration",
   name: "插画",
   description: "",
-  artworkCount: 0,
+  status: "active",
+  sortOrder: 10,
+  count: 0,
 };
 
 describe("gallery taxonomy", () => {
-  it("groups categories by controlled facet order", () => {
-    expect(groupCategoriesByFacet(facets, [illustration])).toEqual([
-      { facet: facets[0], categories: [illustration] },
+  it("groups facet values by controlled facet order", () => {
+    expect(groupFacetValues(facets, [illustration])).toEqual([
+      { facet: facets[0], values: [illustration] },
     ]);
   });
 
   it("does not render empty taxonomy groups", () => {
-    expect(groupCategoriesByFacet(facets, [])).toEqual([]);
+    expect(groupFacetValues(facets, [])).toEqual([]);
   });
 });

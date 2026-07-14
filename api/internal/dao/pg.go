@@ -6,6 +6,7 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
 
+	"platform/gokit/facet"
 	"platform/products/gallery/api/internal/model"
 )
 
@@ -73,30 +74,31 @@ LIMIT ?`
 	return values, nil
 }
 
-func (p *PG) Facets(ctx context.Context) ([]model.Facet, error) {
-	var values []model.Facet
+func (p *PG) Facets(ctx context.Context) ([]facet.Facet, error) {
+	var values []facet.Facet
 	if err := p.db.Model("gallery_facets").Ctx(ctx).
-		Fields("id", "slug", "name", "description", "selection_mode").
+		Fields("id", "slug", "name", "description", "selection_mode", "required_on_publish", "filterable", "status", "sort_order").
 		Order("sort_order ASC, name ASC").Scan(&values); err != nil {
 		return nil, gerror.Wrap(err, "query gallery facets")
 	}
 	return values, nil
 }
 
-func (p *PG) Categories(ctx context.Context) ([]model.Category, error) {
+func (p *PG) FacetValues(ctx context.Context) ([]facet.Value, error) {
 	const query = `
 SELECT c.id, c.facet_id, COALESCE(c.parent_id, '') AS parent_id,
-       c.slug, c.name, c.description, COUNT(a.id)::int AS artwork_count
-FROM gallery_categories c
+       c.slug, c.name, c.description, c.status, c.sort_order,
+       COUNT(a.id)::int AS object_count
+FROM gallery_facet_values c
 JOIN gallery_facets f ON f.id = c.facet_id
-LEFT JOIN gallery_artwork_categories ac ON ac.category_id = c.id
+LEFT JOIN gallery_artwork_facet_assignments ac ON ac.facet_id = c.facet_id AND ac.value_id = c.id
 LEFT JOIN gallery_artworks a ON a.id = ac.artwork_id
   AND a.status = 'published' AND a.visibility = 'public'
-GROUP BY c.id, c.facet_id, c.parent_id, c.slug, c.name, c.description, c.sort_order, f.sort_order
+GROUP BY c.id, c.facet_id, c.parent_id, c.slug, c.name, c.description, c.status, c.sort_order, f.sort_order
 ORDER BY f.sort_order, c.sort_order, c.name`
-	var values []model.Category
+	var values []facet.Value
 	if err := p.db.Ctx(ctx).Raw(query).Scan(&values); err != nil {
-		return nil, gerror.Wrap(err, "query gallery categories")
+		return nil, gerror.Wrap(err, "query gallery facet values")
 	}
 	return values, nil
 }
