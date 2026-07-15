@@ -10,14 +10,19 @@ import (
 
 	"platform/gokit/authjwt"
 	"platform/products/gallery/api/internal/galleryerr"
+	"platform/products/gallery/api/internal/model"
 )
 
-func subject(ctx context.Context) (string, error) {
+func optionalSubject(ctx context.Context) (model.Subject, bool) {
 	principal, ok := authjwt.From(ctx)
-	if !ok {
-		return "", galleryerr.Forbidden()
+	if !ok || principal == nil || strings.TrimSpace(principal.Subject) == "" {
+		return model.Subject{}, false
 	}
-	return principal.Subject, nil
+	kind := valueString(principal.Claims["subject_kind"])
+	if kind == "" {
+		kind = "user"
+	}
+	return model.Subject{Kind: kind, ID: principal.Subject, Verified: claimBool(principal.Claims["email_verified"]), Bearer: bearerOf(ctx)}, true
 }
 
 func bearerOf(ctx context.Context) string {
@@ -30,6 +35,25 @@ func bearerOf(ctx context.Context) string {
 		return ""
 	}
 	return strings.TrimSpace(value[7:])
+}
+
+func requiredSubject(ctx context.Context) (model.Subject, error) {
+	subject, ok := optionalSubject(ctx)
+	if !ok {
+		return model.Subject{}, galleryerr.Forbidden()
+	}
+	return subject, nil
+}
+
+func requiredUser(ctx context.Context) (model.Subject, error) {
+	subject, err := requiredSubject(ctx)
+	if err != nil {
+		return model.Subject{}, err
+	}
+	if subject.Kind != "user" {
+		return model.Subject{}, galleryerr.Forbidden()
+	}
+	return subject, nil
 }
 
 func requireAdmin(ctx context.Context) (string, error) {

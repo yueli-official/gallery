@@ -34,9 +34,9 @@ export function useGalleryAssetUpload() {
         mime: file.type || "application/octet-stream",
         size: file.size,
         siteKey: siteSlug.value,
-        profileKey: "gallery-artwork",
-        category: "gallery-artwork",
-        visibility: "public",
+        profileKey: "gallery-submission",
+        category: "gallery-submission",
+        visibility: "private",
         multipart: false,
       },
     });

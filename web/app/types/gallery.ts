@@ -6,81 +6,27 @@ export interface GallerySite {
   description: string;
   searchPlaceholder: string;
   footerTagline: string;
+  randomBatchSize: number;
+  randomCandidateSize: number;
 }
 
-export interface GalleryCreator {
-  id: string;
-  handle: string;
-  displayName: string;
+export interface GalleryMetrics {
+  views: number;
+  favorites: number;
 }
 
-export interface GalleryArtworkCard {
-  id: string;
-  title: string;
-  description: string;
-  coverUrl: string;
-  placeholderUrl: string;
-  width: number;
-  height: number;
-  contentRating: "general" | "sensitive" | "adult";
-  aiUsage: "none" | "assistive" | "mostly_generated";
-  publishedAt?: string;
-  creator: GalleryCreator;
-}
-
-export type GalleryFacet = Facet;
-export type GalleryFacetValue = FacetValue;
-
-export interface GalleryAsset {
+export interface GalleryImageCard {
   id: string;
   assetId: string;
-  sortOrder: number;
+  title: string;
+  altText: string;
   width: number;
   height: number;
-  altText: string;
-  placeholderUrl: string;
-  thumbnailUrl: string;
-  cardUrl: string;
-  detailUrl: string;
-  originalUrl: string;
-}
-
-export interface GalleryArtwork extends GalleryArtworkCard {
-  license: string;
-  rightsBasis: string;
-  aiTrainingPermission: string;
-  tags: string[];
-  assets: GalleryAsset[];
-}
-
-export interface GalleryDiscovery {
-  site: GallerySite;
-  featured: GalleryArtworkCard[];
-  latest: GalleryArtworkCard[];
-  facets: GalleryFacet[];
-  facetValues: GalleryFacetValue[];
-}
-
-export interface GalleryCreatorProfile {
-  id: string;
-  handle: string;
-  displayName: string;
-  bio: string;
-  coverAssetId: string;
-  status: "pending" | "active" | "rejected" | "suspended";
-  applicationNote: string;
-  reviewNote: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface GalleryPublicCreator {
-  id: string;
-  handle: string;
-  displayName: string;
-  bio: string;
-  coverAssetId: string;
-  createdAt?: string;
+  dominantColor: string;
+  topic: string;
+  topicSlug: string;
+  publishedAt?: string;
+  metrics: GalleryMetrics;
 }
 
 export interface GalleryFacetAssignment {
@@ -88,26 +34,101 @@ export interface GalleryFacetAssignment {
   valueId: string;
 }
 
-export interface GalleryStudioArtwork {
+export interface GalleryImage extends GalleryImageCard {
+  description: string;
+  sourceUrl: string;
+  focusX: number;
+  focusY: number;
+  tags: string[];
+  facets: GalleryFacetAssignment[];
+  favorited: boolean;
+}
+
+export interface GalleryDiscovery {
+  site: GallerySite;
+  seed: string;
+  images: GalleryImageCard[];
+  facets: Facet[];
+  facetValues: FacetValue[];
+}
+
+export interface GalleryImagePage {
+  items: GalleryImageCard[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface GalleryCollection {
   id: string;
-  creatorId: string;
+  kind: "gallery.editorial" | "gallery.favorites";
+  resourceKind: "gallery.image";
+  ownerKind: "site" | "user";
+  visibility: "private" | "public";
+  name: string;
+  description: string;
+  version: number;
+  slug?: string;
+  coverImageId?: string;
+  itemCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface GalleryCollectionDetail extends GalleryCollection {
+  images: GalleryImageCard[];
+}
+
+export interface GallerySubmission {
+  id: string;
+  assetId: string;
+  imageId: string;
   title: string;
   description: string;
-  status: "draft" | "pending_review" | "published" | "rejected" | "restricted" | "archived";
-  visibility: "public" | "unlisted" | "private";
-  contentRating: "general" | "sensitive" | "adult";
-  aiUsage: "none" | "assistive" | "mostly_generated";
-  aiTrainingPermission: "unspecified" | "allow" | "disallow";
-  rightsBasis: "original" | "authorized_repost" | "public_domain" | "licensed_material";
-  license: string;
+  sourceUrl: string;
+  altText: string;
+  topicId: string;
+  processingState: "queued" | "processing" | "ready" | "failed";
+  reviewState: "not_required" | "pending" | "approved" | "rejected";
+  safetyState: "pending" | "safe" | "uncertain" | "blocked" | "unavailable";
+  outcome: "pending" | "published" | "duplicate" | "rejected" | "withdrawn" | "failed";
+  failureCode: string;
   reviewNote: string;
   createdAt?: string;
   updatedAt?: string;
-  publishedAt?: string;
-  creator?: GalleryCreatorProfile;
-  assets: GalleryAsset[];
-  facetAssignments: GalleryFacetAssignment[];
 }
+
+export interface GalleryRanking {
+  kind: "trending" | "most_viewed" | "most_favorited";
+  window: "24h" | "7d" | "30d" | "all";
+  generatedAt?: string;
+  images: GalleryImageCard[];
+}
+
+export interface GalleryCase {
+  id: string;
+  imageId: string;
+  submissionId: string;
+  kind: string;
+  status: string;
+  reason: string;
+  description: string;
+  proposedSourceUrl: string;
+  resolutionNote: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface GalleryAdminOverview {
+  pendingSubmissions: number;
+  openCases: number;
+  publishedImages: number;
+  failedProcessing: number;
+}
+
+export type GalleryFacet = Facet;
+export type GalleryFacetValue = FacetValue;
 
 export interface GalleryUploadedAsset {
   id: string;

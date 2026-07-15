@@ -1,106 +1,61 @@
 <script setup lang="ts">
 import type { GalleryDiscovery } from "~/types/gallery";
 
-const { data, error, status, refresh } = await useFetch<GalleryDiscovery>(
-  "/api/gallery/discovery",
-  { key: "gallery-discovery-shell" },
-);
+const route = useRoute();
+const router = useRouter();
+const seed = computed(() => String(route.query.seed || ""));
+const { data, error, status, refresh } = await useFetch<GalleryDiscovery>("/api/gallery/discovery", {
+  query: computed(() => ({ seed: seed.value || undefined })),
+  watch: [seed],
+});
 
 useSeoMeta({
-  title: () => data.value?.site.name ?? "图片社区",
-  description: () => data.value?.site.description ?? "发现和收藏创作者作品。",
+  title: () => data.value?.site.name || "月离图库",
+  description: () => data.value?.site.description || "随机发现、收藏和投稿公开图片。",
+  robots: () => seed.value ? "noindex,follow" : "index,follow",
 });
+
+function nextBatch() {
+  const next = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+  void router.replace({ path: "/", query: { seed: next } });
+}
 </script>
 
 <template>
-  <div class="space-y-16">
-    <section v-if="status === 'pending'" aria-label="正在加载作品">
-      <div class="mb-8 space-y-3">
-        <USkeleton class="h-9 w-48" />
-        <USkeleton class="h-5 w-full max-w-xl" />
+  <div class="gallery-page">
+    <header class="mb-5 flex flex-wrap items-end justify-between gap-4 sm:mb-7">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-[.18em] text-primary">Random archive</p>
+        <h1 class="mt-1 text-2xl font-semibold tracking-tight text-highlighted sm:text-3xl">随机看看</h1>
+        <p class="mt-1.5 text-sm text-muted">不按热度，把不同主题的图片重新洗牌。</p>
       </div>
-      <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <USkeleton
-          v-for="index in 10"
-          :key="index"
-          class="aspect-[4/5] rounded-xl"
-        />
-      </div>
-    </section>
+      <UButton color="neutral" variant="outline" icon="i-tabler-refresh" label="换一批" :loading="status === 'pending'" @click="nextBatch" />
+    </header>
+
+    <div v-if="status === 'pending'" class="gallery-masonry" aria-label="正在加载随机图片">
+      <USkeleton v-for="index in 20" :key="index" class="mb-3 h-64 break-inside-avoid rounded-lg" :style="{ height: `${180 + (index % 4) * 46}px` }" />
+    </div>
 
     <UAlert
       v-else-if="error"
       color="error"
       variant="subtle"
       icon="i-tabler-alert-circle"
-      title="图片社区尚未完成初始化"
-      description="发现内容暂时不可用，请检查 Gallery API 与站点配置。"
+      title="随机图片暂时没有加载出来"
+      description="请确认 Gallery API 与 Asset 服务可用。"
     >
-      <template #actions>
-        <UButton
-          color="error"
-          variant="soft"
-          label="重新加载"
-          @click="() => refresh()"
-        />
-      </template>
+      <template #actions><UButton color="error" variant="soft" label="重试" @click="() => refresh()" /></template>
     </UAlert>
 
-    <template v-else-if="data">
-      <header class="max-w-3xl space-y-4">
-        <p class="text-sm font-medium text-primary">开放的多创作者视觉社区</p>
-        <h1
-          class="font-display text-4xl font-semibold tracking-tight text-highlighted sm:text-5xl"
-        >
-          {{ data.site.title }}
-        </h1>
-        <p class="max-w-2xl text-base leading-7 text-toned sm:text-lg">
-          {{ data.site.description }}
-        </p>
-      </header>
+    <GalleryMasonry v-else-if="data?.images.length" :items="data.images" priority />
 
-      <section v-if="data.featured.length" aria-labelledby="featured-heading">
-        <div class="mb-6 flex items-end justify-between gap-4">
-          <div>
-            <p class="text-sm font-medium text-primary">有来源的人工策展</p>
-            <h2
-              id="featured-heading"
-              class="mt-1 text-2xl font-semibold text-highlighted"
-            >
-              编辑精选
-            </h2>
-          </div>
-        </div>
-        <GalleryArtworkGrid :items="data.featured" priority />
-      </section>
-
-      <GalleryFacetBrowser :facets="data.facets" :values="data.facetValues" />
-
-      <section aria-labelledby="latest-heading">
-        <div class="mb-6">
-          <p class="text-sm font-medium text-primary">按发布时间排序</p>
-          <h2
-            id="latest-heading"
-            class="mt-1 text-2xl font-semibold text-highlighted"
-          >
-            最新发布
-          </h2>
-        </div>
-        <GalleryArtworkGrid v-if="data.latest.length" :items="data.latest" />
-        <div
-          v-else
-          class="rounded-xl border border-dashed border-default px-6 py-16 text-center"
-        >
-          <UIcon
-            name="i-tabler-photo-plus"
-            class="mx-auto size-8 text-dimmed"
-          />
-          <h3 class="mt-4 font-semibold text-highlighted">等待第一件作品</h3>
-          <p class="mt-2 text-sm text-muted">
-            完成创作者准入与审核后，已发布作品会出现在这里。
-          </p>
-        </div>
-      </section>
-    </template>
+    <div v-else class="grid min-h-[45vh] place-items-center border-y border-dashed border-default py-16 text-center">
+      <div class="max-w-sm">
+        <UIcon name="i-tabler-photo" class="mx-auto size-9 text-dimmed" />
+        <h2 class="mt-4 text-lg font-semibold text-highlighted">图库正在等待第一批图片</h2>
+        <p class="mt-2 text-sm leading-6 text-muted">图片完成处理和审核后，会直接出现在随机流里。</p>
+        <UButton to="/submit" class="mt-5" icon="i-tabler-photo-up" label="投稿一张图片" />
+      </div>
+    </div>
   </div>
 </template>

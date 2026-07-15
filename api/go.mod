@@ -1,6 +1,6 @@
 module platform/products/gallery/api
 
-go 1.26.5
+go 1.25.12
 
 require (
 	github.com/gogf/gf/contrib/drivers/pgsql/v2 v2.10.2

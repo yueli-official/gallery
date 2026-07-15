@@ -6,111 +6,132 @@ import (
 	"platform/products/gallery/api/internal/model"
 )
 
-type GetMyCreatorReq struct {
-	g.Meta `path:"/api/v1/gallery/me/creator" method:"GET" tags:"Gallery creator" summary:"Get the current account creator profile"`
+type CreateSubmissionReq struct {
+	g.Meta `path:"/api/v1/gallery/submissions" method:"POST" tags:"Gallery submissions" summary:"Submit one uploaded image"`
+	model.SubmissionInput
 }
-type GetMyCreatorRes struct {
-	Creator *model.CreatorProfile `json:"creator"`
-}
-
-type RequestCreatorReq struct {
-	g.Meta          `path:"/api/v1/gallery/me/creator" method:"POST" tags:"Gallery creator" summary:"Apply for a gallery creator profile"`
-	Handle          string `json:"handle" v:"required"`
-	DisplayName     string `json:"displayName" v:"required"`
-	ApplicationNote string `json:"applicationNote"`
-}
-type RequestCreatorRes struct {
-	Creator model.CreatorProfile `json:"creator"`
+type CreateSubmissionRes struct {
+	Submission model.Submission `json:"submission"`
 }
 
-type ListMyArtworksReq struct {
-	g.Meta `path:"/api/v1/gallery/me/artworks" method:"GET" tags:"Gallery studio" summary:"List the current creator artworks"`
+type ListMySubmissionsReq struct {
+	g.Meta `path:"/api/v1/gallery/me/submissions" method:"GET" tags:"Gallery submissions" summary:"List submissions owned by the current user or guest"`
+	Page   int `p:"page" d:"1"`
+	Size   int `p:"size" d:"20"`
 }
-type ListMyArtworksRes struct {
-	Artworks []model.StudioArtwork `json:"artworks"`
-}
-
-type CreateArtworkReq struct {
-	g.Meta `path:"/api/v1/gallery/me/artworks" method:"POST" tags:"Gallery studio" summary:"Create an empty artwork draft"`
-}
-type CreateArtworkRes struct {
-	Artwork model.StudioArtwork `json:"artwork"`
+type ListMySubmissionsRes struct {
+	Submissions []model.Submission `json:"submissions"`
+	Total       int                `json:"total"`
 }
 
-type GetMyArtworkReq struct {
-	g.Meta    `path:"/api/v1/gallery/me/artworks/{artworkId}" method:"GET" tags:"Gallery studio" summary:"Get one creator-owned artwork"`
-	ArtworkID string `p:"artworkId" v:"required"`
+type WithdrawSubmissionReq struct {
+	g.Meta       `path:"/api/v1/gallery/me/submissions/{submissionId}/withdraw" method:"POST" tags:"Gallery submissions" summary:"Withdraw an owned submission and hide its published image"`
+	SubmissionID string `p:"submissionId" v:"required"`
 }
-type GetMyArtworkRes struct {
-	Artwork model.StudioArtwork `json:"artwork"`
-}
-
-type SaveArtworkReq struct {
-	g.Meta    `path:"/api/v1/gallery/me/artworks/{artworkId}" method:"PATCH" tags:"Gallery studio" summary:"Save an artwork draft and its facet selections"`
-	ArtworkID string `p:"artworkId" v:"required"`
-	model.ArtworkDraftInput
-}
-type SaveArtworkRes struct {
-	Artwork model.StudioArtwork `json:"artwork"`
+type WithdrawSubmissionRes struct {
+	Submission model.Submission `json:"submission"`
 }
 
-type AddArtworkAssetReq struct {
-	g.Meta    `path:"/api/v1/gallery/me/artworks/{artworkId}/assets" method:"POST" tags:"Gallery studio" summary:"Link an uploaded asset to an artwork"`
-	ArtworkID string `p:"artworkId" v:"required"`
-	model.AssetInput
+type GetFavoritesReq struct {
+	g.Meta `path:"/api/v1/gallery/me/favorites" method:"GET" tags:"Gallery favorites" summary:"Get the current user's private singleton favorites collection"`
 }
-type AddArtworkAssetRes struct {
-	Asset model.Asset `json:"asset"`
+type GetFavoritesRes struct {
+	Collection model.CollectionDetail `json:"collection"`
 }
 
-type RemoveArtworkAssetReq struct {
-	g.Meta         `path:"/api/v1/gallery/me/artworks/{artworkId}/assets/{artworkAssetId}" method:"DELETE" tags:"Gallery studio" summary:"Remove an artwork image link"`
-	ArtworkID      string `p:"artworkId" v:"required"`
-	ArtworkAssetID string `p:"artworkAssetId" v:"required"`
+type AddFavoriteReq struct {
+	g.Meta  `path:"/api/v1/gallery/me/favorites/{imageId}" method:"PUT" tags:"Gallery favorites" summary:"Idempotently add an image to favorites"`
+	ImageID string `p:"imageId" v:"required"`
+	Version int64  `json:"version"`
 }
-type RemoveArtworkAssetRes struct {
-	Removed bool `json:"removed"`
-}
-
-type SubmitArtworkReq struct {
-	g.Meta    `path:"/api/v1/gallery/me/artworks/{artworkId}/submit" method:"POST" tags:"Gallery studio" summary:"Submit a complete artwork for review"`
-	ArtworkID string `p:"artworkId" v:"required"`
-}
-type SubmitArtworkRes struct {
-	Artwork model.StudioArtwork `json:"artwork"`
+type AddFavoriteRes struct {
+	Collection model.Collection `json:"collection"`
 }
 
-type ListCreatorApplicationsReq struct {
-	g.Meta `path:"/api/v1/gallery/admin/creators" method:"GET" tags:"Gallery admin" summary:"List creator applications"`
+type RemoveFavoriteReq struct {
+	g.Meta  `path:"/api/v1/gallery/me/favorites/{imageId}" method:"DELETE" tags:"Gallery favorites" summary:"Idempotently remove an image from favorites"`
+	ImageID string `p:"imageId" v:"required"`
+	Version int64  `p:"version"`
 }
-type ListCreatorApplicationsRes struct {
-	Creators []model.CreatorProfile `json:"creators"`
-}
-
-type ReviewCreatorReq struct {
-	g.Meta    `path:"/api/v1/gallery/admin/creators/{creatorId}/review" method:"POST" tags:"Gallery admin" summary:"Approve or reject a creator application"`
-	CreatorID string `p:"creatorId" v:"required"`
-	Decision  string `json:"decision" v:"required|in:approve,reject"`
-	Note      string `json:"note"`
-}
-type ReviewCreatorRes struct {
-	Creator model.CreatorProfile `json:"creator"`
+type RemoveFavoriteRes struct {
+	Collection model.Collection `json:"collection"`
 }
 
-type ListArtworkReviewsReq struct {
-	g.Meta `path:"/api/v1/gallery/admin/reviews" method:"GET" tags:"Gallery admin" summary:"List artworks in a review state"`
-	Status string `p:"status" d:"pending_review"`
+type GetAdminOverviewReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/overview" method:"GET" tags:"Gallery admin" summary:"Get actionable Gallery operations counts"`
 }
-type ListArtworkReviewsRes struct {
-	Artworks []model.StudioArtwork `json:"artworks"`
+type GetAdminOverviewRes struct {
+	Overview model.AdminOverview `json:"overview"`
 }
 
-type ReviewArtworkReq struct {
-	g.Meta    `path:"/api/v1/gallery/admin/reviews/{artworkId}" method:"POST" tags:"Gallery admin" summary:"Approve or reject a submitted artwork"`
-	ArtworkID string `p:"artworkId" v:"required"`
-	Decision  string `json:"decision" v:"required|in:approve,reject"`
-	Note      string `json:"note"`
+type ListSubmissionReviewsReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/submissions" method:"GET" tags:"Gallery admin" summary:"List submissions requiring operator review"`
+	Page   int `p:"page" d:"1"`
+	Size   int `p:"size" d:"20"`
 }
-type ReviewArtworkRes struct {
-	Artwork model.StudioArtwork `json:"artwork"`
+type ListSubmissionReviewsRes struct {
+	Submissions []model.Submission `json:"submissions"`
+	Total       int                `json:"total"`
+}
+
+type ReviewSubmissionReq struct {
+	g.Meta       `path:"/api/v1/gallery/admin/submissions/{submissionId}/review" method:"POST" tags:"Gallery admin" summary:"Approve or reject a ready submission"`
+	SubmissionID string `p:"submissionId" v:"required"`
+	model.SubmissionReviewInput
+}
+type ReviewSubmissionRes struct {
+	Submission model.Submission `json:"submission"`
+}
+
+type HideImageReq struct {
+	g.Meta  `path:"/api/v1/gallery/admin/images/{imageId}/hide" method:"POST" tags:"Gallery admin" summary:"Hide a published image"`
+	ImageID string `p:"imageId" v:"required"`
+	Reason  string `json:"reason" v:"required"`
+}
+type HideImageRes struct {
+	Hidden bool `json:"hidden"`
+}
+
+type ListCasesReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/cases" method:"GET" tags:"Gallery admin" summary:"List Gallery moderation and correction cases"`
+	Status string `p:"status" d:"open"`
+	Page   int    `p:"page" d:"1"`
+	Size   int    `p:"size" d:"20"`
+}
+type ListCasesRes struct {
+	Cases []model.Case `json:"cases"`
+	Total int          `json:"total"`
+}
+
+type ResolveCaseReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/cases/{caseId}/resolve" method:"POST" tags:"Gallery admin" summary:"Move a Gallery case to reviewing, resolved or dismissed"`
+	CaseID string `p:"caseId" v:"required"`
+	model.CaseResolutionInput
+}
+type ResolveCaseRes struct {
+	Case model.Case `json:"case"`
+}
+
+type CreateEditorialCollectionReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/collections" method:"POST" tags:"Gallery admin" summary:"Create an editorial image collection"`
+	model.EditorialCollectionInput
+}
+type CreateEditorialCollectionRes struct {
+	Collection model.Collection `json:"collection"`
+}
+
+type ListEditorialCollectionsReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/collections" method:"GET" tags:"Gallery admin" summary:"List private and public editorial collections"`
+}
+type ListEditorialCollectionsRes struct {
+	Collections []model.Collection `json:"collections"`
+}
+
+type MutateEditorialMembersReq struct {
+	g.Meta       `path:"/api/v1/gallery/admin/collections/{collectionId}/members" method:"POST" tags:"Gallery admin" summary:"Atomically add and remove editorial collection images"`
+	CollectionID string `p:"collectionId" v:"required"`
+	model.MemberMutationInput
+}
+type MutateEditorialMembersRes struct {
+	Collection model.Collection `json:"collection"`
 }

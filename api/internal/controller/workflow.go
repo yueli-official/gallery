@@ -2,177 +2,195 @@ package controller
 
 import (
 	"context"
+	"strings"
 
 	v1 "platform/products/gallery/api/api/v1"
-	"platform/products/gallery/api/internal/assetclient"
 	galleryservice "platform/products/gallery/api/internal/gallery"
-	"platform/products/gallery/api/internal/model"
 )
 
-type Workflow struct {
-	service *galleryservice.Service
-	assets  assetclient.Client
+type Workflow struct{ service *galleryservice.Service }
+
+func NewWorkflow(service *galleryservice.Service) *Workflow { return &Workflow{service: service} }
+
+func (c *Workflow) CreateSubmission(ctx context.Context, req *v1.CreateSubmissionReq) (*v1.CreateSubmissionRes, error) {
+	subject, err := requiredSubject(ctx)
+	if err != nil {
+		return nil, err
+	}
+	value, err := c.service.Submit(ctx, subject, req.SubmissionInput)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.CreateSubmissionRes{Submission: *value}, nil
 }
 
-func NewWorkflow(service *galleryservice.Service, assets assetclient.Client) *Workflow {
-	return &Workflow{service: service, assets: assets}
+func (c *Workflow) ListMySubmissions(ctx context.Context, req *v1.ListMySubmissionsReq) (*v1.ListMySubmissionsRes, error) {
+	subject, err := requiredSubject(ctx)
+	if err != nil {
+		return nil, err
+	}
+	values, total, err := c.service.MySubmissions(ctx, subject, req.Page, req.Size)
+	return &v1.ListMySubmissionsRes{Submissions: values, Total: total}, err
 }
 
-func (c *Workflow) GetMyCreator(ctx context.Context, _ *v1.GetMyCreatorReq) (*v1.GetMyCreatorRes, error) {
-	sub, err := subject(ctx)
+func (c *Workflow) WithdrawSubmission(ctx context.Context, req *v1.WithdrawSubmissionReq) (*v1.WithdrawSubmissionRes, error) {
+	subject, err := requiredSubject(ctx)
 	if err != nil {
 		return nil, err
 	}
-	creator, err := c.service.MyCreator(ctx, sub)
-	return &v1.GetMyCreatorRes{Creator: creator}, err
+	value, err := c.service.Withdraw(ctx, subject, req.SubmissionID)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.WithdrawSubmissionRes{Submission: *value}, nil
 }
 
-func (c *Workflow) RequestCreator(ctx context.Context, req *v1.RequestCreatorReq) (*v1.RequestCreatorRes, error) {
-	sub, err := subject(ctx)
+func (c *Workflow) GetFavorites(ctx context.Context, _ *v1.GetFavoritesReq) (*v1.GetFavoritesRes, error) {
+	subject, err := requiredUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	creator, err := c.service.RequestCreator(ctx, sub, model.CreatorRequest{Handle: req.Handle, DisplayName: req.DisplayName, ApplicationNote: req.ApplicationNote})
+	value, err := c.service.Favorites(ctx, subject.ID)
 	if err != nil {
 		return nil, err
 	}
-	return &v1.RequestCreatorRes{Creator: *creator}, nil
+	return &v1.GetFavoritesRes{Collection: *value}, nil
 }
 
-func (c *Workflow) ListMyArtworks(ctx context.Context, _ *v1.ListMyArtworksReq) (*v1.ListMyArtworksRes, error) {
-	sub, err := subject(ctx)
+func (c *Workflow) AddFavorite(ctx context.Context, req *v1.AddFavoriteReq) (*v1.AddFavoriteRes, error) {
+	subject, err := requiredUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	values, err := c.service.MyArtworks(ctx, sub)
-	return &v1.ListMyArtworksRes{Artworks: values}, err
+	value, err := c.service.SetFavorite(ctx, subject.ID, req.ImageID, true, req.Version)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.AddFavoriteRes{Collection: *value}, nil
 }
 
-func (c *Workflow) CreateArtwork(ctx context.Context, _ *v1.CreateArtworkReq) (*v1.CreateArtworkRes, error) {
-	sub, err := subject(ctx)
+func (c *Workflow) RemoveFavorite(ctx context.Context, req *v1.RemoveFavoriteReq) (*v1.RemoveFavoriteRes, error) {
+	subject, err := requiredUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	value, err := c.service.CreateDraft(ctx, sub)
+	value, err := c.service.SetFavorite(ctx, subject.ID, req.ImageID, false, req.Version)
 	if err != nil {
 		return nil, err
 	}
-	return &v1.CreateArtworkRes{Artwork: *value}, nil
-}
-
-func (c *Workflow) GetMyArtwork(ctx context.Context, req *v1.GetMyArtworkReq) (*v1.GetMyArtworkRes, error) {
-	sub, err := subject(ctx)
-	if err != nil {
-		return nil, err
-	}
-	value, err := c.service.MyArtwork(ctx, sub, req.ArtworkID)
-	if err != nil {
-		return nil, err
-	}
-	return &v1.GetMyArtworkRes{Artwork: *value}, nil
-}
-
-func (c *Workflow) SaveArtwork(ctx context.Context, req *v1.SaveArtworkReq) (*v1.SaveArtworkRes, error) {
-	sub, err := subject(ctx)
-	if err != nil {
-		return nil, err
-	}
-	value, err := c.service.SaveDraft(ctx, sub, req.ArtworkID, req.ArtworkDraftInput)
-	if err != nil {
-		return nil, err
-	}
-	return &v1.SaveArtworkRes{Artwork: *value}, nil
-}
-
-func (c *Workflow) AddArtworkAsset(ctx context.Context, req *v1.AddArtworkAssetReq) (*v1.AddArtworkAssetRes, error) {
-	sub, err := subject(ctx)
-	if err != nil {
-		return nil, err
-	}
-	value, err := c.service.AddAsset(ctx, sub, req.ArtworkID, req.AssetInput)
-	if err != nil {
-		return nil, err
-	}
-	if c.assets != nil {
-		reference := assetclient.ReferenceInput{
-			AssetID: value.AssetID, RefID: req.ArtworkID, Label: req.AltText,
-			URL: "/artworks/" + req.ArtworkID,
-		}
-		if err := c.assets.RegisterReference(ctx, bearerOf(ctx), reference); err != nil {
-			_, _ = c.service.RemoveAsset(ctx, sub, req.ArtworkID, value.ID)
-			return nil, err
-		}
-	}
-	return &v1.AddArtworkAssetRes{Asset: *value}, nil
-}
-
-func (c *Workflow) RemoveArtworkAsset(ctx context.Context, req *v1.RemoveArtworkAssetReq) (*v1.RemoveArtworkAssetRes, error) {
-	sub, err := subject(ctx)
-	if err != nil {
-		return nil, err
-	}
-	value, err := c.service.RemoveAsset(ctx, sub, req.ArtworkID, req.ArtworkAssetID)
-	if err != nil {
-		return nil, err
-	}
-	if c.assets != nil {
-		_ = c.assets.UnregisterReference(ctx, bearerOf(ctx), assetclient.ReferenceInput{AssetID: value.AssetID, RefID: req.ArtworkID})
-	}
-	return &v1.RemoveArtworkAssetRes{Removed: true}, nil
-}
-
-func (c *Workflow) SubmitArtwork(ctx context.Context, req *v1.SubmitArtworkReq) (*v1.SubmitArtworkRes, error) {
-	sub, err := subject(ctx)
-	if err != nil {
-		return nil, err
-	}
-	value, err := c.service.SubmitArtwork(ctx, sub, req.ArtworkID)
-	if err != nil {
-		return nil, err
-	}
-	return &v1.SubmitArtworkRes{Artwork: *value}, nil
+	return &v1.RemoveFavoriteRes{Collection: *value}, nil
 }
 
 type Admin struct{ service *galleryservice.Service }
 
 func NewAdmin(service *galleryservice.Service) *Admin { return &Admin{service: service} }
 
-func (c *Admin) ListCreatorApplications(ctx context.Context, _ *v1.ListCreatorApplicationsReq) (*v1.ListCreatorApplicationsRes, error) {
+func (c *Admin) GetAdminOverview(ctx context.Context, _ *v1.GetAdminOverviewReq) (*v1.GetAdminOverviewRes, error) {
 	if _, err := requireAdmin(ctx); err != nil {
 		return nil, err
 	}
-	values, err := c.service.CreatorApplications(ctx)
-	return &v1.ListCreatorApplicationsRes{Creators: values}, err
+	value, err := c.service.AdminOverview(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.GetAdminOverviewRes{Overview: *value}, nil
 }
 
-func (c *Admin) ReviewCreator(ctx context.Context, req *v1.ReviewCreatorReq) (*v1.ReviewCreatorRes, error) {
+func (c *Admin) ListSubmissionReviews(ctx context.Context, req *v1.ListSubmissionReviewsReq) (*v1.ListSubmissionReviewsRes, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	values, total, err := c.service.ReviewQueue(ctx, req.Page, req.Size)
+	return &v1.ListSubmissionReviewsRes{Submissions: values, Total: total}, err
+}
+
+func (c *Admin) ReviewSubmission(ctx context.Context, req *v1.ReviewSubmissionReq) (*v1.ReviewSubmissionRes, error) {
 	operator, err := requireAdmin(ctx)
 	if err != nil {
 		return nil, err
 	}
-	value, err := c.service.ReviewCreator(ctx, operator, req.CreatorID, req.Decision, req.Note)
+	value, err := c.service.ReviewSubmission(ctx, operator, req.SubmissionID, req.SubmissionReviewInput)
 	if err != nil {
 		return nil, err
 	}
-	return &v1.ReviewCreatorRes{Creator: *value}, nil
+	return &v1.ReviewSubmissionRes{Submission: *value}, nil
 }
 
-func (c *Admin) ListArtworkReviews(ctx context.Context, req *v1.ListArtworkReviewsReq) (*v1.ListArtworkReviewsRes, error) {
-	if _, err := requireAdmin(ctx); err != nil {
-		return nil, err
-	}
-	values, err := c.service.ReviewQueue(ctx, req.Status)
-	return &v1.ListArtworkReviewsRes{Artworks: values}, err
-}
-
-func (c *Admin) ReviewArtwork(ctx context.Context, req *v1.ReviewArtworkReq) (*v1.ReviewArtworkRes, error) {
+func (c *Admin) HideImage(ctx context.Context, req *v1.HideImageReq) (*v1.HideImageRes, error) {
 	operator, err := requireAdmin(ctx)
 	if err != nil {
 		return nil, err
 	}
-	value, err := c.service.ReviewArtwork(ctx, operator, req.ArtworkID, model.ReviewInput{Decision: req.Decision, Note: req.Note})
+	if err := c.service.HideImage(ctx, operator, req.ImageID, req.Reason); err != nil {
+		return nil, err
+	}
+	return &v1.HideImageRes{Hidden: true}, nil
+}
+
+func (c *Admin) ListCases(ctx context.Context, req *v1.ListCasesReq) (*v1.ListCasesRes, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	values, total, err := c.service.Cases(ctx, req.Status, req.Page, req.Size)
+	return &v1.ListCasesRes{Cases: values, Total: total}, err
+}
+
+func (c *Admin) ResolveCase(ctx context.Context, req *v1.ResolveCaseReq) (*v1.ResolveCaseRes, error) {
+	operator, err := requireAdmin(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &v1.ReviewArtworkRes{Artwork: *value}, nil
+	value, err := c.service.ResolveCase(ctx, operator, req.CaseID, req.CaseResolutionInput)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.ResolveCaseRes{Case: *value}, nil
+}
+
+func (c *Admin) CreateEditorialCollection(ctx context.Context, req *v1.CreateEditorialCollectionReq) (*v1.CreateEditorialCollectionRes, error) {
+	operator, err := requireAdmin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	value, err := c.service.CreateEditorialCollection(ctx, operator, req.EditorialCollectionInput)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.CreateEditorialCollectionRes{Collection: *value}, nil
+}
+
+func (c *Admin) ListEditorialCollections(ctx context.Context, _ *v1.ListEditorialCollectionsReq) (*v1.ListEditorialCollectionsRes, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	values, err := c.service.AdminCollections(ctx)
+	return &v1.ListEditorialCollectionsRes{Collections: values}, err
+}
+
+func (c *Admin) MutateEditorialMembers(ctx context.Context, req *v1.MutateEditorialMembersReq) (*v1.MutateEditorialMembersRes, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	value, err := c.service.MutateEditorialMembers(ctx, req.CollectionID, req.MemberMutationInput)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.MutateEditorialMembersRes{Collection: *value}, nil
+}
+
+func claimBool(value any) bool {
+	if parsed, ok := value.(bool); ok {
+		return parsed
+	}
+	return strings.EqualFold(strings.TrimSpace(valueString(value)), "true")
+}
+
+func valueString(value any) string {
+	if value == nil {
+		return ""
+	}
+	if parsed, ok := value.(string); ok {
+		return parsed
+	}
+	return ""
 }

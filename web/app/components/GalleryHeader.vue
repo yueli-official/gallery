@@ -1,62 +1,54 @@
 <script setup lang="ts">
-defineProps<{
-  brandName?: string;
-  brandTagline?: string;
-}>();
+import type { PlatformUserMenuAction } from "@platform/ui/components";
 
-const { isAdmin } = useAuth();
+defineProps<{ brandName?: string }>();
+
+const route = useRoute();
+const nav = [
+  { label: "随机看看", to: "/" },
+  { label: "浏览", to: "/images" },
+  { label: "专题", to: "/collections" },
+  { label: "排行榜", to: "/rankings" },
+];
+const contextActions: PlatformUserMenuAction[] = [
+  { label: "我的收藏", icon: "i-tabler-heart", to: "/favorites" },
+  { label: "我的投稿", icon: "i-tabler-photo-up", to: "/submissions" },
+];
 </script>
 
 <template>
-  <header
-    class="platform-topbar sticky top-0 z-30 border-b border-default bg-default/90 backdrop-blur-xl"
-  >
-    <div
-      class="mx-auto flex h-16 w-full max-w-screen-2xl items-center gap-4 px-4 sm:px-6 lg:px-8"
-    >
-      <NuxtLink
-        to="/"
-        class="flex min-w-0 items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
-      >
-        <span
-          class="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-inverted"
-        >
-          <UIcon name="i-tabler-photo" class="size-5" />
-        </span>
-        <span class="min-w-0">
-          <span class="block truncate font-display font-semibold text-highlighted">
-            {{ brandName }}
-          </span>
-          <span class="hidden truncate text-xs text-muted sm:block">
-            {{ brandTagline }}
-          </span>
-        </span>
+  <header class="gallery-header">
+    <div class="mx-auto flex h-16 w-full max-w-[112rem] items-center gap-5 px-4 sm:px-6 lg:px-8">
+      <NuxtLink to="/" class="gallery-wordmark" aria-label="月离图库首页">
+        <span class="gallery-mark" aria-hidden="true"><span /></span>
+        <span>{{ brandName || "月离图库" }}</span>
       </NuxtLink>
 
-      <nav class="ml-4 hidden items-center gap-1 md:flex" aria-label="主要导航">
-        <UButton to="/" color="neutral" variant="ghost" label="发现" />
-        <UButton to="/studio" color="neutral" variant="ghost" label="创作中心" />
+      <nav class="hidden items-center gap-1 md:flex" aria-label="主要导航">
+        <UButton
+          v-for="item in nav"
+          :key="item.to"
+          :to="item.to"
+          :label="item.label"
+          color="neutral"
+          :variant="route.path === item.to || (item.to !== '/' && route.path.startsWith(item.to)) ? 'soft' : 'ghost'"
+          size="sm"
+        />
       </nav>
 
-      <div class="ml-auto flex items-center gap-1">
-        <UButton to="/studio" color="neutral" variant="ghost" icon="i-tabler-brush" class="md:hidden" aria-label="创作中心" />
-        <UTooltip text="切换颜色模式">
-        <UColorModeButton
-            color="neutral"
-            variant="ghost"
-            aria-label="切换颜色模式"
-        />
-        </UTooltip>
-        <UButton
-          v-if="isAdmin"
-          to="/manage/reviews"
-          color="neutral"
-          variant="ghost"
-          icon="i-tabler-shield-check"
-          aria-label="内容审核"
-        />
-        <ConsumerAccountControl />
+      <div class="ml-auto flex items-center gap-1.5">
+        <UButton to="/submit" icon="i-tabler-plus" label="投稿" color="primary" variant="solid" size="sm" />
+        <UColorModeButton color="neutral" variant="ghost" aria-label="切换颜色模式" />
+        <ConsumerAccountControl :context-actions="contextActions" manage-to="/manage" manage-label="图库管理" />
       </div>
     </div>
+    <nav class="gallery-mobile-nav md:hidden" aria-label="移动端主要导航">
+      <NuxtLink
+        v-for="item in nav"
+        :key="item.to"
+        :to="item.to"
+        :aria-current="route.path === item.to ? 'page' : undefined"
+      >{{ item.label }}</NuxtLink>
+    </nav>
   </header>
 </template>

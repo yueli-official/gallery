@@ -8,32 +8,76 @@ import (
 )
 
 type GetDiscoveryReq struct {
-	g.Meta `path:"/api/v1/gallery/discovery" method:"GET" tags:"Gallery" summary:"Get curated and latest gallery discovery content"`
+	g.Meta `path:"/api/v1/gallery/discovery" method:"GET" tags:"Gallery discovery" summary:"Get a stable seeded random image batch"`
+	Seed   string `p:"seed"`
 }
-
 type GetDiscoveryRes struct {
-	Site        model.SiteSettings  `json:"site"`
-	Featured    []model.ArtworkCard `json:"featured"`
-	Latest      []model.ArtworkCard `json:"latest"`
-	Facets      []facet.Facet       `json:"facets"`
-	FacetValues []facet.Value       `json:"facetValues"`
+	Site        model.SiteSettings `json:"site"`
+	Seed        string             `json:"seed"`
+	Images      []model.ImageCard  `json:"images"`
+	Facets      []facet.Facet      `json:"facets"`
+	FacetValues []facet.Value      `json:"facetValues"`
 }
 
-type GetArtworkReq struct {
-	g.Meta    `path:"/api/v1/gallery/artworks/{artworkId}" method:"GET" tags:"Gallery" summary:"Get one published gallery artwork"`
-	ArtworkID string `p:"artworkId" v:"required"`
+type ListImagesReq struct {
+	g.Meta `path:"/api/v1/gallery/images" method:"GET" tags:"Gallery images" summary:"List eligible public images with page-based filtering"`
+	Search string `p:"q"`
+	Sort   string `p:"sort" d:"newest"`
+	Page   int    `p:"page" d:"1"`
+	Size   int    `p:"size" d:"24"`
+	Facets string `p:"facets"`
+	Tag    string `p:"tag"`
+}
+type ListImagesRes struct{ model.ImagePage }
+
+type GetImageReq struct {
+	g.Meta  `path:"/api/v1/gallery/images/{imageId}" method:"GET" tags:"Gallery images" summary:"Get one eligible public image"`
+	ImageID string `p:"imageId" v:"required"`
+}
+type GetImageRes struct {
+	Image model.ImageDetail `json:"image"`
 }
 
-type GetArtworkRes struct {
-	Artwork model.ArtworkDetail `json:"artwork"`
+type ListCollectionsReq struct {
+	g.Meta `path:"/api/v1/gallery/collections" method:"GET" tags:"Gallery collections" summary:"List public editorial collections"`
+}
+type ListCollectionsRes struct {
+	Collections []model.Collection `json:"collections"`
 }
 
-type GetCreatorReq struct {
-	g.Meta `path:"/api/v1/gallery/creators/{handle}" method:"GET" tags:"Gallery" summary:"Get one public creator and published artworks"`
-	Handle string `p:"handle" v:"required"`
+type GetCollectionReq struct {
+	g.Meta `path:"/api/v1/gallery/collections/{slug}" method:"GET" tags:"Gallery collections" summary:"Get a public editorial collection"`
+	Slug   string `p:"slug" v:"required"`
+	Page   int    `p:"page" d:"1"`
+	Size   int    `p:"size" d:"24"`
+}
+type GetCollectionRes struct {
+	Collection model.CollectionDetail `json:"collection"`
 }
 
-type GetCreatorRes struct {
-	Creator  model.PublicCreator `json:"creator"`
-	Artworks []model.ArtworkCard `json:"artworks"`
+type GetRankingsReq struct {
+	g.Meta `path:"/api/v1/gallery/rankings" method:"GET" tags:"Gallery rankings" summary:"Get a cached or aggregated public image ranking"`
+	Kind   string `p:"kind" d:"trending"`
+	Window string `p:"window" d:"7d"`
+}
+type GetRankingsRes struct {
+	Ranking model.Ranking `json:"ranking"`
+}
+
+type CreateCaseReq struct {
+	g.Meta  `path:"/api/v1/gallery/images/{imageId}/cases" method:"POST" tags:"Gallery cases" summary:"Report an image or suggest a source correction"`
+	ImageID string `p:"imageId" v:"required"`
+	model.CaseInput
+}
+type CreateCaseRes struct {
+	Case model.Case `json:"case"`
+}
+
+type TrackImageEventReq struct {
+	g.Meta  `path:"/api/v1/gallery/images/{imageId}/events" method:"POST" tags:"Gallery metrics" summary:"Record a qualified public image interaction"`
+	ImageID string `p:"imageId" v:"required"`
+	model.EventInput
+}
+type TrackImageEventRes struct {
+	Recorded bool `json:"recorded"`
 }

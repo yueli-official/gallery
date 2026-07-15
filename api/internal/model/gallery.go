@@ -7,144 +7,201 @@ import (
 )
 
 type SiteSettings struct {
-	Name              string `json:"name" orm:"name"`
-	Title             string `json:"title" orm:"title"`
-	Description       string `json:"description" orm:"description"`
-	SearchPlaceholder string `json:"searchPlaceholder" orm:"search_placeholder"`
-	FooterTagline     string `json:"footerTagline" orm:"footer_tagline"`
+	Name                string `json:"name" orm:"name"`
+	Title               string `json:"title" orm:"title"`
+	Description         string `json:"description" orm:"description"`
+	SearchPlaceholder   string `json:"searchPlaceholder" orm:"search_placeholder"`
+	FooterTagline       string `json:"footerTagline" orm:"footer_tagline"`
+	RandomBatchSize     int    `json:"randomBatchSize" orm:"random_batch_size"`
+	RandomCandidateSize int    `json:"randomCandidateSize" orm:"random_candidate_size"`
 }
 
-type Creator struct {
-	ID          string `json:"id" orm:"creator_id"`
-	Handle      string `json:"handle" orm:"creator_handle"`
-	DisplayName string `json:"displayName" orm:"creator_name"`
+type Metrics struct {
+	Views     int64 `json:"views" orm:"view_count"`
+	Favorites int64 `json:"favorites" orm:"favorite_count"`
 }
 
-type ArtworkCard struct {
-	ID             string      `json:"id" orm:"id"`
-	Title          string      `json:"title" orm:"title"`
-	Description    string      `json:"description" orm:"description"`
-	CoverURL       string      `json:"coverUrl" orm:"cover_url"`
-	PlaceholderURL string      `json:"placeholderUrl" orm:"placeholder_url"`
-	Width          int         `json:"width" orm:"width"`
-	Height         int         `json:"height" orm:"height"`
-	ContentRating  string      `json:"contentRating" orm:"content_rating"`
-	AIUsage        string      `json:"aiUsage" orm:"ai_usage"`
-	PublishedAt    *gtime.Time `json:"publishedAt" orm:"published_at"`
-	Creator        Creator     `json:"creator" orm:"-"`
-	CreatorID      string      `json:"-" orm:"creator_id"`
-	CreatorHandle  string      `json:"-" orm:"creator_handle"`
-	CreatorName    string      `json:"-" orm:"creator_name"`
+type ImageCard struct {
+	ID            string      `json:"id" orm:"id"`
+	AssetID       string      `json:"assetId" orm:"asset_id"`
+	Title         string      `json:"title" orm:"title"`
+	AltText       string      `json:"altText" orm:"alt_text"`
+	Width         int         `json:"width" orm:"width"`
+	Height        int         `json:"height" orm:"height"`
+	DominantColor string      `json:"dominantColor" orm:"dominant_color"`
+	Topic         string      `json:"topic" orm:"topic"`
+	TopicSlug     string      `json:"topicSlug" orm:"topic_slug"`
+	PublishedAt   *gtime.Time `json:"publishedAt" orm:"published_at"`
+	Metrics       Metrics     `json:"metrics" orm:"-"`
+	ViewCount     int64       `json:"-" orm:"view_count"`
+	FavoriteCount int64       `json:"-" orm:"favorite_count"`
 }
 
-type Asset struct {
-	ID             string `json:"id" orm:"id"`
-	AssetID        string `json:"assetId" orm:"asset_id"`
-	SortOrder      int    `json:"sortOrder" orm:"sort_order"`
-	Width          int    `json:"width" orm:"width"`
-	Height         int    `json:"height" orm:"height"`
-	AltText        string `json:"altText" orm:"alt_text"`
-	PlaceholderURL string `json:"placeholderUrl" orm:"placeholder_url"`
-	ThumbnailURL   string `json:"thumbnailUrl" orm:"thumbnail_url"`
-	CardURL        string `json:"cardUrl" orm:"card_url"`
-	DetailURL      string `json:"detailUrl" orm:"detail_url"`
-	OriginalURL    string `json:"originalUrl" orm:"original_url"`
+type ImageDetail struct {
+	ImageCard
+	Description string             `json:"description" orm:"description"`
+	SourceURL   string             `json:"sourceUrl" orm:"source_url"`
+	FocusX      float64            `json:"focusX" orm:"focus_x"`
+	FocusY      float64            `json:"focusY" orm:"focus_y"`
+	Tags        []string           `json:"tags" orm:"-"`
+	Facets      []facet.Assignment `json:"facets" orm:"-"`
+	Favorited   bool               `json:"favorited" orm:"-"`
 }
 
-type ArtworkDetail struct {
-	ArtworkCard
-	License              string   `json:"license" orm:"license"`
-	RightsBasis          string   `json:"rightsBasis" orm:"rights_basis"`
-	AITrainingPermission string   `json:"aiTrainingPermission" orm:"ai_training_permission"`
-	Tags                 []string `json:"tags"`
-	Assets               []Asset  `json:"assets"`
+type ImageQuery struct {
+	Search   string
+	Sort     string
+	Page     int
+	PageSize int
+	FacetIDs []string
+	Tag      string
+}
+
+type ImagePage struct {
+	Items      []ImageCard `json:"items"`
+	Page       int         `json:"page"`
+	PageSize   int         `json:"pageSize"`
+	Total      int         `json:"total"`
+	TotalPages int         `json:"totalPages"`
 }
 
 type Discovery struct {
 	Site        SiteSettings  `json:"site"`
-	Featured    []ArtworkCard `json:"featured"`
-	Latest      []ArtworkCard `json:"latest"`
+	Seed        string        `json:"seed"`
+	Images      []ImageCard   `json:"images"`
 	Facets      []facet.Facet `json:"facets"`
 	FacetValues []facet.Value `json:"facetValues"`
 }
 
-type CreatorProfile struct {
+type Collection struct {
+	ID           string      `json:"id" orm:"id"`
+	Kind         string      `json:"kind" orm:"kind"`
+	ResourceKind string      `json:"resourceKind" orm:"resource_kind"`
+	OwnerKind    string      `json:"ownerKind" orm:"owner_kind"`
+	OwnerID      string      `json:"-" orm:"owner_id"`
+	Visibility   string      `json:"visibility" orm:"visibility"`
+	Name         string      `json:"name" orm:"name"`
+	Description  string      `json:"description" orm:"description"`
+	Version      int64       `json:"version" orm:"version"`
+	Slug         string      `json:"slug,omitempty" orm:"slug"`
+	CoverImageID string      `json:"coverImageId,omitempty" orm:"cover_image_id"`
+	ItemCount    int         `json:"itemCount" orm:"item_count"`
+	CreatedAt    *gtime.Time `json:"createdAt" orm:"created_at"`
+	UpdatedAt    *gtime.Time `json:"updatedAt" orm:"updated_at"`
+}
+
+type CollectionDetail struct {
+	Collection
+	Images []ImageCard `json:"images"`
+}
+
+type EditorialCollectionInput struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Slug        string `json:"slug"`
+	Visibility  string `json:"visibility"`
+}
+
+type MemberMutationInput struct {
+	Version int64    `json:"version"`
+	Add     []string `json:"add"`
+	Remove  []string `json:"remove"`
+}
+
+type Subject struct {
+	Kind     string
+	ID       string
+	Verified bool
+	Bearer   string
+}
+
+type SubmissionInput struct {
+	AssetID        string             `json:"assetId"`
+	Title          string             `json:"title"`
+	Description    string             `json:"description"`
+	SourceURL      string             `json:"sourceUrl"`
+	AltText        string             `json:"altText"`
+	TopicID        string             `json:"topicId"`
+	Tags           []string           `json:"tags"`
+	Facets         []facet.Selection  `json:"facets"`
+	Assignments    []facet.Assignment `json:"-"`
+	NormalizedTags []TagInput         `json:"-"`
+}
+
+// TagInput is the normalized write shape used between the application and
+// persistence layers. Public clients continue to submit plain tag names.
+type TagInput struct {
+	Slug string
+	Name string
+}
+
+type Submission struct {
 	ID              string      `json:"id" orm:"id"`
-	AccountSub      string      `json:"-" orm:"account_sub"`
-	Handle          string      `json:"handle" orm:"handle"`
-	DisplayName     string      `json:"displayName" orm:"display_name"`
-	Bio             string      `json:"bio" orm:"bio"`
-	CoverAssetID    string      `json:"coverAssetId" orm:"cover_asset_id"`
-	Status          string      `json:"status" orm:"status"`
-	ApplicationNote string      `json:"applicationNote" orm:"application_note"`
+	SubjectKind     string      `json:"-" orm:"subject_kind"`
+	SubjectID       string      `json:"-" orm:"subject_id"`
+	AssetID         string      `json:"assetId" orm:"asset_id"`
+	ImageID         string      `json:"imageId" orm:"image_id"`
+	Title           string      `json:"title" orm:"title"`
+	Description     string      `json:"description" orm:"description"`
+	SourceURL       string      `json:"sourceUrl" orm:"source_url"`
+	AltText         string      `json:"altText" orm:"alt_text"`
+	TopicID         string      `json:"topicId" orm:"topic_value_id"`
+	ProcessingState string      `json:"processingState" orm:"processing_state"`
+	ReviewState     string      `json:"reviewState" orm:"review_state"`
+	SafetyState     string      `json:"safetyState" orm:"safety_state"`
+	Outcome         string      `json:"outcome" orm:"outcome"`
+	FailureCode     string      `json:"failureCode" orm:"failure_code"`
 	ReviewNote      string      `json:"reviewNote" orm:"review_note"`
 	CreatedAt       *gtime.Time `json:"createdAt" orm:"created_at"`
 	UpdatedAt       *gtime.Time `json:"updatedAt" orm:"updated_at"`
 }
 
-type PublicCreator struct {
-	ID           string      `json:"id" orm:"id"`
-	Handle       string      `json:"handle" orm:"handle"`
-	DisplayName  string      `json:"displayName" orm:"display_name"`
-	Bio          string      `json:"bio" orm:"bio"`
-	CoverAssetID string      `json:"coverAssetId" orm:"cover_asset_id"`
-	CreatedAt    *gtime.Time `json:"createdAt" orm:"created_at"`
-}
-
-type CreatorRequest struct {
-	AccountSub      string `json:"-"`
-	Handle          string `json:"handle"`
-	DisplayName     string `json:"displayName"`
-	ApplicationNote string `json:"applicationNote"`
-}
-
-type ArtworkDraftInput struct {
-	Title                string            `json:"title"`
-	Description          string            `json:"description"`
-	Visibility           string            `json:"visibility"`
-	ContentRating        string            `json:"contentRating"`
-	AIUsage              string            `json:"aiUsage"`
-	AITrainingPermission string            `json:"aiTrainingPermission"`
-	RightsBasis          string            `json:"rightsBasis"`
-	License              string            `json:"license"`
-	FacetSelections      []facet.Selection `json:"facetSelections"`
-}
-
-type AssetInput struct {
-	AssetID string `json:"assetId"`
-	Width   int    `json:"width"`
-	Height  int    `json:"height"`
-	Format  string `json:"format"`
-	AltText string `json:"altText"`
-}
-
-type StudioArtwork struct {
-	ID                   string             `json:"id" orm:"id"`
-	CreatorID            string             `json:"creatorId" orm:"creator_id"`
-	Title                string             `json:"title" orm:"title"`
-	Description          string             `json:"description" orm:"description"`
-	Status               string             `json:"status" orm:"status"`
-	Visibility           string             `json:"visibility" orm:"visibility"`
-	ContentRating        string             `json:"contentRating" orm:"content_rating"`
-	AIUsage              string             `json:"aiUsage" orm:"ai_usage"`
-	AITrainingPermission string             `json:"aiTrainingPermission" orm:"ai_training_permission"`
-	RightsBasis          string             `json:"rightsBasis" orm:"rights_basis"`
-	License              string             `json:"license" orm:"license"`
-	ReviewNote           string             `json:"reviewNote" orm:"review_note"`
-	CreatedAt            *gtime.Time        `json:"createdAt" orm:"created_at"`
-	UpdatedAt            *gtime.Time        `json:"updatedAt" orm:"updated_at"`
-	PublishedAt          *gtime.Time        `json:"publishedAt" orm:"published_at"`
-	Creator              CreatorProfile     `json:"creator" orm:"-"`
-	Assets               []Asset            `json:"assets" orm:"-"`
-	FacetAssignments     []facet.Assignment `json:"facetAssignments" orm:"-"`
-}
-
-type ReviewInput struct {
+type SubmissionReviewInput struct {
 	Decision string `json:"decision"`
 	Note     string `json:"note"`
 }
 
-type CreatorPage struct {
-	Creator  PublicCreator `json:"creator"`
-	Artworks []ArtworkCard `json:"artworks"`
+type CaseInput struct {
+	Kind              string `json:"kind"`
+	Reason            string `json:"reason"`
+	Description       string `json:"description"`
+	ProposedSourceURL string `json:"proposedSourceUrl"`
+}
+
+type Case struct {
+	ID                string      `json:"id" orm:"id"`
+	ImageID           string      `json:"imageId" orm:"image_id"`
+	SubmissionID      string      `json:"submissionId" orm:"submission_id"`
+	Kind              string      `json:"kind" orm:"kind"`
+	Status            string      `json:"status" orm:"status"`
+	Reason            string      `json:"reason" orm:"reason"`
+	Description       string      `json:"description" orm:"description"`
+	ProposedSourceURL string      `json:"proposedSourceUrl" orm:"proposed_source_url"`
+	ResolutionNote    string      `json:"resolutionNote" orm:"resolution_note"`
+	CreatedAt         *gtime.Time `json:"createdAt" orm:"created_at"`
+	UpdatedAt         *gtime.Time `json:"updatedAt" orm:"updated_at"`
+}
+
+type CaseResolutionInput struct {
+	Status string `json:"status"`
+	Note   string `json:"note"`
+}
+
+type EventInput struct {
+	Type       string `json:"type"`
+	SessionKey string `json:"sessionKey"`
+}
+
+type Ranking struct {
+	Kind      string      `json:"kind"`
+	Window    string      `json:"window"`
+	Generated *gtime.Time `json:"generatedAt"`
+	Images    []ImageCard `json:"images"`
+}
+
+type AdminOverview struct {
+	PendingSubmissions int `json:"pendingSubmissions" orm:"pending_submissions"`
+	OpenCases          int `json:"openCases" orm:"open_cases"`
+	PublishedImages    int `json:"publishedImages" orm:"published_images"`
+	FailedProcessing   int `json:"failedProcessing" orm:"failed_processing"`
 }

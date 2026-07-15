@@ -38,7 +38,7 @@ func main() {
 	}
 
 	service := galleryservice.New(dao.NewPG(g.DB()))
-	assets := assetclient.NewHTTP(appconfig.AssetBaseURL(ctx), appconfig.SiteSlug(ctx))
+	service.SetAssetReferencePort(assetclient.NewHTTP(appconfig.AssetBaseURL(ctx), appconfig.SiteSlug(ctx)))
 	jwks := appconfig.LoadJWKS(ctx)
 	verifier, err := authjwt.NewVerifier(authjwt.VerifierConfig{
 		Keys: authjwt.NewRemoteKeySource(jwks.URL), Issuer: jwks.Issuer, Audience: jwks.Audience,
@@ -46,7 +46,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	server.Configure(httpServer, server.Deps{Gallery: service, Verifier: verifier, Assets: assets})
+	server.Configure(httpServer, server.Deps{Gallery: service, Verifier: verifier})
 	g.Log().Info(ctx, "gallery service starting")
 	httpServer.Run()
 }

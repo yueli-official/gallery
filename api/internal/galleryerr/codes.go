@@ -8,13 +8,13 @@ import (
 )
 
 var (
-	CodeNotFound        = errs.Register("gallery.not_found", http.StatusNotFound)
-	CodeNotInitialized  = errs.Register("gallery.not_initialized", 503)
-	CodeForbidden       = errs.Register("gallery.forbidden", http.StatusForbidden)
-	CodeConflict        = errs.Register("gallery.conflict", http.StatusConflict)
-	CodeCreatorInactive = errs.Register("gallery.creator_not_active", http.StatusForbidden)
-	CodeInvalidState    = errs.Register("gallery.invalid_state", http.StatusConflict)
-	CodeUpstreamFailed  = errs.Register("gallery.upstream_failed", http.StatusBadGateway)
+	CodeNotFound       = errs.Register("gallery.not_found", http.StatusNotFound)
+	CodeGone           = errs.Register("gallery.gone", 410)
+	CodeNotInitialized = errs.Register("gallery.not_initialized", 503)
+	CodeForbidden      = errs.Register("gallery.forbidden", http.StatusForbidden)
+	CodeConflict       = errs.Register("gallery.conflict", http.StatusConflict)
+	CodeInvalidState   = errs.Register("gallery.invalid_state", http.StatusConflict)
+	CodeUpstreamFailed = errs.Register("gallery.upstream_failed", http.StatusBadGateway)
 )
 
 func NotFound(resource, id string) *errs.Coded {
@@ -29,8 +29,8 @@ func Conflict(resource string) *errs.Coded {
 	return errs.New(CodeConflict, "gallery resource conflicts with an existing record", map[string]any{"resource": resource})
 }
 
-func CreatorNotActive() *errs.Coded {
-	return errs.New(CodeCreatorInactive, "an active creator profile is required", nil)
+func Gone(resource, id string) *errs.Coded {
+	return errs.New(CodeGone, "gallery resource was permanently removed", map[string]any{"resource": resource, "id": id})
 }
 
 func Validation(field, detail string) *errs.Coded {
