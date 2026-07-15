@@ -12,14 +12,16 @@ const previewUrl = ref("");
 const title = ref("");
 const description = ref("");
 const sourceUrl = ref("");
-const topicId = ref("");
+const primaryCategoryId = ref("");
+const sceneValueIds = ref<string[]>([]);
 const tags = ref("");
 const progress = ref(0);
 const pending = ref(false);
 const completed = ref<GallerySubmission>();
 
-const topicFacet = computed(() => discovery.value?.facets.find(item => item.slug === "topic"));
-const topicItems = computed(() => (discovery.value?.facetValues || []).filter(item => item.facetId === topicFacet.value?.id).map(item => ({ label: item.name, value: item.id })));
+const categoryItems = computed(() => (discovery.value?.categories || []).map(item => ({ label: item.name, value: item.id })));
+const sceneFacet = computed(() => discovery.value?.facets.find(item => item.slug === "scene"));
+const sceneItems = computed(() => (sceneFacet.value?.values || []).map(item => ({ label: item.name, value: item.id })));
 const accepted = ".jpg,.jpeg,.png,.webp,.avif,.heic,.heif,image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif";
 
 useSeoMeta({ title: "投稿一张图片", description: "提交一张静态图片；来源地址可以稍后补充。", robots: "noindex,follow" });
@@ -42,7 +44,7 @@ async function submit() {
     await login();
     return;
   }
-  if (!file.value || !title.value.trim() || !topicId.value || pending.value) return;
+	if (!file.value || !title.value.trim() || !primaryCategoryId.value || !sceneValueIds.value.length || pending.value) return;
   pending.value = true;
   progress.value = 1;
   try {
@@ -55,9 +57,10 @@ async function submit() {
         description: description.value.trim(),
         sourceUrl: sourceUrl.value.trim(),
         altText: title.value.trim(),
-        topicId: topicId.value,
+		categoryIds: [primaryCategoryId.value],
+		primaryCategoryId: primaryCategoryId.value,
         tags: tags.value.split(/[,，]/).map(item => item.trim()).filter(Boolean),
-        facets: [],
+		facets: sceneFacet.value ? [{ facetId: sceneFacet.value.id, valueIds: sceneValueIds.value }] : [],
       },
     });
     completed.value = response.submission;
@@ -101,11 +104,12 @@ onBeforeUnmount(() => { if (previewUrl.value) URL.revokeObjectURL(previewUrl.val
 
       <div class="space-y-5">
         <UFormField label="标题" required><UInput v-model="title" maxlength="160" placeholder="简洁描述这张图片" /></UFormField>
-        <UFormField label="分类" required hint="每张图片选择一个主主题"><USelect v-model="topicId" :items="topicItems" value-key="value" placeholder="选择分类" /></UFormField>
+		<UFormField label="主分类" required hint="用于主要浏览入口"><USelect v-model="primaryCategoryId" :items="categoryItems" value-key="value" placeholder="选择壁纸、插画或摄影" /></UFormField>
+		<UFormField label="场景" required hint="可选择 1–2 项"><USelect v-model="sceneValueIds" :items="sceneItems" value-key="value" multiple placeholder="选择场景" /></UFormField>
         <UFormField label="说明" hint="可选"><UTextarea v-model="description" :rows="5" placeholder="补充画面、背景或整理说明" /></UFormField>
         <UFormField label="来源地址" hint="可选，不知道可以留空"><UInput v-model="sourceUrl" type="url" placeholder="https://" /></UFormField>
         <UFormField label="标签" hint="可选，用逗号分隔"><UInput v-model="tags" placeholder="夜景, 蓝色, 雨" /></UFormField>
-        <UButton type="submit" block size="lg" icon="i-tabler-send" label="提交图片" :loading="pending" :disabled="!loggedIn || !file || !title.trim() || !topicId" />
+		<UButton type="submit" block size="lg" icon="i-tabler-send" label="提交图片" :loading="pending" :disabled="!loggedIn || !file || !title.trim() || !primaryCategoryId || !sceneValueIds.length" />
         <p class="text-xs leading-5 text-muted">投稿者不会显示在公开页面。已发布图片不能替换像素；如需更换，请撤回后重新提交。</p>
       </div>
     </form>

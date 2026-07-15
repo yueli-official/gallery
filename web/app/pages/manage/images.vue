@@ -28,7 +28,7 @@ async function hide() {
     <div v-else-if="data.items.length" class="divide-y divide-default border-y border-default">
       <article v-for="image in data.items" :key="image.id" class="grid grid-cols-[5rem_minmax(0,1fr)_auto] items-center gap-4 py-3">
         <img :src="galleryRendition(image.assetId, 'thumbnail')" :alt="image.altText" class="aspect-[4/3] w-20 rounded-md bg-elevated object-cover" />
-        <div class="min-w-0"><p class="truncate font-medium text-highlighted">{{ image.title }}</p><p class="mt-1 text-xs text-muted">{{ image.topic || '未分类' }} · {{ compactMetric(image.metrics.views) }} 次浏览 · {{ compactMetric(image.metrics.favorites) }} 次收藏</p></div>
+		<div class="min-w-0"><p class="truncate font-medium text-highlighted">{{ image.title }}</p><p class="mt-1 text-xs text-muted">{{ image.primaryCategory || '未分类' }} · {{ compactMetric(image.metrics.views) }} 次浏览 · {{ compactMetric(image.metrics.favorites) }} 次收藏</p></div>
         <div class="flex gap-1"><UButton :to="`/images/${image.id}`" target="_blank" color="neutral" variant="ghost" icon="i-tabler-external-link" aria-label="打开公开图片" /><UButton color="error" variant="ghost" icon="i-tabler-eye-off" aria-label="下架图片" @click="() => { selected = image; }" /></div>
       </article>
     </div>

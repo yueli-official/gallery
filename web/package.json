@@ -14,7 +14,6 @@
     "@nuxt/ui": "catalog:",
     "@platform/asset": "workspace:*",
     "@platform/auth": "workspace:*",
-    "@platform/facet": "workspace:*",
     "@platform/manage": "workspace:*",
     "@platform/site": "workspace:*",
     "@platform/ui": "workspace:*",

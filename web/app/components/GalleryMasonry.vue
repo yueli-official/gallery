@@ -27,7 +27,7 @@ defineProps<{ items: GalleryImageCard[]; priority?: boolean }>();
         />
         <div class="gallery-masonry-caption">
           <p class="truncate text-sm font-medium text-white">{{ image.title }}</p>
-          <p v-if="image.topic" class="mt-0.5 text-xs text-white/70">{{ image.topic }}</p>
+		  <p v-if="image.primaryCategory" class="mt-0.5 text-xs text-white/70">{{ image.primaryCategory }}</p>
         </div>
       </div>
     </NuxtLink>

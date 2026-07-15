@@ -124,7 +124,7 @@ onBeforeUnmount(() => { if (qualifiedViewTimer) clearTimeout(qualifiedViewTimer)
 
     <aside v-if="image" class="relative z-20 -mt-4 rounded-t-2xl bg-default px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-5 text-default md:mt-0 md:overflow-y-auto md:rounded-none md:border-l md:border-default md:px-6 md:py-8">
       <div class="mx-auto mb-4 h-1 w-10 rounded-full bg-accented md:hidden" aria-hidden="true" />
-      <UBadge v-if="image.topic" color="primary" variant="soft" :label="image.topic" />
+	  <UBadge v-if="image.primaryCategory" color="primary" variant="soft" :label="image.primaryCategory" />
       <h1 class="mt-3 text-2xl font-semibold tracking-tight text-highlighted">{{ image.title }}</h1>
       <p v-if="image.description" class="mt-4 whitespace-pre-line text-sm leading-7 text-toned">{{ image.description }}</p>
 

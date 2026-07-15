@@ -3,7 +3,6 @@ package v1
 import (
 	"github.com/gogf/gf/v2/frame/g"
 
-	"platform/gokit/facet"
 	"platform/products/gallery/api/internal/model"
 )
 
@@ -12,21 +11,22 @@ type GetDiscoveryReq struct {
 	Seed   string `p:"seed"`
 }
 type GetDiscoveryRes struct {
-	Site        model.SiteSettings `json:"site"`
-	Seed        string             `json:"seed"`
-	Images      []model.ImageCard  `json:"images"`
-	Facets      []facet.Facet      `json:"facets"`
-	FacetValues []facet.Value      `json:"facetValues"`
+	Site       model.SiteSettings          `json:"site"`
+	Seed       string                      `json:"seed"`
+	Images     []model.ImageCard           `json:"images"`
+	Categories []model.ClassificationNode  `json:"categories"`
+	Facets     []model.ClassificationFacet `json:"facets"`
 }
 
 type ListImagesReq struct {
-	g.Meta `path:"/api/v1/gallery/images" method:"GET" tags:"Gallery images" summary:"List eligible public images with page-based filtering"`
-	Search string `p:"q"`
-	Sort   string `p:"sort" d:"newest"`
-	Page   int    `p:"page" d:"1"`
-	Size   int    `p:"size" d:"24"`
-	Facets string `p:"facets"`
-	Tag    string `p:"tag"`
+	g.Meta     `path:"/api/v1/gallery/images" method:"GET" tags:"Gallery images" summary:"List eligible public images with page-based filtering"`
+	Search     string `p:"q"`
+	Sort       string `p:"sort" d:"newest"`
+	Page       int    `p:"page" d:"1"`
+	Size       int    `p:"size" d:"24"`
+	Categories string `p:"categories"`
+	Facets     string `p:"facets"`
+	Tag        string `p:"tag"`
 }
 type ListImagesRes struct{ model.ImagePage }
 

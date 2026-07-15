@@ -18,13 +18,16 @@ func (c *Public) GetDiscovery(ctx context.Context, req *v1.GetDiscoveryReq) (*v1
 	if err != nil {
 		return nil, err
 	}
-	return &v1.GetDiscoveryRes{Site: value.Site, Seed: value.Seed, Images: value.Images, Facets: value.Facets, FacetValues: value.FacetValues}, nil
+	return &v1.GetDiscoveryRes{
+		Site: value.Site, Seed: value.Seed, Images: value.Images,
+		Categories: value.Categories, Facets: value.Facets,
+	}, nil
 }
 
 func (c *Public) ListImages(ctx context.Context, req *v1.ListImagesReq) (*v1.ListImagesRes, error) {
 	page, err := c.service.Images(ctx, model.ImageQuery{
 		Search: req.Search, Sort: req.Sort, Page: req.Page, PageSize: req.Size,
-		FacetIDs: splitCSV(req.Facets), Tag: req.Tag,
+		CategoryRefs: splitCSV(req.Categories), FacetRefs: splitCSV(req.Facets), Tag: req.Tag,
 	})
 	if err != nil {
 		return nil, err

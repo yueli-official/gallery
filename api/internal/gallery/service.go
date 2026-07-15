@@ -9,12 +9,12 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
 	"time"
-	"unicode"
 
 	"github.com/google/uuid"
 
-	"platform/gokit/facet"
+	"platform/gokit/classification"
 	"platform/products/gallery/api/internal/collection"
 	"platform/products/gallery/api/internal/galleryerr"
 	"platform/products/gallery/api/internal/model"
@@ -22,10 +22,12 @@ import (
 
 type Store interface {
 	SiteSettings(context.Context) (*model.SiteSettings, error)
-	Facets(context.Context) ([]facet.Facet, error)
-	FacetValues(context.Context) ([]facet.Value, error)
+	ClassificationRevision(context.Context) (uint64, error)
+	ClassificationSnapshot(context.Context) (classification.Snapshot, error)
+	ClassificationTagMatches(context.Context, []classification.TagLookupRequest) ([]classification.TagMatch, string, error)
+	ClassificationCandidateCounts(context.Context, model.ImageQuery, []classification.CandidateCountGroupRequest) ([]classification.CandidateCountGroup, string, error)
 	RandomCandidates(context.Context, int) ([]model.ImageCard, error)
-	ListImages(context.Context, model.ImageQuery) ([]model.ImageCard, int, error)
+	ListImages(context.Context, model.ImageQuery, classification.FilterPlan) ([]model.ImageCard, int, error)
 	Image(context.Context, string, string) (*model.ImageDetail, error)
 	HasTombstone(context.Context, string) (bool, error)
 	PublicCollections(context.Context) ([]model.Collection, error)
@@ -49,10 +51,14 @@ type Store interface {
 }
 
 type Service struct {
-	store       Store
-	collections *collection.Service
-	assets      AssetReferencePort
-	clock       func() time.Time
+	store            Store
+	collections      *collection.Service
+	assets           AssetReferencePort
+	clock            func() time.Time
+	catalogMu        sync.Mutex
+	catalog          *classification.Catalog
+	catalogRevision  uint64
+	catalogCheckedAt time.Time
 }
 
 type AssetReferencePort interface {
@@ -92,22 +98,33 @@ func (s *Service) Discovery(ctx context.Context, seed string) (*model.Discovery,
 		return nil, err
 	}
 	images := seededDiverse(seed, candidates, bounded(settings.RandomBatchSize, 12, 80, 30))
-	facets, err := s.store.Facets(ctx)
+	catalog, err := s.classificationCatalog(ctx)
 	if err != nil {
 		return nil, err
 	}
-	values, err := s.store.FacetValues(ctx)
+	preparation := catalog.Discover(classification.DiscoverRequest{PolicyKey: "gallery.image.public", IncludeCandidates: true})
+	factRequest := preparation.FactRequest()
+	countGroups, freshnessToken, err := s.store.ClassificationCandidateCounts(ctx, model.ImageQuery{}, factRequest.CountGroups)
 	if err != nil {
 		return nil, err
+	}
+	discovery := preparation.Complete(classification.DiscoverFacts{
+		CatalogRevision: factRequest.CatalogRevision,
+		RequestToken:    factRequest.RequestToken,
+		FreshnessToken:  freshnessToken,
+		CountGroups:     countGroups,
+	})
+	if discovery.Outcome != classification.OutcomeAccepted {
+		return nil, classificationValidation(discovery.Diagnostics)
 	}
 	normalizeCards(images)
-	if facets == nil {
-		facets = []facet.Facet{}
-	}
-	if values == nil {
-		values = []facet.Value{}
-	}
-	return &model.Discovery{Site: *settings, Seed: seed, Images: images, Facets: facets, FacetValues: values}, nil
+	return &model.Discovery{
+		Site:       *settings,
+		Seed:       seed,
+		Images:     images,
+		Categories: categoryCandidates(discovery.Candidates.Categories),
+		Facets:     facetCandidates(discovery.Candidates.Facets),
+	}, nil
 }
 
 func (s *Service) Images(ctx context.Context, query model.ImageQuery) (*model.ImagePage, error) {
@@ -119,14 +136,39 @@ func (s *Service) Images(ctx context.Context, query model.ImageQuery) (*model.Im
 	if !oneOf(query.Sort, "newest", "oldest", "title_asc", "title_desc") {
 		return nil, galleryerr.Validation("sort", "unsupported sort")
 	}
-	for index, rawID := range query.FacetIDs {
-		id, err := DatabaseID(rawID)
-		if err != nil {
-			return nil, galleryerr.Validation("facets", "facet values must be UUIDs or compact UUIDs")
-		}
-		query.FacetIDs[index] = id
+	discoverRequest, err := publicDiscoverRequest(query)
+	if err != nil {
+		return nil, err
 	}
-	items, total, err := s.store.ListImages(ctx, query)
+	catalog, err := s.classificationCatalog(ctx)
+	if err != nil {
+		return nil, err
+	}
+	discoverRequest.IncludeCandidates = true
+	preparation := catalog.Discover(discoverRequest)
+	factRequest := preparation.FactRequest()
+	countGroups, freshnessToken, err := s.store.ClassificationCandidateCounts(ctx, query, factRequest.CountGroups)
+	if err != nil {
+		return nil, err
+	}
+	discovery := preparation.Complete(classification.DiscoverFacts{
+		CatalogRevision: factRequest.CatalogRevision,
+		RequestToken:    factRequest.RequestToken,
+		FreshnessToken:  freshnessToken,
+		CountGroups:     countGroups,
+	})
+	diagnostics := classificationDiagnostics(discovery.Diagnostics)
+	if discovery.Outcome == classification.OutcomeRejected {
+		return nil, classificationValidation(discovery.Diagnostics)
+	}
+	if discovery.Outcome == classification.OutcomeNonExecutable {
+		return &model.ImagePage{
+			Items: []model.ImageCard{}, Page: query.Page, PageSize: query.PageSize,
+			Diagnostics: diagnostics,
+			Categories:  categoryCandidates(discovery.Candidates.Categories), Facets: facetCandidates(discovery.Candidates.Facets),
+		}, nil
+	}
+	items, total, err := s.store.ListImages(ctx, query, discovery.FilterPlan)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +177,57 @@ func (s *Service) Images(ctx context.Context, query model.ImageQuery) (*model.Im
 	if total > 0 {
 		pages = int(math.Ceil(float64(total) / float64(query.PageSize)))
 	}
-	return &model.ImagePage{Items: nonNilCards(items), Page: query.Page, PageSize: query.PageSize, Total: total, TotalPages: pages}, nil
+	return &model.ImagePage{
+		Items: nonNilCards(items), Page: query.Page, PageSize: query.PageSize,
+		Total: total, TotalPages: pages, Diagnostics: diagnostics,
+		Categories: categoryCandidates(discovery.Candidates.Categories), Facets: facetCandidates(discovery.Candidates.Facets),
+	}, nil
+}
+
+func publicDiscoverRequest(query model.ImageQuery) (classification.DiscoverRequest, error) {
+	request := classification.DiscoverRequest{PolicyKey: "gallery.image.public"}
+	for _, raw := range query.CategoryRefs {
+		request.Categories = append(request.Categories, classificationReference(raw))
+	}
+	byFacet := make(map[string][]classification.Reference)
+	for _, raw := range query.FacetRefs {
+		facet, value, found := strings.Cut(strings.TrimSpace(raw), ":")
+		if !found || strings.TrimSpace(facet) == "" || strings.TrimSpace(value) == "" {
+			return classification.DiscoverRequest{}, galleryerr.Validation("facets", "facet filters must use facet:value")
+		}
+		facet = strings.TrimSpace(facet)
+		byFacet[facet] = append(byFacet[facet], classificationReference(value))
+	}
+	facetKeys := make([]string, 0, len(byFacet))
+	for facet := range byFacet {
+		facetKeys = append(facetKeys, facet)
+	}
+	sort.Strings(facetKeys)
+	for _, facet := range facetKeys {
+		request.Facets = append(request.Facets, classification.FacetFilter{
+			Facet: classificationReference(facet), Values: byFacet[facet],
+		})
+	}
+	return request, nil
+}
+
+func classificationReference(raw string) classification.Reference {
+	value := strings.TrimSpace(raw)
+	if id, err := DatabaseID(value); err == nil {
+		return classification.Reference{Kind: classification.ReferenceByID, Value: id}
+	}
+	return classification.Reference{Kind: classification.ReferenceBySlug, Value: value}
+}
+
+func classificationDiagnostics(values []classification.Diagnostic) []model.ClassificationDiagnostic {
+	result := make([]model.ClassificationDiagnostic, 0, len(values))
+	for _, value := range values {
+		result = append(result, model.ClassificationDiagnostic{
+			Code: string(value.Code), Path: append([]string(nil), value.Path...),
+			Reference: value.Reference, Params: value.Params,
+		})
+	}
+	return result
 }
 
 func (s *Service) Image(ctx context.Context, rawID, userID string) (*model.ImageDetail, error) {
@@ -276,25 +368,46 @@ func (s *Service) Submit(ctx context.Context, subject model.Subject, input model
 	input.Description = strings.TrimSpace(input.Description)
 	input.SourceURL = strings.TrimSpace(input.SourceURL)
 	input.AltText = defaultString(strings.TrimSpace(input.AltText), input.Title)
-	input.TopicID = strings.TrimSpace(input.TopicID)
+	input.PrimaryCategoryID = strings.TrimSpace(input.PrimaryCategoryID)
 	if input.Title == "" {
 		return nil, galleryerr.Validation("title", "title is required")
 	}
 	if _, err := uuid.Parse(input.AssetID); err != nil {
 		return nil, galleryerr.Validation("assetId", "assetId must be a UUID")
 	}
-	if _, err := uuid.Parse(input.TopicID); err != nil {
-		return nil, galleryerr.Validation("topicId", "topicId must be a UUID")
+	for index, rawID := range input.CategoryIDs {
+		id, parseErr := DatabaseID(rawID)
+		if parseErr != nil {
+			return nil, galleryerr.Validation("categoryIds", "category IDs must be UUIDs or compact UUIDs")
+		}
+		input.CategoryIDs[index] = id
 	}
-	assignments, err := s.normalizeSubmissionFacets(ctx, input.TopicID, input.Facets)
+	if input.PrimaryCategoryID != "" {
+		id, parseErr := DatabaseID(input.PrimaryCategoryID)
+		if parseErr != nil {
+			return nil, galleryerr.Validation("primaryCategoryId", "primary category must be a UUID or compact UUID")
+		}
+		input.PrimaryCategoryID = id
+	}
+	for selectionIndex := range input.Facets {
+		facetID, parseErr := DatabaseID(input.Facets[selectionIndex].FacetID)
+		if parseErr != nil {
+			return nil, galleryerr.Validation("facets", "facet IDs must be UUIDs or compact UUIDs")
+		}
+		input.Facets[selectionIndex].FacetID = facetID
+		for valueIndex, rawID := range input.Facets[selectionIndex].ValueIDs {
+			valueID, valueErr := DatabaseID(rawID)
+			if valueErr != nil {
+				return nil, galleryerr.Validation("facets", "facet value IDs must be UUIDs or compact UUIDs")
+			}
+			input.Facets[selectionIndex].ValueIDs[valueIndex] = valueID
+		}
+	}
+	classified, err := s.classifySubmission(ctx, input)
 	if err != nil {
 		return nil, err
 	}
-	input.Assignments = assignments
-	input.NormalizedTags, err = normalizeSubmissionTags(input.Tags)
-	if err != nil {
-		return nil, err
-	}
+	input.Classification = classified
 	if input.SourceURL != "" {
 		parsed, err := url.ParseRequestURI(input.SourceURL)
 		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
@@ -319,82 +432,142 @@ func (s *Service) Submit(ctx context.Context, subject model.Subject, input model
 	return value, nil
 }
 
-func (s *Service) normalizeSubmissionFacets(ctx context.Context, topicID string, selections []facet.Selection) ([]facet.Assignment, error) {
-	definitions, err := s.store.Facets(ctx)
+func (s *Service) classifySubmission(ctx context.Context, input model.SubmissionInput) (model.ClassificationWrite, error) {
+	catalog, err := s.classificationCatalog(ctx)
 	if err != nil {
-		return nil, err
+		return model.ClassificationWrite{}, err
 	}
-	values, err := s.store.FacetValues(ctx)
-	if err != nil {
-		return nil, err
+	facets := make([]classification.FacetSelection, 0, len(input.Facets))
+	for _, selection := range input.Facets {
+		facets = append(facets, classification.FacetSelection{
+			FacetID:  selection.FacetID,
+			ValueIDs: append([]string(nil), selection.ValueIDs...),
+		})
 	}
-	var topicFacetID string
-	for _, definition := range definitions {
-		if definition.Slug == "topic" {
-			topicFacetID = definition.ID
-			break
-		}
-	}
-	if topicFacetID == "" {
-		return nil, galleryerr.NotInitialized("topic_facet")
-	}
-	selections = append(append([]facet.Selection{}, selections...), facet.Selection{
-		FacetID: topicFacetID, ValueIDs: []string{topicID},
+	preparation := catalog.Classify(classification.ClassifyRequest{
+		PolicyKey:         "gallery.image.public",
+		CategoryIDs:       append([]string(nil), input.CategoryIDs...),
+		PrimaryCategoryID: input.PrimaryCategoryID,
+		Facets:            facets,
+		Tags:              append([]string(nil), input.Tags...),
 	})
-	catalog, err := facet.NewCatalog(definitions, values)
+	factRequest := preparation.FactRequest()
+	matches, freshnessToken, err := s.store.ClassificationTagMatches(ctx, factRequest.TagLookups)
 	if err != nil {
-		return nil, galleryerr.NotInitialized("facet_catalog")
+		return model.ClassificationWrite{}, err
 	}
-	assignments, err := catalog.NormalizeSelections(selections, facet.PhasePublish)
-	if err != nil {
-		return nil, galleryerr.Validation("facets", err.Error())
+	result := preparation.Complete(classification.ClassifyFacts{
+		CatalogRevision: factRequest.CatalogRevision,
+		RequestToken:    factRequest.RequestToken,
+		FreshnessToken:  freshnessToken,
+		TagMatches:      matches,
+	})
+	if result.Outcome != classification.OutcomeAccepted {
+		return model.ClassificationWrite{}, classificationValidation(result.Diagnostics)
 	}
-	return assignments, nil
+	write := model.ClassificationWrite{
+		CatalogRevision:   result.CatalogRevision,
+		PrimaryCategoryID: result.Assignments.PrimaryCategoryID,
+		Categories:        make([]model.CategoryAssignment, 0, len(result.Assignments.Categories)),
+		Facets:            make([]model.FacetValueAssignment, 0, len(result.Assignments.Facets)),
+		Tags:              make([]model.TagAssignment, 0, len(result.Assignments.Tags)),
+		TagProposals:      make([]model.TagProposalInput, 0, len(result.TagProposals)),
+		TagCreations:      make([]model.TagCreationInput, 0, len(result.TagCreations)),
+	}
+	for _, assignment := range result.Assignments.Categories {
+		write.Categories = append(write.Categories, model.CategoryAssignment{CategoryID: assignment.CategoryID})
+	}
+	for _, assignment := range result.Assignments.Facets {
+		write.Facets = append(write.Facets, model.FacetValueAssignment{FacetID: assignment.FacetID, ValueID: assignment.ValueID})
+	}
+	for _, assignment := range result.Assignments.Tags {
+		write.Tags = append(write.Tags, model.TagAssignment{TagID: assignment.TagID})
+	}
+	for _, proposal := range result.TagProposals {
+		write.TagProposals = append(write.TagProposals, model.TagProposalInput{
+			LookupKey: proposal.LookupKey, DisplayValue: proposal.DisplayValue,
+		})
+	}
+	for _, creation := range result.TagCreations {
+		write.TagCreations = append(write.TagCreations, model.TagCreationInput{
+			LookupKey: creation.LookupKey, DisplayValue: creation.DisplayValue,
+		})
+	}
+	return write, nil
 }
 
-func normalizeSubmissionTags(raw []string) ([]model.TagInput, error) {
-	const maxTags = 12
-	seen := make(map[string]struct{}, len(raw))
-	result := make([]model.TagInput, 0, len(raw))
-	for _, value := range raw {
-		name := strings.Join(strings.Fields(strings.TrimSpace(value)), " ")
-		if name == "" {
-			continue
-		}
-		if len([]rune(name)) > 40 {
-			return nil, galleryerr.Validation("tags", "each tag must be at most 40 characters")
-		}
-		slug := tagSlug(name)
-		if slug == "" {
-			return nil, galleryerr.Validation("tags", "tags must contain a letter or number")
-		}
-		if _, exists := seen[slug]; exists {
-			continue
-		}
-		seen[slug] = struct{}{}
-		result = append(result, model.TagInput{Slug: slug, Name: name})
-		if len(result) > maxTags {
-			return nil, galleryerr.Validation("tags", "at most 12 tags are allowed")
-		}
+func (s *Service) classificationCatalog(ctx context.Context) (*classification.Catalog, error) {
+	s.catalogMu.Lock()
+	defer s.catalogMu.Unlock()
+
+	now := s.clock()
+	if s.catalog != nil && now.Sub(s.catalogCheckedAt) < 30*time.Second {
+		return s.catalog, nil
 	}
-	return result, nil
+	revision, err := s.store.ClassificationRevision(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if s.catalog != nil && revision == s.catalogRevision {
+		s.catalogCheckedAt = now
+		return s.catalog, nil
+	}
+	snapshot, err := s.store.ClassificationSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if snapshot.Revision != revision {
+		return nil, galleryerr.NotInitialized("classification_revision")
+	}
+	compiled := classification.Compile(snapshot)
+	if compiled.Outcome != classification.OutcomeAccepted || compiled.Catalog == nil {
+		return nil, galleryerr.NotInitialized("classification_catalog")
+	}
+	s.catalog = compiled.Catalog
+	s.catalogRevision = compiled.CatalogRevision
+	s.catalogCheckedAt = now
+	return s.catalog, nil
 }
 
-func tagSlug(value string) string {
-	var builder strings.Builder
-	separator := false
-	for _, character := range strings.ToLower(value) {
-		if unicode.IsLetter(character) || unicode.IsDigit(character) {
-			if separator && builder.Len() > 0 {
-				builder.WriteByte('-')
-			}
-			builder.WriteRune(character)
-			separator = false
-			continue
-		}
-		separator = true
+func classificationValidation(diagnostics []classification.Diagnostic) error {
+	field := "classification"
+	if len(diagnostics) == 0 {
+		return galleryerr.Validation(field, "classification was rejected")
 	}
-	return builder.String()
+	if len(diagnostics[0].Path) > 0 {
+		switch diagnostics[0].Path[0] {
+		case "categoryIds", "categories":
+			field = "categoryIds"
+		case "primaryCategoryId":
+			field = "primaryCategoryId"
+		case "facets":
+			field = "facets"
+		case "tags":
+			field = "tags"
+		}
+	}
+	return galleryerr.Validation(field, string(diagnostics[0].Code))
+}
+
+func categoryCandidates(values []classification.CandidateNode) []model.ClassificationNode {
+	result := make([]model.ClassificationNode, 0, len(values))
+	for _, value := range values {
+		result = append(result, model.ClassificationNode{
+			ID: value.ID, ParentID: value.ParentID, Slug: value.Slug, Name: value.Name,
+			Count: value.Count, Selected: value.Selected,
+		})
+	}
+	return result
+}
+
+func facetCandidates(values []classification.CandidateFacet) []model.ClassificationFacet {
+	result := make([]model.ClassificationFacet, 0, len(values))
+	for _, value := range values {
+		result = append(result, model.ClassificationFacet{
+			ID: value.ID, Slug: value.Slug, Name: value.Name, Values: categoryCandidates(value.Values),
+		})
+	}
+	return result
 }
 
 func (s *Service) MySubmissions(ctx context.Context, subject model.Subject, page, size int) ([]model.Submission, int, error) {
@@ -640,19 +813,19 @@ func seededDiverse(seed string, candidates []model.ImageCard, limit int) []model
 	}
 	sort.SliceStable(values, func(i, j int) bool { return values[i].score < values[j].score })
 	result := make([]model.ImageCard, 0, min(limit, len(values)))
-	lastTopic := ""
+	lastCategory := ""
 	for len(values) > 0 && len(result) < limit {
 		pick := 0
-		if values[0].card.TopicSlug == lastTopic {
+		if values[0].card.PrimaryCategorySlug == lastCategory {
 			for index := 1; index < len(values); index++ {
-				if values[index].card.TopicSlug != lastTopic {
+				if values[index].card.PrimaryCategorySlug != lastCategory {
 					pick = index
 					break
 				}
 			}
 		}
 		result = append(result, values[pick].card)
-		lastTopic = values[pick].card.TopicSlug
+		lastCategory = values[pick].card.PrimaryCategorySlug
 		values = append(values[:pick], values[pick+1:]...)
 	}
 	return result
@@ -675,7 +848,7 @@ func normalizeDetail(value *model.ImageDetail) {
 		value.Tags = []string{}
 	}
 	if value.Facets == nil {
-		value.Facets = []facet.Assignment{}
+		value.Facets = []model.FacetValueAssignment{}
 	}
 }
 

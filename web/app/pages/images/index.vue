@@ -5,6 +5,7 @@ const route = useRoute();
 const router = useRouter();
 const mobileFiltersOpen = ref(false);
 const searchDraft = ref(String(route.query.q || ""));
+const selectedCategories = ref(String(route.query.categories || "").split(",").filter(Boolean));
 const selectedFacets = ref(String(route.query.facets || "").split(",").filter(Boolean));
 
 const page = computed(() => Math.max(1, Number(route.query.page || 1)));
@@ -14,6 +15,7 @@ const query = computed(() => ({
   sort: sort.value,
   page: page.value,
   size: 24,
+	categories: String(route.query.categories || "") || undefined,
   facets: String(route.query.facets || "") || undefined,
   tag: String(route.query.tag || "") || undefined,
 }));
@@ -24,19 +26,19 @@ const [{ data: pageData, error, status, refresh }, { data: discovery }] = await 
 ]);
 
 const facetGroups = computed(() => {
-  const values = discovery.value?.facetValues || [];
-  return (discovery.value?.facets || []).filter(item => item.filterable).map(facet => ({
+	return (pageData.value?.facets || discovery.value?.facets || []).map(facet => ({
     facet,
-    values: values.filter(value => value.facetId === facet.id),
+		values: facet.values,
   }));
 });
+const categoryCandidates = computed(() => pageData.value?.categories || discovery.value?.categories || []);
 const pageNumbers = computed(() => {
   const total = pageData.value?.totalPages || 0;
   if (!total) return [];
   const start = Math.max(1, Math.min(page.value - 2, total - 4));
   return Array.from({ length: Math.min(5, total) }, (_, index) => start + index);
 });
-const hasFilters = computed(() => Boolean(query.value.q || query.value.facets || query.value.tag));
+const hasFilters = computed(() => Boolean(query.value.q || query.value.categories || query.value.facets || query.value.tag));
 const sortItems = [
   { label: "最新", value: "newest" },
   { label: "最早", value: "oldest" },
@@ -48,11 +50,12 @@ function replaceQuery(patch: Record<string, string | number | undefined>) {
   void router.push({ path: "/images", query: { ...route.query, ...patch } });
 }
 function applyFilters() {
-  replaceQuery({ q: searchDraft.value.trim() || undefined, facets: selectedFacets.value.join(",") || undefined, page: 1 });
+	replaceQuery({ q: searchDraft.value.trim() || undefined, categories: selectedCategories.value.join(",") || undefined, facets: selectedFacets.value.join(",") || undefined, page: 1 });
   mobileFiltersOpen.value = false;
 }
 function clearFilters() {
   searchDraft.value = "";
+	selectedCategories.value = [];
   selectedFacets.value = [];
   void router.push({ path: "/images", query: { sort: sort.value } });
 }
@@ -60,6 +63,11 @@ function toggleFacet(id: string) {
   selectedFacets.value = selectedFacets.value.includes(id)
     ? selectedFacets.value.filter(item => item !== id)
     : [...selectedFacets.value, id];
+}
+function toggleCategory(slug: string) {
+	selectedCategories.value = selectedCategories.value.includes(slug)
+		? selectedCategories.value.filter(item => item !== slug)
+		: [...selectedCategories.value, slug];
 }
 
 useSeoMeta({
@@ -88,15 +96,27 @@ useSeoMeta({
       <aside class="hidden lg:block">
         <div class="sticky top-24 space-y-6">
           <UInput v-model="searchDraft" icon="i-tabler-search" placeholder="搜索图片" @keyup.enter="applyFilters" />
+		  <div v-if="categoryCandidates.length">
+			<h2 class="mb-2 text-xs font-semibold uppercase tracking-[.14em] text-muted">分类</h2>
+			<div class="space-y-1">
+			  <label v-for="category in categoryCandidates" :key="category.id" class="flex cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-elevated/60">
+				<span class="flex min-w-0 items-center gap-2">
+				<input type="checkbox" class="size-4 accent-[var(--ui-primary)]" :checked="selectedCategories.includes(category.slug)" @change="toggleCategory(category.slug)" />
+				<span class="truncate">{{ category.name }}</span>
+				</span>
+				<span class="text-xs tabular-nums text-dimmed">{{ category.count }}</span>
+			  </label>
+			</div>
+		  </div>
           <div v-for="group in facetGroups" :key="group.facet.id">
             <h2 class="mb-2 text-xs font-semibold uppercase tracking-[.14em] text-muted">{{ group.facet.name }}</h2>
             <div class="space-y-1">
-              <label v-for="value in group.values" :key="value.id" class="flex cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-elevated/60">
+			  <label v-for="value in group.values" :key="value.id" class="flex cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-elevated/60">
                 <span class="flex min-w-0 items-center gap-2">
-                  <input type="checkbox" class="size-4 accent-[var(--ui-primary)]" :checked="selectedFacets.includes(value.id)" @change="toggleFacet(value.id)" />
+				  <input type="checkbox" class="size-4 accent-[var(--ui-primary)]" :checked="selectedFacets.includes(`${group.facet.slug}:${value.slug}`)" @change="toggleFacet(`${group.facet.slug}:${value.slug}`)" />
                   <span class="truncate">{{ value.name }}</span>
                 </span>
-                <span class="text-xs tabular-nums text-dimmed">{{ value.count }}</span>
+				<span class="text-xs tabular-nums text-dimmed">{{ value.count }}</span>
               </label>
             </div>
           </div>
@@ -111,6 +131,7 @@ useSeoMeta({
         <div class="mb-5 flex items-center justify-between gap-3 border-b border-default pb-4">
           <div class="flex min-w-0 flex-wrap gap-2">
             <UBadge v-if="query.q" color="neutral" variant="soft" :label="`搜索：${query.q}`" />
+			<UBadge v-if="selectedCategories.length" color="primary" variant="soft" :label="`${selectedCategories.length} 个分类`" />
             <UBadge v-if="selectedFacets.length" color="primary" variant="soft" :label="`${selectedFacets.length} 个筛选`" />
             <UButton v-if="hasFilters" color="neutral" variant="ghost" size="xs" label="清除" @click="clearFilters" />
           </div>
@@ -138,16 +159,20 @@ useSeoMeta({
       <template #body>
         <div class="space-y-7 pb-24">
           <UInput v-model="searchDraft" icon="i-tabler-search" placeholder="搜索标题或说明" />
+		  <div v-if="categoryCandidates.length">
+			<h2 class="mb-3 font-semibold text-highlighted">分类</h2>
+			<div class="grid grid-cols-2 gap-2"><UButton v-for="category in categoryCandidates" :key="category.id" color="neutral" :variant="selectedCategories.includes(category.slug) ? 'solid' : 'outline'" :label="`${category.name} · ${category.count}`" block @click="toggleCategory(category.slug)" /></div>
+		  </div>
           <div v-for="group in facetGroups" :key="group.facet.id">
             <h2 class="mb-3 font-semibold text-highlighted">{{ group.facet.name }}</h2>
             <div class="grid grid-cols-2 gap-2">
-              <UButton v-for="value in group.values" :key="value.id" color="neutral" :variant="selectedFacets.includes(value.id) ? 'solid' : 'outline'" :label="value.name" block @click="toggleFacet(value.id)" />
+			  <UButton v-for="value in group.values" :key="value.id" color="neutral" :variant="selectedFacets.includes(`${group.facet.slug}:${value.slug}`) ? 'solid' : 'outline'" :label="value.name" block @click="toggleFacet(`${group.facet.slug}:${value.slug}`)" />
             </div>
           </div>
         </div>
         <div class="fixed inset-x-0 bottom-0 flex gap-2 border-t border-default bg-default p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <UButton v-if="hasFilters" color="neutral" variant="outline" label="清除" @click="clearFilters" />
-          <UButton class="flex-1" :label="`应用${selectedFacets.length ? ` ${selectedFacets.length} 项` : ''}`" @click="applyFilters" />
+		  <UButton class="flex-1" :label="`应用${selectedCategories.length + selectedFacets.length ? ` ${selectedCategories.length + selectedFacets.length} 项` : ''}`" @click="applyFilters" />
         </div>
       </template>
     </USlideover>

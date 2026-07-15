@@ -1,5 +1,3 @@
-import type { Facet, FacetValue } from "@platform/facet";
-
 export interface GallerySite {
   name: string;
   title: string;
@@ -23,8 +21,8 @@ export interface GalleryImageCard {
   width: number;
   height: number;
   dominantColor: string;
-  topic: string;
-  topicSlug: string;
+	primaryCategory: string;
+	primaryCategorySlug: string;
   publishedAt?: string;
   metrics: GalleryMetrics;
 }
@@ -48,8 +46,24 @@ export interface GalleryDiscovery {
   site: GallerySite;
   seed: string;
   images: GalleryImageCard[];
-  facets: Facet[];
-  facetValues: FacetValue[];
+	categories: GalleryClassificationNode[];
+	facets: GalleryFacet[];
+}
+
+export interface GalleryClassificationNode {
+	id: string;
+	parentId?: string;
+	slug: string;
+	name: string;
+	count: number;
+	selected: boolean;
+}
+
+export interface GalleryFacet {
+	id: string;
+	slug: string;
+	name: string;
+	values: GalleryClassificationNode[];
 }
 
 export interface GalleryImagePage {
@@ -58,6 +72,16 @@ export interface GalleryImagePage {
   pageSize: number;
   total: number;
   totalPages: number;
+	diagnostics: GalleryClassificationDiagnostic[];
+	categories: GalleryClassificationNode[];
+	facets: GalleryFacet[];
+}
+
+export interface GalleryClassificationDiagnostic {
+	code: string;
+	path: string[];
+	reference?: string;
+	params?: Record<string, string>;
 }
 
 export interface GalleryCollection {
@@ -88,7 +112,7 @@ export interface GallerySubmission {
   description: string;
   sourceUrl: string;
   altText: string;
-  topicId: string;
+	primaryCategoryId: string;
   processingState: "queued" | "processing" | "ready" | "failed";
   reviewState: "not_required" | "pending" | "approved" | "rejected";
   safetyState: "pending" | "safe" | "uncertain" | "blocked" | "unavailable";
@@ -126,9 +150,6 @@ export interface GalleryAdminOverview {
   publishedImages: number;
   failedProcessing: number;
 }
-
-export type GalleryFacet = Facet;
-export type GalleryFacetValue = FacetValue;
 
 export interface GalleryUploadedAsset {
   id: string;

@@ -2,8 +2,6 @@ package model
 
 import (
 	"github.com/gogf/gf/v2/os/gtime"
-
-	"platform/gokit/facet"
 )
 
 type SiteSettings struct {
@@ -22,55 +20,82 @@ type Metrics struct {
 }
 
 type ImageCard struct {
-	ID            string      `json:"id" orm:"id"`
-	AssetID       string      `json:"assetId" orm:"asset_id"`
-	Title         string      `json:"title" orm:"title"`
-	AltText       string      `json:"altText" orm:"alt_text"`
-	Width         int         `json:"width" orm:"width"`
-	Height        int         `json:"height" orm:"height"`
-	DominantColor string      `json:"dominantColor" orm:"dominant_color"`
-	Topic         string      `json:"topic" orm:"topic"`
-	TopicSlug     string      `json:"topicSlug" orm:"topic_slug"`
-	PublishedAt   *gtime.Time `json:"publishedAt" orm:"published_at"`
-	Metrics       Metrics     `json:"metrics" orm:"-"`
-	ViewCount     int64       `json:"-" orm:"view_count"`
-	FavoriteCount int64       `json:"-" orm:"favorite_count"`
+	ID                  string      `json:"id" orm:"id"`
+	AssetID             string      `json:"assetId" orm:"asset_id"`
+	Title               string      `json:"title" orm:"title"`
+	AltText             string      `json:"altText" orm:"alt_text"`
+	Width               int         `json:"width" orm:"width"`
+	Height              int         `json:"height" orm:"height"`
+	DominantColor       string      `json:"dominantColor" orm:"dominant_color"`
+	PrimaryCategory     string      `json:"primaryCategory" orm:"primary_category"`
+	PrimaryCategorySlug string      `json:"primaryCategorySlug" orm:"primary_category_slug"`
+	PublishedAt         *gtime.Time `json:"publishedAt" orm:"published_at"`
+	Metrics             Metrics     `json:"metrics" orm:"-"`
+	ViewCount           int64       `json:"-" orm:"view_count"`
+	FavoriteCount       int64       `json:"-" orm:"favorite_count"`
 }
 
 type ImageDetail struct {
 	ImageCard
-	Description string             `json:"description" orm:"description"`
-	SourceURL   string             `json:"sourceUrl" orm:"source_url"`
-	FocusX      float64            `json:"focusX" orm:"focus_x"`
-	FocusY      float64            `json:"focusY" orm:"focus_y"`
-	Tags        []string           `json:"tags" orm:"-"`
-	Facets      []facet.Assignment `json:"facets" orm:"-"`
-	Favorited   bool               `json:"favorited" orm:"-"`
+	Description string                 `json:"description" orm:"description"`
+	SourceURL   string                 `json:"sourceUrl" orm:"source_url"`
+	FocusX      float64                `json:"focusX" orm:"focus_x"`
+	FocusY      float64                `json:"focusY" orm:"focus_y"`
+	Tags        []string               `json:"tags" orm:"-"`
+	Facets      []FacetValueAssignment `json:"facets" orm:"-"`
+	Favorited   bool                   `json:"favorited" orm:"-"`
 }
 
 type ImageQuery struct {
-	Search   string
-	Sort     string
-	Page     int
-	PageSize int
-	FacetIDs []string
-	Tag      string
+	Search       string
+	Sort         string
+	Page         int
+	PageSize     int
+	CategoryRefs []string
+	FacetRefs    []string
+	Tag          string
 }
 
 type ImagePage struct {
-	Items      []ImageCard `json:"items"`
-	Page       int         `json:"page"`
-	PageSize   int         `json:"pageSize"`
-	Total      int         `json:"total"`
-	TotalPages int         `json:"totalPages"`
+	Items       []ImageCard                `json:"items"`
+	Page        int                        `json:"page"`
+	PageSize    int                        `json:"pageSize"`
+	Total       int                        `json:"total"`
+	TotalPages  int                        `json:"totalPages"`
+	Diagnostics []ClassificationDiagnostic `json:"diagnostics"`
+	Categories  []ClassificationNode       `json:"categories"`
+	Facets      []ClassificationFacet      `json:"facets"`
+}
+
+type ClassificationDiagnostic struct {
+	Code      string            `json:"code"`
+	Path      []string          `json:"path"`
+	Reference string            `json:"reference,omitempty"`
+	Params    map[string]string `json:"params,omitempty"`
 }
 
 type Discovery struct {
-	Site        SiteSettings  `json:"site"`
-	Seed        string        `json:"seed"`
-	Images      []ImageCard   `json:"images"`
-	Facets      []facet.Facet `json:"facets"`
-	FacetValues []facet.Value `json:"facetValues"`
+	Site       SiteSettings          `json:"site"`
+	Seed       string                `json:"seed"`
+	Images     []ImageCard           `json:"images"`
+	Categories []ClassificationNode  `json:"categories"`
+	Facets     []ClassificationFacet `json:"facets"`
+}
+
+type ClassificationNode struct {
+	ID       string `json:"id"`
+	ParentID string `json:"parentId,omitempty"`
+	Slug     string `json:"slug"`
+	Name     string `json:"name"`
+	Count    int64  `json:"count"`
+	Selected bool   `json:"selected"`
+}
+
+type ClassificationFacet struct {
+	ID     string               `json:"id"`
+	Slug   string               `json:"slug"`
+	Name   string               `json:"name"`
+	Values []ClassificationNode `json:"values"`
 }
 
 type Collection struct {
@@ -116,44 +141,75 @@ type Subject struct {
 }
 
 type SubmissionInput struct {
-	AssetID        string             `json:"assetId"`
-	Title          string             `json:"title"`
-	Description    string             `json:"description"`
-	SourceURL      string             `json:"sourceUrl"`
-	AltText        string             `json:"altText"`
-	TopicID        string             `json:"topicId"`
-	Tags           []string           `json:"tags"`
-	Facets         []facet.Selection  `json:"facets"`
-	Assignments    []facet.Assignment `json:"-"`
-	NormalizedTags []TagInput         `json:"-"`
+	AssetID           string              `json:"assetId"`
+	Title             string              `json:"title"`
+	Description       string              `json:"description"`
+	SourceURL         string              `json:"sourceUrl"`
+	AltText           string              `json:"altText"`
+	CategoryIDs       []string            `json:"categoryIds"`
+	PrimaryCategoryID string              `json:"primaryCategoryId"`
+	Tags              []string            `json:"tags"`
+	Facets            []FacetSelection    `json:"facets"`
+	Classification    ClassificationWrite `json:"-"`
 }
 
-// TagInput is the normalized write shape used between the application and
-// persistence layers. Public clients continue to submit plain tag names.
-type TagInput struct {
-	Slug string
-	Name string
+type FacetSelection struct {
+	FacetID  string   `json:"facetId"`
+	ValueIDs []string `json:"valueIds"`
+}
+
+type CategoryAssignment struct {
+	CategoryID string
+}
+
+type FacetValueAssignment struct {
+	FacetID string `json:"facetId" orm:"facet_id"`
+	ValueID string `json:"valueId" orm:"value_id"`
+}
+
+type TagAssignment struct {
+	TagID string
+}
+
+type TagProposalInput struct {
+	LookupKey    string
+	DisplayValue string
+}
+
+type TagCreationInput struct {
+	LookupKey    string
+	DisplayValue string
+}
+
+type ClassificationWrite struct {
+	CatalogRevision   uint64
+	Categories        []CategoryAssignment
+	PrimaryCategoryID string
+	Facets            []FacetValueAssignment
+	Tags              []TagAssignment
+	TagProposals      []TagProposalInput
+	TagCreations      []TagCreationInput
 }
 
 type Submission struct {
-	ID              string      `json:"id" orm:"id"`
-	SubjectKind     string      `json:"-" orm:"subject_kind"`
-	SubjectID       string      `json:"-" orm:"subject_id"`
-	AssetID         string      `json:"assetId" orm:"asset_id"`
-	ImageID         string      `json:"imageId" orm:"image_id"`
-	Title           string      `json:"title" orm:"title"`
-	Description     string      `json:"description" orm:"description"`
-	SourceURL       string      `json:"sourceUrl" orm:"source_url"`
-	AltText         string      `json:"altText" orm:"alt_text"`
-	TopicID         string      `json:"topicId" orm:"topic_value_id"`
-	ProcessingState string      `json:"processingState" orm:"processing_state"`
-	ReviewState     string      `json:"reviewState" orm:"review_state"`
-	SafetyState     string      `json:"safetyState" orm:"safety_state"`
-	Outcome         string      `json:"outcome" orm:"outcome"`
-	FailureCode     string      `json:"failureCode" orm:"failure_code"`
-	ReviewNote      string      `json:"reviewNote" orm:"review_note"`
-	CreatedAt       *gtime.Time `json:"createdAt" orm:"created_at"`
-	UpdatedAt       *gtime.Time `json:"updatedAt" orm:"updated_at"`
+	ID                string      `json:"id" orm:"id"`
+	SubjectKind       string      `json:"-" orm:"subject_kind"`
+	SubjectID         string      `json:"-" orm:"subject_id"`
+	AssetID           string      `json:"assetId" orm:"asset_id"`
+	ImageID           string      `json:"imageId" orm:"image_id"`
+	Title             string      `json:"title" orm:"title"`
+	Description       string      `json:"description" orm:"description"`
+	SourceURL         string      `json:"sourceUrl" orm:"source_url"`
+	AltText           string      `json:"altText" orm:"alt_text"`
+	PrimaryCategoryID string      `json:"primaryCategoryId" orm:"primary_category_id"`
+	ProcessingState   string      `json:"processingState" orm:"processing_state"`
+	ReviewState       string      `json:"reviewState" orm:"review_state"`
+	SafetyState       string      `json:"safetyState" orm:"safety_state"`
+	Outcome           string      `json:"outcome" orm:"outcome"`
+	FailureCode       string      `json:"failureCode" orm:"failure_code"`
+	ReviewNote        string      `json:"reviewNote" orm:"review_note"`
+	CreatedAt         *gtime.Time `json:"createdAt" orm:"created_at"`
+	UpdatedAt         *gtime.Time `json:"updatedAt" orm:"updated_at"`
 }
 
 type SubmissionReviewInput struct {

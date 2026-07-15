@@ -16,50 +16,180 @@ CREATE TABLE gallery_site_settings (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE gallery_facets (
+CREATE TABLE gallery_classification_catalogs (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
-    slug TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
-    selection_mode TEXT NOT NULL DEFAULT 'multiple' CHECK (selection_mode IN ('single', 'multiple')),
-    required_on_submit BOOLEAN NOT NULL DEFAULT FALSE,
-    filterable BOOLEAN NOT NULL DEFAULT TRUE,
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
-    sort_order INTEGER NOT NULL DEFAULT 0 CHECK (sort_order >= 0),
+    catalog_key TEXT NOT NULL UNIQUE,
+    revision BIGINT NOT NULL DEFAULT 1 CHECK (revision > 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE gallery_facet_values (
+CREATE TABLE gallery_classification_policy_profiles (
+    catalog_id UUID NOT NULL REFERENCES gallery_classification_catalogs(id) ON DELETE RESTRICT,
+    policy_key TEXT NOT NULL,
+    schema_version INTEGER NOT NULL CHECK (schema_version > 0),
+    policy_revision BIGINT NOT NULL CHECK (policy_revision > 0),
+    document JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (catalog_id, policy_key),
+    CONSTRAINT gallery_classification_policy_document_object_check
+        CHECK (jsonb_typeof(document) = 'object')
+);
+
+CREATE TABLE gallery_categories (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
-    facet_id UUID NOT NULL REFERENCES gallery_facets(id) ON DELETE CASCADE,
+    catalog_id UUID NOT NULL REFERENCES gallery_classification_catalogs(id) ON DELETE RESTRICT,
     parent_id UUID,
     slug TEXT NOT NULL,
     name TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
-    sort_order INTEGER NOT NULL DEFAULT 0 CHECK (sort_order >= 0),
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'inactive', 'replaced')),
+    editorial_position INTEGER CHECK (editorial_position IS NULL OR editorial_position >= 0),
+    replacement_id UUID,
+    first_activated_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (facet_id, slug),
-    UNIQUE (facet_id, id),
-    FOREIGN KEY (facet_id, parent_id) REFERENCES gallery_facet_values(facet_id, id)
+    UNIQUE (catalog_id, id),
+    UNIQUE (catalog_id, slug),
+    FOREIGN KEY (catalog_id, parent_id) REFERENCES gallery_categories(catalog_id, id) ON DELETE RESTRICT,
+    FOREIGN KEY (catalog_id, replacement_id) REFERENCES gallery_categories(catalog_id, id) ON DELETE RESTRICT,
+    CONSTRAINT gallery_category_replacement_state_check CHECK (
+        (status = 'replaced' AND replacement_id IS NOT NULL) OR
+        (status <> 'replaced' AND replacement_id IS NULL)
+    ),
+    CONSTRAINT gallery_category_self_replacement_check CHECK (replacement_id IS NULL OR replacement_id <> id)
 );
 
-CREATE INDEX gallery_facet_values_parent_idx ON gallery_facet_values (facet_id, parent_id, sort_order);
+CREATE INDEX gallery_categories_parent_idx
+    ON gallery_categories (catalog_id, parent_id, editorial_position, id);
+
+CREATE TABLE gallery_facets (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    catalog_id UUID NOT NULL REFERENCES gallery_classification_catalogs(id) ON DELETE RESTRICT,
+    slug TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'inactive', 'replaced')),
+    editorial_position INTEGER CHECK (editorial_position IS NULL OR editorial_position >= 0),
+    replacement_id UUID,
+    first_activated_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (catalog_id, id),
+    UNIQUE (catalog_id, slug),
+    FOREIGN KEY (catalog_id, replacement_id) REFERENCES gallery_facets(catalog_id, id) ON DELETE RESTRICT,
+    CONSTRAINT gallery_facet_replacement_state_check CHECK (
+        (status = 'replaced' AND replacement_id IS NOT NULL) OR
+        (status <> 'replaced' AND replacement_id IS NULL)
+    ),
+    CONSTRAINT gallery_facet_self_replacement_check CHECK (replacement_id IS NULL OR replacement_id <> id)
+);
+
+CREATE TABLE gallery_facet_values (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    catalog_id UUID NOT NULL,
+    facet_id UUID NOT NULL,
+    parent_id UUID,
+    slug TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'inactive', 'replaced')),
+    editorial_position INTEGER CHECK (editorial_position IS NULL OR editorial_position >= 0),
+    replacement_id UUID,
+    first_activated_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (catalog_id, facet_id, id),
+    UNIQUE (catalog_id, facet_id, slug),
+    FOREIGN KEY (catalog_id, facet_id) REFERENCES gallery_facets(catalog_id, id) ON DELETE RESTRICT,
+    FOREIGN KEY (catalog_id, facet_id, parent_id)
+        REFERENCES gallery_facet_values(catalog_id, facet_id, id) ON DELETE RESTRICT,
+    FOREIGN KEY (catalog_id, facet_id, replacement_id)
+        REFERENCES gallery_facet_values(catalog_id, facet_id, id) ON DELETE RESTRICT,
+    CONSTRAINT gallery_facet_value_replacement_state_check CHECK (
+        (status = 'replaced' AND replacement_id IS NOT NULL) OR
+        (status <> 'replaced' AND replacement_id IS NULL)
+    ),
+    CONSTRAINT gallery_facet_value_self_replacement_check CHECK (replacement_id IS NULL OR replacement_id <> id)
+);
+
+CREATE INDEX gallery_facet_values_parent_idx
+    ON gallery_facet_values (catalog_id, facet_id, parent_id, editorial_position, id);
 
 CREATE TABLE gallery_tags (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
-    slug TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL UNIQUE,
+    catalog_id UUID NOT NULL REFERENCES gallery_classification_catalogs(id) ON DELETE RESTRICT,
+    current_name TEXT NOT NULL,
+    current_slug TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'replaced')),
+    replacement_id UUID,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (catalog_id, id),
+    UNIQUE (catalog_id, current_slug),
+    FOREIGN KEY (catalog_id, replacement_id) REFERENCES gallery_tags(catalog_id, id) ON DELETE RESTRICT,
+    CONSTRAINT gallery_tag_replacement_state_check CHECK (
+        (status = 'replaced' AND replacement_id IS NOT NULL) OR
+        (status <> 'replaced' AND replacement_id IS NULL)
+    ),
+    CONSTRAINT gallery_tag_self_replacement_check CHECK (replacement_id IS NULL OR replacement_id <> id)
 );
 
-CREATE TABLE gallery_tag_aliases (
-    alias TEXT PRIMARY KEY,
-    tag_id UUID NOT NULL REFERENCES gallery_tags(id) ON DELETE CASCADE
+CREATE TABLE gallery_tag_lookup_entries (
+    catalog_id UUID NOT NULL,
+    lookup_key TEXT NOT NULL,
+    target_tag_id UUID NOT NULL,
+    source_tag_id UUID,
+    kind TEXT NOT NULL CHECK (kind IN ('canonical', 'alias', 'replacement')),
+    display_value TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (catalog_id, lookup_key),
+    FOREIGN KEY (catalog_id, target_tag_id) REFERENCES gallery_tags(catalog_id, id) ON DELETE RESTRICT,
+    FOREIGN KEY (catalog_id, source_tag_id) REFERENCES gallery_tags(catalog_id, id) ON DELETE RESTRICT,
+    CONSTRAINT gallery_tag_lookup_replacement_source_check CHECK (
+        (kind = 'replacement' AND source_tag_id IS NOT NULL) OR
+        (kind <> 'replacement' AND source_tag_id IS NULL)
+    )
 );
+
+CREATE INDEX gallery_tag_lookup_target_idx
+    ON gallery_tag_lookup_entries (catalog_id, target_tag_id, lookup_key);
+
+CREATE TABLE gallery_classification_outbox (
+    event_id UUID PRIMARY KEY DEFAULT uuidv7(),
+    catalog_id UUID NOT NULL REFERENCES gallery_classification_catalogs(id) ON DELETE RESTRICT,
+    revision BIGINT NOT NULL CHECK (revision > 0),
+    event_type TEXT NOT NULL,
+    payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    published_at TIMESTAMPTZ,
+    UNIQUE (catalog_id, revision, event_id)
+);
+
+CREATE INDEX gallery_classification_outbox_unpublished_idx
+    ON gallery_classification_outbox (occurred_at, event_id)
+    WHERE published_at IS NULL;
+
+CREATE FUNCTION gallery_notify_classification_catalog_changed()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM pg_notify(
+        'classification_catalog_changed',
+        NEW.catalog_key || ':' || NEW.revision::text
+    );
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER gallery_classification_catalog_changed
+AFTER UPDATE OF revision ON gallery_classification_catalogs
+FOR EACH ROW
+WHEN (OLD.revision IS DISTINCT FROM NEW.revision)
+EXECUTE FUNCTION gallery_notify_classification_catalog_changed();
 
 CREATE TABLE gallery_submissions (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
@@ -70,7 +200,6 @@ CREATE TABLE gallery_submissions (
     description TEXT NOT NULL DEFAULT '',
     source_url TEXT,
     alt_text TEXT NOT NULL,
-    topic_value_id UUID NOT NULL,
     processing_state TEXT NOT NULL DEFAULT 'queued' CHECK (processing_state IN ('queued', 'processing', 'ready', 'failed')),
     review_state TEXT NOT NULL DEFAULT 'pending' CHECK (review_state IN ('not_required', 'pending', 'approved', 'rejected')),
     safety_state TEXT NOT NULL DEFAULT 'pending' CHECK (safety_state IN ('pending', 'safe', 'uncertain', 'blocked', 'unavailable')),
@@ -95,19 +224,60 @@ CREATE TABLE gallery_submissions (
 CREATE INDEX gallery_submissions_owner_idx ON gallery_submissions (subject_kind, subject_id, created_at DESC);
 CREATE INDEX gallery_submissions_review_idx ON gallery_submissions (review_state, created_at ASC) WHERE outcome = 'pending';
 
-CREATE TABLE gallery_submission_facet_assignments (
+CREATE TABLE gallery_submission_category_assignments (
     submission_id UUID NOT NULL REFERENCES gallery_submissions(id) ON DELETE CASCADE,
-    facet_id UUID NOT NULL,
-    value_id UUID NOT NULL,
+    category_id UUID NOT NULL REFERENCES gallery_categories(id) ON DELETE RESTRICT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (submission_id, facet_id, value_id),
-    FOREIGN KEY (facet_id, value_id) REFERENCES gallery_facet_values(facet_id, id) ON DELETE RESTRICT
+    PRIMARY KEY (submission_id, category_id)
 );
 
-CREATE TABLE gallery_submission_tags (
+CREATE INDEX gallery_submission_category_filter_idx
+    ON gallery_submission_category_assignments (category_id, submission_id);
+
+CREATE TABLE gallery_submission_primary_categories (
+    submission_id UUID PRIMARY KEY REFERENCES gallery_submissions(id) ON DELETE CASCADE,
+    category_id UUID NOT NULL,
+    FOREIGN KEY (submission_id, category_id)
+        REFERENCES gallery_submission_category_assignments(submission_id, category_id)
+        ON DELETE RESTRICT
+        DEFERRABLE INITIALLY DEFERRED
+);
+
+CREATE TABLE gallery_submission_facet_assignments (
+    submission_id UUID NOT NULL REFERENCES gallery_submissions(id) ON DELETE CASCADE,
+    facet_value_id UUID NOT NULL REFERENCES gallery_facet_values(id) ON DELETE RESTRICT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (submission_id, facet_value_id)
+);
+
+CREATE INDEX gallery_submission_facet_filter_idx
+    ON gallery_submission_facet_assignments (facet_value_id, submission_id);
+
+CREATE TABLE gallery_submission_tag_assignments (
     submission_id UUID NOT NULL REFERENCES gallery_submissions(id) ON DELETE CASCADE,
     tag_id UUID NOT NULL REFERENCES gallery_tags(id) ON DELETE RESTRICT,
     PRIMARY KEY (submission_id, tag_id)
+);
+
+CREATE INDEX gallery_submission_tag_filter_idx
+    ON gallery_submission_tag_assignments (tag_id, submission_id);
+
+CREATE TABLE gallery_tag_proposals (
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    submission_id UUID NOT NULL REFERENCES gallery_submissions(id) ON DELETE CASCADE,
+    input_value TEXT NOT NULL,
+    lookup_key TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    resolved_tag_id UUID REFERENCES gallery_tags(id) ON DELETE RESTRICT,
+    reviewed_by TEXT NOT NULL DEFAULT '',
+    reviewed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (submission_id, lookup_key),
+    CONSTRAINT gallery_tag_proposal_resolution_check CHECK (
+        (status = 'approved' AND resolved_tag_id IS NOT NULL) OR
+        (status <> 'approved' AND resolved_tag_id IS NULL)
+    )
 );
 
 CREATE TABLE gallery_images (
@@ -140,8 +310,7 @@ CREATE TABLE gallery_images (
 );
 
 ALTER TABLE gallery_submissions
-    ADD CONSTRAINT gallery_submissions_image_fk FOREIGN KEY (image_id) REFERENCES gallery_images(id) ON DELETE SET NULL,
-    ADD CONSTRAINT gallery_submissions_topic_fk FOREIGN KEY (topic_value_id) REFERENCES gallery_facet_values(id);
+    ADD CONSTRAINT gallery_submissions_image_fk FOREIGN KEY (image_id) REFERENCES gallery_images(id) ON DELETE SET NULL;
 
 CREATE UNIQUE INDEX gallery_images_exact_sha_uidx ON gallery_images (exact_sha256) WHERE exact_sha256 IS NOT NULL;
 CREATE INDEX gallery_images_pdq_hnsw_idx ON gallery_images USING hnsw (pdq_hash bit_hamming_ops)
@@ -153,22 +322,43 @@ CREATE INDEX gallery_images_public_idx ON gallery_images (published_at DESC, id 
       AND safety_state = 'safe'
       AND public_rendition_ready;
 
+CREATE TABLE gallery_image_category_assignments (
+    image_id UUID NOT NULL REFERENCES gallery_images(id) ON DELETE CASCADE,
+    category_id UUID NOT NULL REFERENCES gallery_categories(id) ON DELETE RESTRICT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (image_id, category_id)
+);
+
+CREATE INDEX gallery_image_category_filter_idx
+    ON gallery_image_category_assignments (category_id, image_id);
+
+CREATE TABLE gallery_image_primary_categories (
+    image_id UUID PRIMARY KEY REFERENCES gallery_images(id) ON DELETE CASCADE,
+    category_id UUID NOT NULL,
+    FOREIGN KEY (image_id, category_id)
+        REFERENCES gallery_image_category_assignments(image_id, category_id)
+        ON DELETE RESTRICT
+        DEFERRABLE INITIALLY DEFERRED
+);
+
 CREATE TABLE gallery_image_facet_assignments (
     image_id UUID NOT NULL REFERENCES gallery_images(id) ON DELETE CASCADE,
-    facet_id UUID NOT NULL,
-    value_id UUID NOT NULL,
+    facet_value_id UUID NOT NULL REFERENCES gallery_facet_values(id) ON DELETE RESTRICT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (image_id, facet_id, value_id),
-    FOREIGN KEY (facet_id, value_id) REFERENCES gallery_facet_values(facet_id, id) ON DELETE CASCADE
+    PRIMARY KEY (image_id, facet_value_id)
 );
 
-CREATE INDEX gallery_image_facet_filter_idx ON gallery_image_facet_assignments (facet_id, value_id, image_id);
+CREATE INDEX gallery_image_facet_filter_idx
+    ON gallery_image_facet_assignments (facet_value_id, image_id);
 
-CREATE TABLE gallery_image_tags (
+CREATE TABLE gallery_image_tag_assignments (
     image_id UUID NOT NULL REFERENCES gallery_images(id) ON DELETE CASCADE,
-    tag_id UUID NOT NULL REFERENCES gallery_tags(id) ON DELETE CASCADE,
+    tag_id UUID NOT NULL REFERENCES gallery_tags(id) ON DELETE RESTRICT,
     PRIMARY KEY (image_id, tag_id)
 );
+
+CREATE INDEX gallery_image_tag_filter_idx
+    ON gallery_image_tag_assignments (tag_id, image_id);
 
 CREATE TABLE gallery_collections (
     id UUID PRIMARY KEY DEFAULT uuidv7(),

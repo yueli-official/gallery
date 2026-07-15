@@ -2,8 +2,10 @@ package dao
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -11,7 +13,7 @@ import (
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/lib/pq"
 
-	"platform/gokit/facet"
+	"platform/gokit/classification"
 	"platform/products/gallery/api/internal/collection"
 	"platform/products/gallery/api/internal/galleryerr"
 	"platform/products/gallery/api/internal/model"
@@ -30,18 +32,17 @@ AND i.public_rendition_ready`
 
 const imageCardSelect = `
 SELECT i.id, i.asset_id, i.title, i.alt_text, i.width, i.height, i.dominant_color, i.published_at,
-       COALESCE(topic.name, '') AS topic, COALESCE(topic.slug, '') AS topic_slug,
+       COALESCE(primary_category.name, '') AS primary_category,
+       COALESCE(primary_category.slug, '') AS primary_category_slug,
        COALESCE(metric.view_count, 0)::bigint AS view_count,
        COALESCE(metric.favorite_count, 0)::bigint AS favorite_count
 FROM gallery_images i
 LEFT JOIN LATERAL (
-    SELECT v.name, v.slug
-    FROM gallery_image_facet_assignments a
-    JOIN gallery_facets f ON f.id = a.facet_id AND f.slug = 'topic'
-    JOIN gallery_facet_values v ON v.id = a.value_id
-    WHERE a.image_id = i.id
-    LIMIT 1
-) topic ON TRUE
+    SELECT category.name, category.slug
+    FROM gallery_image_primary_categories primary_assignment
+    JOIN gallery_categories category ON category.id = primary_assignment.category_id
+    WHERE primary_assignment.image_id = i.id
+) primary_category ON TRUE
 LEFT JOIN LATERAL (
     SELECT COALESCE(SUM(m.qualified_views), 0) AS view_count,
            COALESCE(SUM(m.favorites), 0) AS favorite_count
@@ -57,34 +58,174 @@ func (p *PG) SiteSettings(ctx context.Context) (*model.SiteSettings, error) {
 	return value, nil
 }
 
-func (p *PG) Facets(ctx context.Context) ([]facet.Facet, error) {
-	const query = `
-SELECT id::text AS id, slug, name, description, selection_mode,
-       required_on_submit AS required_on_publish, filterable, status, sort_order
-FROM gallery_facets
-ORDER BY sort_order, name`
-	var values []facet.Facet
-	if err := p.db.Ctx(ctx).Raw(query).Scan(&values); err != nil {
-		return nil, gerror.Wrap(err, "query gallery facets")
+func (p *PG) ClassificationRevision(ctx context.Context) (uint64, error) {
+	value, err := p.db.GetValue(ctx, `
+SELECT revision
+FROM gallery_classification_catalogs
+WHERE catalog_key = 'gallery'`)
+	if err != nil {
+		return 0, gerror.Wrap(err, "query gallery classification revision")
 	}
-	return values, nil
+	if value.IsEmpty() {
+		return 0, galleryerr.NotInitialized("classification_catalog")
+	}
+	return value.Uint64(), nil
 }
 
-func (p *PG) FacetValues(ctx context.Context) ([]facet.Value, error) {
-	const query = `
-SELECT v.id::text AS id, v.facet_id::text AS facet_id, COALESCE(v.parent_id::text, '') AS parent_id,
-       v.slug, v.name, v.description, v.status, v.sort_order,
-       COUNT(DISTINCT i.id)::int AS object_count
-FROM gallery_facet_values v
-LEFT JOIN gallery_image_facet_assignments a ON a.facet_id = v.facet_id AND a.value_id = v.id
-LEFT JOIN gallery_images i ON i.id = a.image_id AND ` + eligibleImage + `
-GROUP BY v.id, v.facet_id, v.parent_id, v.slug, v.name, v.description, v.status, v.sort_order
-ORDER BY v.facet_id, v.sort_order, v.name`
-	var values []facet.Value
-	if err := p.db.Ctx(ctx).Raw(query).Scan(&values); err != nil {
-		return nil, gerror.Wrap(err, "query gallery facet values")
+func (p *PG) ClassificationSnapshot(ctx context.Context) (classification.Snapshot, error) {
+	type catalogRow struct {
+		ID       string `orm:"id"`
+		Revision uint64 `orm:"revision"`
 	}
-	return values, nil
+	type policyRow struct {
+		Key            string `orm:"policy_key"`
+		SchemaVersion  uint16 `orm:"schema_version"`
+		PolicyRevision uint64 `orm:"policy_revision"`
+		Document       string `orm:"document"`
+	}
+
+	var snapshot classification.Snapshot
+	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		tx = tx.Ctx(ctx)
+		if _, err := tx.Ctx(ctx).Exec(`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY`); err != nil {
+			return gerror.Wrap(err, "start gallery classification snapshot")
+		}
+
+		var catalog *catalogRow
+		if err := tx.Raw(`
+SELECT id::text AS id, revision
+FROM gallery_classification_catalogs
+WHERE catalog_key = 'gallery'`).Scan(&catalog); err != nil {
+			return gerror.Wrap(err, "query gallery classification catalog")
+		}
+		if catalog == nil {
+			return galleryerr.NotInitialized("classification_catalog")
+		}
+
+		snapshot = classification.Snapshot{CatalogID: catalog.ID, Revision: catalog.Revision}
+		if err := tx.Raw(`
+SELECT id::text AS id, COALESCE(parent_id::text, '') AS parent_id, slug, name, status,
+       editorial_position, COALESCE(replacement_id::text, '') AS replacement_id
+FROM gallery_categories
+WHERE catalog_id = ?::uuid
+ORDER BY id`, catalog.ID).Scan(&snapshot.Categories); err != nil {
+			return gerror.Wrap(err, "query gallery classification categories")
+		}
+		if err := tx.Raw(`
+SELECT id::text AS id, slug, name, status, editorial_position,
+       COALESCE(replacement_id::text, '') AS replacement_id
+FROM gallery_facets
+WHERE catalog_id = ?::uuid
+ORDER BY id`, catalog.ID).Scan(&snapshot.Facets); err != nil {
+			return gerror.Wrap(err, "query gallery classification facets")
+		}
+		if err := tx.Raw(`
+SELECT id::text AS id, facet_id::text AS facet_id, COALESCE(parent_id::text, '') AS parent_id,
+       slug, name, status, editorial_position, COALESCE(replacement_id::text, '') AS replacement_id
+FROM gallery_facet_values
+WHERE catalog_id = ?::uuid
+ORDER BY facet_id, id`, catalog.ID).Scan(&snapshot.FacetValues); err != nil {
+			return gerror.Wrap(err, "query gallery classification facet values")
+		}
+
+		var rows []policyRow
+		if err := tx.Raw(`
+SELECT policy_key, schema_version, policy_revision, document::text AS document
+FROM gallery_classification_policy_profiles
+WHERE catalog_id = ?::uuid
+ORDER BY policy_key`, catalog.ID).Scan(&rows); err != nil {
+			return gerror.Wrap(err, "query gallery classification policies")
+		}
+		for _, row := range rows {
+			policy := classification.PolicyProfile{
+				Key:            row.Key,
+				SchemaVersion:  row.SchemaVersion,
+				PolicyRevision: row.PolicyRevision,
+			}
+			decoder := json.NewDecoder(strings.NewReader(row.Document))
+			decoder.DisallowUnknownFields()
+			if err := decoder.Decode(&policy); err != nil {
+				return gerror.Wrapf(err, "decode gallery classification policy %q", row.Key)
+			}
+			if err := ensureJSONDocumentEnd(decoder); err != nil {
+				return gerror.Wrapf(err, "decode gallery classification policy %q", row.Key)
+			}
+			snapshot.Policies = append(snapshot.Policies, policy)
+		}
+		return nil
+	})
+	if err != nil {
+		return classification.Snapshot{}, err
+	}
+	return snapshot, nil
+}
+
+func (p *PG) ClassificationTagMatches(ctx context.Context, lookups []classification.TagLookupRequest) ([]classification.TagMatch, string, error) {
+	if len(lookups) == 0 {
+		return []classification.TagMatch{}, "", nil
+	}
+	keys := make([]string, 0, len(lookups))
+	for _, lookup := range lookups {
+		keys = append(keys, lookup.LookupKey)
+	}
+	type matchRow struct {
+		LookupKey      string `orm:"lookup_key"`
+		Kind           string `orm:"kind"`
+		TagID          string `orm:"tag_id"`
+		FreshnessToken string `orm:"freshness_token"`
+	}
+	var rows []matchRow
+	if err := p.db.Ctx(ctx).Raw(`
+WITH requested AS (
+    SELECT lookup_key, ordinal
+    FROM unnest(?::text[]) WITH ORDINALITY AS input(lookup_key, ordinal)
+), catalog AS (
+    SELECT id
+    FROM gallery_classification_catalogs
+    WHERE catalog_key = 'gallery'
+)
+SELECT requested.lookup_key,
+	   CASE
+	       WHEN entry.lookup_key IS NULL THEN 'not_found'
+	       WHEN target.status = 'active' THEN entry.kind
+	       ELSE 'inactive'
+	   END AS kind,
+	   COALESCE(target.id::text, '') AS tag_id,
+       pg_current_snapshot()::text AS freshness_token
+FROM requested
+CROSS JOIN catalog
+LEFT JOIN gallery_tag_lookup_entries entry
+  ON entry.catalog_id = catalog.id AND entry.lookup_key = requested.lookup_key
+LEFT JOIN gallery_tags target ON target.id = entry.target_tag_id
+ORDER BY requested.ordinal`, pq.Array(keys)).Scan(&rows); err != nil {
+		return nil, "", gerror.Wrap(err, "query gallery classification tag matches")
+	}
+	if len(rows) != len(keys) {
+		return nil, "", galleryerr.NotInitialized("classification_catalog")
+	}
+	matches := make([]classification.TagMatch, 0, len(rows))
+	freshnessToken := ""
+	for _, row := range rows {
+		matches = append(matches, classification.TagMatch{
+			LookupKey: row.LookupKey,
+			Kind:      classification.TagMatchKind(row.Kind),
+			TagID:     row.TagID,
+		})
+		freshnessToken = row.FreshnessToken
+	}
+	return matches, freshnessToken, nil
+}
+
+func ensureJSONDocumentEnd(decoder *json.Decoder) error {
+	var trailing any
+	err := decoder.Decode(&trailing)
+	if errors.Is(err, io.EOF) {
+		return nil
+	}
+	if err == nil {
+		return errors.New("unexpected trailing JSON value")
+	}
+	return err
 }
 
 func (p *PG) RandomCandidates(ctx context.Context, limit int) ([]model.ImageCard, error) {
@@ -92,37 +233,95 @@ func (p *PG) RandomCandidates(ctx context.Context, limit int) ([]model.ImageCard
 	return p.cards(ctx, query, limit)
 }
 
-func (p *PG) ListImages(ctx context.Context, input model.ImageQuery) ([]model.ImageCard, int, error) {
-	where := []string{eligibleImage}
-	args := []any{}
-	if input.Search != "" {
-		where = append(where, `(i.title ILIKE ? OR i.description ILIKE ?)`)
-		term := "%" + input.Search + "%"
-		args = append(args, term, term)
+func (p *PG) ClassificationCandidateCounts(ctx context.Context, input model.ImageQuery, requests []classification.CandidateCountGroupRequest) ([]classification.CandidateCountGroup, string, error) {
+	if len(requests) == 0 {
+		return []classification.CandidateCountGroup{}, "", nil
 	}
-	if input.Tag != "" {
-		where = append(where, `EXISTS (
-            SELECT 1 FROM gallery_image_tags it
-            JOIN gallery_tags t ON t.id = it.tag_id
-            WHERE it.image_id = i.id AND t.slug = ?
-        )`)
-		args = append(args, input.Tag)
+	type candidatePayload struct {
+		ValueID     string   `json:"valueId"`
+		MatchingIDs []string `json:"matchingIds"`
 	}
-	if len(input.FacetIDs) > 0 {
-		where = append(where, `EXISTS (
-            SELECT 1
-            FROM gallery_image_facet_assignments filter_assignment
-            WHERE filter_assignment.image_id = i.id
-              AND filter_assignment.value_id = ANY(?::uuid[])
-            GROUP BY filter_assignment.image_id
-            HAVING COUNT(DISTINCT filter_assignment.facet_id) = (
-                SELECT COUNT(DISTINCT selected_value.facet_id)
-                FROM gallery_facet_values selected_value
-                WHERE selected_value.id = ANY(?::uuid[])
-            )
-        )`)
-		args = append(args, pq.Array(input.FacetIDs), pq.Array(input.FacetIDs))
+	type countRow struct {
+		ValueID string `orm:"value_id"`
+		Count   int64  `orm:"object_count"`
 	}
+	groups := make([]classification.CandidateCountGroup, 0, len(requests))
+	freshnessToken := ""
+	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		tx = tx.Ctx(ctx)
+		if _, err := tx.Ctx(ctx).Exec(`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY`); err != nil {
+			return gerror.Wrap(err, "start gallery candidate count snapshot")
+		}
+		for _, request := range requests {
+			payload := make([]candidatePayload, 0, len(request.Candidates))
+			for _, candidate := range request.Candidates {
+				payload = append(payload, candidatePayload{ValueID: candidate.ValueID, MatchingIDs: candidate.MatchingIDs})
+			}
+			encoded, err := json.Marshal(payload)
+			if err != nil {
+				return gerror.Wrap(err, "encode gallery candidate count buckets")
+			}
+			where, args := publicImagePredicates(input, request.OtherFilters)
+			assignmentPredicate := ""
+			switch request.Kind {
+			case classification.FilterGroupCategory:
+				assignmentPredicate = `EXISTS (
+                    SELECT 1
+                    FROM gallery_image_category_assignments assignment
+                    WHERE assignment.image_id = i.id
+                      AND assignment.category_id = ANY(candidate.matching_ids)
+                )`
+			case classification.FilterGroupFacet:
+				assignmentPredicate = `EXISTS (
+                    SELECT 1
+                    FROM gallery_image_facet_assignments assignment
+                    WHERE assignment.image_id = i.id
+                      AND assignment.facet_value_id = ANY(candidate.matching_ids)
+                )`
+			default:
+				return fmt.Errorf("unsupported gallery candidate group %q", request.Kind)
+			}
+			query := `
+WITH candidates AS (
+    SELECT value_id::uuid AS value_id,
+           ARRAY(SELECT item::uuid FROM jsonb_array_elements_text(matching_ids) AS elements(item))::uuid[] AS matching_ids
+    FROM jsonb_to_recordset(?::jsonb) AS candidate(value_id text, matching_ids jsonb)
+)
+SELECT candidate.value_id::text AS value_id,
+       (
+           SELECT COUNT(DISTINCT i.id)::bigint
+           FROM gallery_images i
+           WHERE ` + strings.Join(where, " AND ") + `
+             AND ` + assignmentPredicate + `
+       ) AS object_count
+FROM candidates candidate
+ORDER BY candidate.value_id`
+			queryArgs := append([]any{string(encoded)}, args...)
+			var rows []countRow
+			if err := tx.Raw(query, queryArgs...).Scan(&rows); err != nil {
+				return gerror.Wrap(err, "query gallery contextual candidate counts")
+			}
+			group := classification.CandidateCountGroup{Kind: request.Kind, OwnerID: request.OwnerID}
+			for _, row := range rows {
+				group.Counts = append(group.Counts, classification.CandidateCount{ValueID: row.ValueID, Count: row.Count})
+			}
+			groups = append(groups, group)
+		}
+		value, err := tx.GetValue(`SELECT pg_current_snapshot()::text`)
+		if err != nil {
+			return gerror.Wrap(err, "read gallery candidate count snapshot")
+		}
+		freshnessToken = value.String()
+		return nil
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	return groups, freshnessToken, nil
+}
+
+func (p *PG) ListImages(ctx context.Context, input model.ImageQuery, plan classification.FilterPlan) ([]model.ImageCard, int, error) {
+	where, args := publicImagePredicates(input, plan)
 	clause := " WHERE " + strings.Join(where, " AND ")
 	countQuery := `SELECT COUNT(*) FROM gallery_images i` + clause
 	count, err := p.db.GetValue(ctx, countQuery, args...)
@@ -137,6 +336,47 @@ func (p *PG) ListImages(ctx context.Context, input model.ImageQuery) ([]model.Im
 	queryArgs := append(append([]any{}, args...), input.PageSize, (input.Page-1)*input.PageSize)
 	values, err := p.cards(ctx, query, queryArgs...)
 	return values, count.Int(), err
+}
+
+func publicImagePredicates(input model.ImageQuery, plan classification.FilterPlan) ([]string, []any) {
+	where := []string{eligibleImage}
+	args := make([]any, 0)
+	if input.Search != "" {
+		where = append(where, `(i.title ILIKE ? OR i.description ILIKE ?)`)
+		term := "%" + input.Search + "%"
+		args = append(args, term, term)
+	}
+	if input.Tag != "" {
+		where = append(where, `EXISTS (
+            SELECT 1 FROM gallery_image_tag_assignments it
+            JOIN gallery_tags t ON t.id = it.tag_id
+			WHERE it.image_id = i.id AND t.current_slug = ? AND t.status = 'active'
+        )`)
+		args = append(args, input.Tag)
+	}
+	for _, group := range plan.Groups {
+		switch group.Kind {
+		case classification.FilterGroupCategory:
+			where = append(where, `EXISTS (
+                SELECT 1
+                FROM gallery_image_category_assignments category_assignment
+                WHERE category_assignment.image_id = i.id
+                  AND category_assignment.category_id = ANY(?::uuid[])
+            )`)
+			args = append(args, pq.Array(group.ValueIDs))
+		case classification.FilterGroupFacet:
+			where = append(where, `EXISTS (
+                SELECT 1
+                FROM gallery_image_facet_assignments facet_assignment
+                JOIN gallery_facet_values facet_value ON facet_value.id = facet_assignment.facet_value_id
+                WHERE facet_assignment.image_id = i.id
+                  AND facet_value.facet_id = ?::uuid
+                  AND facet_assignment.facet_value_id = ANY(?::uuid[])
+            )`)
+			args = append(args, group.OwnerID, pq.Array(group.ValueIDs))
+		}
+	}
+	return where, args
 }
 
 func (p *PG) Image(ctx context.Context, id, userID string) (*model.ImageDetail, error) {
@@ -162,17 +402,21 @@ WHERE outer_image.id = ? AND ` + strings.ReplaceAll(eligibleImage, "i.", "outer_
 		Name string `orm:"name"`
 	}
 	if err := p.db.Ctx(ctx).Raw(`
-SELECT t.name FROM gallery_tags t
-JOIN gallery_image_tags it ON it.tag_id = t.id
-WHERE it.image_id = ? ORDER BY t.name`, id).Scan(&tags); err != nil {
+SELECT t.current_name AS name FROM gallery_tags t
+JOIN gallery_image_tag_assignments it ON it.tag_id = t.id
+WHERE it.image_id = ? ORDER BY t.current_name`, id).Scan(&tags); err != nil {
 		return nil, gerror.Wrap(err, "query gallery image tags")
 	}
 	value.Tags = make([]string, 0, len(tags))
 	for _, tag := range tags {
 		value.Tags = append(value.Tags, tag.Name)
 	}
-	if err := p.db.Model("gallery_image_facet_assignments").Ctx(ctx).
-		Fields("facet_id::text AS facet_id", "value_id::text AS value_id").Where("image_id", id).Scan(&value.Facets); err != nil {
+	if err := p.db.Ctx(ctx).Raw(`
+SELECT value.facet_id::text AS facet_id, assignment.facet_value_id::text AS value_id
+FROM gallery_image_facet_assignments assignment
+JOIN gallery_facet_values value ON value.id = assignment.facet_value_id
+WHERE assignment.image_id = ?::uuid
+ORDER BY value.facet_id, assignment.facet_value_id`, id).Scan(&value.Facets); err != nil {
 		return nil, gerror.Wrap(err, "query gallery image facets")
 	}
 	return value, nil
@@ -257,7 +501,7 @@ RETURNING id::text AS id, kind, resource_kind, owner_kind, owner_id, visibility,
 		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(`INSERT INTO gallery_collection_editorial (collection_id, slug) VALUES (?::uuid, ?)`, value.ID, input.Slug); err != nil {
+		if _, err := tx.Ctx(ctx).Exec(`INSERT INTO gallery_collection_editorial (collection_id, slug) VALUES (?::uuid, ?)`, value.ID, input.Slug); err != nil {
 			var postgresError *pq.Error
 			if errors.As(err, &postgresError) && postgresError.Code == "23505" {
 				return galleryerr.Conflict("collection_slug")
@@ -307,44 +551,73 @@ LIMIT ?`
 func (p *PG) CreateSubmission(ctx context.Context, subject model.Subject, input model.SubmissionInput, review string) (*model.Submission, error) {
 	const query = `
 INSERT INTO gallery_submissions (
-    subject_kind, subject_id, asset_id, title, description, source_url, alt_text, topic_value_id, review_state
+    subject_kind, subject_id, asset_id, title, description, source_url, alt_text, review_state
 )
-SELECT ?, ?, ?::uuid, ?, ?, NULLIF(?, ''), ?, v.id, ?
-FROM gallery_facet_values v
-JOIN gallery_facets f ON f.id = v.facet_id
-WHERE v.id = ?::uuid AND f.slug = 'topic' AND v.status = 'active'
+VALUES (?, ?, ?::uuid, ?, ?, NULLIF(?, ''), ?, ?)
 RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
           COALESCE(image_id::text, '') AS image_id, title, description, COALESCE(source_url, '') AS source_url,
-          alt_text, topic_value_id::text AS topic_value_id, processing_state, review_state, safety_state,
+          alt_text, processing_state, review_state, safety_state,
           outcome, failure_code, review_note, created_at, updated_at`
 	var value *model.Submission
 	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
-		record, err := tx.Ctx(ctx).GetOne(query, subject.Kind, subject.ID, input.AssetID, input.Title, input.Description,
-			input.SourceURL, input.AltText, review, input.TopicID)
+		tx = tx.Ctx(ctx)
+		catalog, err := tx.GetOne(`
+SELECT revision
+FROM gallery_classification_catalogs
+WHERE catalog_key = 'gallery'
+FOR SHARE`)
 		if err != nil {
-			return err
+			return gerror.Wrap(err, "lock gallery classification revision")
 		}
-		if len(record) == 0 {
-			return galleryerr.Validation("topicId", "topicId must reference an active topic")
+		if len(catalog) == 0 || catalog["revision"].Uint64() != input.Classification.CatalogRevision {
+			return galleryerr.Conflict("classification_revision")
+		}
+		if len(input.Classification.TagCreations) != 0 {
+			return galleryerr.NotInitialized("classification_tag_creation")
+		}
+		record, err := tx.GetOne(query, subject.Kind, subject.ID, input.AssetID, input.Title, input.Description,
+			input.SourceURL, input.AltText, review)
+		if err != nil {
+			return gerror.Wrap(err, "insert gallery submission")
 		}
 		value, err = recordAs[model.Submission](record)
 		if err != nil {
 			return err
 		}
-		for _, assignment := range input.Assignments {
-			if _, err := tx.Exec(`INSERT INTO gallery_submission_facet_assignments (submission_id, facet_id, value_id)
-VALUES (?::uuid, ?::uuid, ?::uuid)`, value.ID, assignment.FacetID, assignment.ValueID); err != nil {
+		for _, assignment := range input.Classification.Categories {
+			if _, err := tx.Ctx(ctx).Exec(`
+INSERT INTO gallery_submission_category_assignments (submission_id, category_id)
+VALUES (?::uuid, ?::uuid)`, value.ID, assignment.CategoryID); err != nil {
+				return gerror.Wrap(err, "assign gallery submission category")
+			}
+		}
+		if input.Classification.PrimaryCategoryID != "" {
+			if _, err := tx.Ctx(ctx).Exec(`
+INSERT INTO gallery_submission_primary_categories (submission_id, category_id)
+VALUES (?::uuid, ?::uuid)`, value.ID, input.Classification.PrimaryCategoryID); err != nil {
+				return gerror.Wrap(err, "assign gallery submission primary category")
+			}
+			value.PrimaryCategoryID = input.Classification.PrimaryCategoryID
+		}
+		for _, assignment := range input.Classification.Facets {
+			if _, err := tx.Ctx(ctx).Exec(`
+INSERT INTO gallery_submission_facet_assignments (submission_id, facet_value_id)
+VALUES (?::uuid, ?::uuid)`, value.ID, assignment.ValueID); err != nil {
 				return gerror.Wrap(err, "assign gallery submission facet")
 			}
 		}
-		for _, tag := range input.NormalizedTags {
-			tagRecord, err := tx.GetOne(`INSERT INTO gallery_tags (slug, name) VALUES (?, ?)
-ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name RETURNING id::text AS id`, tag.Slug, tag.Name)
-			if err != nil {
-				return gerror.Wrap(err, "upsert gallery submission tag")
-			}
-			if _, err := tx.Exec(`INSERT INTO gallery_submission_tags (submission_id, tag_id) VALUES (?::uuid, ?::uuid)`, value.ID, tagRecord["id"].String()); err != nil {
+		for _, tag := range input.Classification.Tags {
+			if _, err := tx.Ctx(ctx).Exec(`
+INSERT INTO gallery_submission_tag_assignments (submission_id, tag_id)
+VALUES (?::uuid, ?::uuid)`, value.ID, tag.TagID); err != nil {
 				return gerror.Wrap(err, "assign gallery submission tag")
+			}
+		}
+		for _, proposal := range input.Classification.TagProposals {
+			if _, err := tx.Ctx(ctx).Exec(`
+INSERT INTO gallery_tag_proposals (submission_id, input_value, lookup_key)
+VALUES (?::uuid, ?, ?)`, value.ID, proposal.DisplayValue, proposal.LookupKey); err != nil {
+				return gerror.Wrap(err, "create gallery submission tag proposal")
 			}
 		}
 		return nil
@@ -365,13 +638,16 @@ func (p *PG) MySubmissions(ctx context.Context, subject model.Subject, page, siz
 		return nil, 0, gerror.Wrap(err, "count owned gallery submissions")
 	}
 	const query = `
-SELECT id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
-       COALESCE(image_id::text, '') AS image_id, title, description, COALESCE(source_url, '') AS source_url,
-       alt_text, topic_value_id::text AS topic_value_id, processing_state, review_state, safety_state,
-       outcome, failure_code, review_note, created_at, updated_at
-FROM gallery_submissions
-WHERE subject_kind = ? AND subject_id = ?
-ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`
+SELECT submission.id::text AS id, submission.subject_kind, submission.subject_id, submission.asset_id::text AS asset_id,
+       COALESCE(submission.image_id::text, '') AS image_id, submission.title, submission.description,
+       COALESCE(submission.source_url, '') AS source_url, submission.alt_text,
+       COALESCE(primary_category.category_id::text, '') AS primary_category_id,
+       submission.processing_state, submission.review_state, submission.safety_state,
+       submission.outcome, submission.failure_code, submission.review_note, submission.created_at, submission.updated_at
+FROM gallery_submissions submission
+LEFT JOIN gallery_submission_primary_categories primary_category ON primary_category.submission_id = submission.id
+WHERE submission.subject_kind = ? AND submission.subject_id = ?
+ORDER BY submission.created_at DESC, submission.id DESC LIMIT ? OFFSET ?`
 	var values []model.Submission
 	if err := p.db.Ctx(ctx).Raw(query, subject.Kind, subject.ID, size, (page-1)*size).Scan(&values); err != nil {
 		return nil, 0, gerror.Wrap(err, "query owned gallery submissions")
@@ -390,7 +666,9 @@ WHERE id = ?::uuid AND subject_kind = ? AND subject_id = ?
   AND outcome IN ('pending', 'published')
 RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
           COALESCE(image_id::text, '') AS image_id, title, description, COALESCE(source_url, '') AS source_url,
-          alt_text, topic_value_id::text AS topic_value_id, processing_state, review_state, safety_state,
+		  alt_text, COALESCE((SELECT category_id::text FROM gallery_submission_primary_categories
+		    WHERE submission_id = gallery_submissions.id), '') AS primary_category_id,
+		  processing_state, review_state, safety_state,
           outcome, failure_code, review_note, created_at, updated_at`, id, subject.Kind, subject.ID)
 		if err != nil {
 			return gerror.Wrap(err, "withdraw gallery submission")
@@ -399,7 +677,7 @@ RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
 		if err != nil || value == nil || value.ImageID == "" {
 			return err
 		}
-		_, err = tx.Exec(`UPDATE gallery_images SET publication_state = 'hidden', hidden_at = NOW(), updated_at = NOW() WHERE id = ?::uuid AND publication_state = 'published'`, value.ImageID)
+		_, err = tx.Ctx(ctx).Exec(`UPDATE gallery_images SET publication_state = 'hidden', hidden_at = NOW(), updated_at = NOW() WHERE id = ?::uuid AND publication_state = 'published'`, value.ImageID)
 		return gerror.Wrap(err, "hide withdrawn gallery image")
 	})
 	return value, err
@@ -451,13 +729,16 @@ func (p *PG) ReviewQueue(ctx context.Context, page, size int) ([]model.Submissio
 		return nil, 0, gerror.Wrap(err, "count gallery review queue")
 	}
 	const query = `
-SELECT id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
-       COALESCE(image_id::text, '') AS image_id, title, description, COALESCE(source_url, '') AS source_url,
-       alt_text, topic_value_id::text AS topic_value_id, processing_state, review_state, safety_state,
-       outcome, failure_code, review_note, created_at, updated_at
-FROM gallery_submissions
-WHERE review_state = 'pending' AND outcome = 'pending'
-ORDER BY created_at ASC, id ASC LIMIT ? OFFSET ?`
+SELECT submission.id::text AS id, submission.subject_kind, submission.subject_id, submission.asset_id::text AS asset_id,
+       COALESCE(submission.image_id::text, '') AS image_id, submission.title, submission.description,
+       COALESCE(submission.source_url, '') AS source_url, submission.alt_text,
+       COALESCE(primary_category.category_id::text, '') AS primary_category_id,
+       submission.processing_state, submission.review_state, submission.safety_state,
+       submission.outcome, submission.failure_code, submission.review_note, submission.created_at, submission.updated_at
+FROM gallery_submissions submission
+LEFT JOIN gallery_submission_primary_categories primary_category ON primary_category.submission_id = submission.id
+WHERE submission.review_state = 'pending' AND submission.outcome = 'pending'
+ORDER BY submission.created_at ASC, submission.id ASC LIMIT ? OFFSET ?`
 	var values []model.Submission
 	if err := p.db.Ctx(ctx).Raw(query, size, (page-1)*size).Scan(&values); err != nil {
 		return nil, 0, gerror.Wrap(err, "query gallery review queue")
@@ -479,7 +760,9 @@ func (p *PG) ReviewSubmission(ctx context.Context, operator, id string, input mo
 		if err := tx.Raw(`
 SELECT id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
        COALESCE(image_id::text, '') AS image_id, title, description, COALESCE(source_url, '') AS source_url,
-       alt_text, topic_value_id::text AS topic_value_id, processing_state, review_state, safety_state,
+	   alt_text, COALESCE((SELECT category_id::text FROM gallery_submission_primary_categories
+	     WHERE submission_id = gallery_submissions.id), '') AS primary_category_id,
+	   processing_state, review_state, safety_state,
        outcome, failure_code, review_note, created_at, updated_at, width, height, dominant_color, public_rendition_ready
 FROM gallery_submissions WHERE id = ?::uuid FOR UPDATE`, id).Scan(&current); err != nil {
 			return gerror.Wrap(err, "lock gallery submission review")
@@ -494,7 +777,9 @@ SET review_state = 'rejected', outcome = 'rejected', review_note = ?, reviewed_b
 WHERE id = ?::uuid
 RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
           COALESCE(image_id::text, '') AS image_id, title, description, COALESCE(source_url, '') AS source_url,
-          alt_text, topic_value_id::text AS topic_value_id, processing_state, review_state, safety_state,
+		  alt_text, COALESCE((SELECT category_id::text FROM gallery_submission_primary_categories
+		    WHERE submission_id = gallery_submissions.id), '') AS primary_category_id,
+		  processing_state, review_state, safety_state,
           outcome, failure_code, review_note, created_at, updated_at`, input.Note, operator, id)
 			if err != nil {
 				return gerror.Wrap(err, "reject gallery submission")
@@ -533,12 +818,32 @@ RETURNING id::text AS id`, id)
 			}
 			imageID = record["id"].String()
 			outcome = "published"
-			if _, err := tx.Exec(`INSERT INTO gallery_image_facet_assignments (image_id, facet_id, value_id)
-SELECT ?::uuid, facet_id, value_id FROM gallery_submission_facet_assignments WHERE submission_id = ?::uuid`, imageID, id); err != nil {
+			if _, err := tx.Ctx(ctx).Exec(`
+INSERT INTO gallery_image_category_assignments (image_id, category_id)
+SELECT ?::uuid, category_id
+FROM gallery_submission_category_assignments
+WHERE submission_id = ?::uuid`, imageID, id); err != nil {
+				return gerror.Wrap(err, "copy approved gallery categories")
+			}
+			if _, err := tx.Ctx(ctx).Exec(`
+INSERT INTO gallery_image_primary_categories (image_id, category_id)
+SELECT ?::uuid, category_id
+FROM gallery_submission_primary_categories
+WHERE submission_id = ?::uuid`, imageID, id); err != nil {
+				return gerror.Wrap(err, "copy approved gallery primary category")
+			}
+			if _, err := tx.Ctx(ctx).Exec(`
+INSERT INTO gallery_image_facet_assignments (image_id, facet_value_id)
+SELECT ?::uuid, facet_value_id
+FROM gallery_submission_facet_assignments
+WHERE submission_id = ?::uuid`, imageID, id); err != nil {
 				return gerror.Wrap(err, "copy approved gallery facets")
 			}
-			if _, err := tx.Exec(`INSERT INTO gallery_image_tags (image_id, tag_id)
-SELECT ?::uuid, tag_id FROM gallery_submission_tags WHERE submission_id = ?::uuid`, imageID, id); err != nil {
+			if _, err := tx.Ctx(ctx).Exec(`
+INSERT INTO gallery_image_tag_assignments (image_id, tag_id)
+SELECT ?::uuid, tag_id
+FROM gallery_submission_tag_assignments
+WHERE submission_id = ?::uuid`, imageID, id); err != nil {
 				return gerror.Wrap(err, "copy approved gallery tags")
 			}
 		}
@@ -549,7 +854,9 @@ SET review_state = 'approved', safety_state = 'safe', outcome = ?, image_id = ?:
 WHERE id = ?::uuid
 RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
           COALESCE(image_id::text, '') AS image_id, title, description, COALESCE(source_url, '') AS source_url,
-          alt_text, topic_value_id::text AS topic_value_id, processing_state, review_state, safety_state,
+		  alt_text, COALESCE((SELECT category_id::text FROM gallery_submission_primary_categories
+		    WHERE submission_id = gallery_submissions.id), '') AS primary_category_id,
+		  processing_state, review_state, safety_state,
           outcome, failure_code, review_note, created_at, updated_at`, outcome, imageID, input.Note, operator, id)
 		if err != nil {
 			return gerror.Wrap(err, "complete gallery submission review")
@@ -675,12 +982,12 @@ func (p *PG) MutateMembers(ctx context.Context, id string, expectedVersion int64
 			return galleryerr.Conflict("collection_version")
 		}
 		for _, imageID := range add {
-			if _, err := tx.Exec(`INSERT INTO gallery_collection_members (collection_id, image_id) VALUES (?::uuid, ?::uuid) ON CONFLICT DO NOTHING`, id, imageID); err != nil {
+			if _, err := tx.Ctx(ctx).Exec(`INSERT INTO gallery_collection_members (collection_id, image_id) VALUES (?::uuid, ?::uuid) ON CONFLICT DO NOTHING`, id, imageID); err != nil {
 				return gerror.Wrap(err, "add gallery collection member")
 			}
 		}
 		for _, imageID := range remove {
-			if _, err := tx.Exec(`DELETE FROM gallery_collection_members WHERE collection_id = ?::uuid AND image_id = ?::uuid`, id, imageID); err != nil {
+			if _, err := tx.Ctx(ctx).Exec(`DELETE FROM gallery_collection_members WHERE collection_id = ?::uuid AND image_id = ?::uuid`, id, imageID); err != nil {
 				return gerror.Wrap(err, "remove gallery collection member")
 			}
 		}
