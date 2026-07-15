@@ -176,6 +176,7 @@ async function executePreview() {
     preview.value = undefined;
     pendingCommand.value = undefined;
     await Promise.all([refresh(), refreshTags(), refreshProposals()]);
+    // feedback-contract: execution closes the preview modal and refreshes multiple catalog sections.
     toast.add({ title: "分类治理已执行", description: operation === "delete" ? "相关标识和已确认依赖已删除。" : "目录 revision 已更新。", color: "success" });
   } catch (cause) {
     actionError.value = cause instanceof Error ? cause.message : "治理执行失败，请重新预览";
@@ -208,6 +209,7 @@ async function reviewTagProposal(item: GalleryClassificationTagProposal, decisio
       body: { decision, targetTagId: decision === "approve" ? proposalTargets.value[item.id] || "" : "" },
     });
     await Promise.all([refresh(), refreshTags(), refreshProposals()]);
+    // feedback-contract: the reviewed proposal leaves its current queue row after refresh.
     toast.add({ title: decision === "approve" ? "Tag 提案已批准" : "Tag 提案已拒绝", color: "success" });
   } catch (cause) {
     actionError.value = cause instanceof Error ? cause.message : "Tag 提案处理失败";

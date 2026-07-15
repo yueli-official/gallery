@@ -57,6 +57,7 @@ async function shareImage() {
   if (navigator.share) await navigator.share({ title: image.value?.title, url });
   else {
     await navigator.clipboard.writeText(url);
+    // feedback-contract: clipboard writes have no persistent inline result surface.
     toast.add({ title: "链接已复制", color: "success" });
   }
   if (image.value) void track("share");
@@ -81,6 +82,7 @@ async function submitCase() {
     reportReason.value = "";
     reportDescription.value = "";
     proposedSourceUrl.value = "";
+    // feedback-contract: the submitted modal closes and its form state is cleared.
     toast.add({ title: reportKind.value === "report" ? "举报已提交" : "来源建议已提交", description: "运营人员会独立复核，不会按次数自动下架。", color: "success" });
   } catch (reason: any) {
     toast.add({ title: "提交失败", description: reason?.data?.message || reason?.message || "请稍后重试", color: "error" });
