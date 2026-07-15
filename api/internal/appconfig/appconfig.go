@@ -25,7 +25,7 @@ func SiteBrand(ctx context.Context) string {
 }
 
 func SiteSlug(ctx context.Context) string {
-	return g.Cfg().MustGet(ctx, "gallery.siteSlug", "gallery-ae").String()
+	return g.Cfg().MustGet(ctx, "gallery.siteSlug", "gallery-main").String()
 }
 
 func AssetBaseURL(ctx context.Context) string {

@@ -12,10 +12,10 @@ database:
     port: "5432"
     user: "postgres"
     pass: "postgres"
-    name: "gallery_ae"
+    name: "gallery_main"
 
 gallery:
-  siteSlug: "gallery-ae"
+  siteSlug: "gallery-main"
   brand: "月离图库"
   asset:
     baseUrl: "http://localhost:8082"
@@ -24,4 +24,4 @@ gallery:
   jwks:
     url: "http://localhost:8081/oauth2/jwks.json"
     issuer: "http://localhost:8081"
-    audience: "gallery-ae-web"
+    audience: "gallery-main-web"

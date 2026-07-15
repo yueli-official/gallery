@@ -32,7 +32,7 @@ export default defineNuxtConfig({
       oidcIssuer:
         process.env.NUXT_PUBLIC_OIDC_ISSUER || "http://localhost:8081",
       oidcClientId:
-        process.env.NUXT_PUBLIC_OIDC_CLIENT_ID || "gallery-ae-web",
+        process.env.NUXT_PUBLIC_OIDC_CLIENT_ID || "gallery-main-web",
       oidcRedirectUri:
         process.env.NUXT_PUBLIC_OIDC_REDIRECT_URI ||
         "http://localhost:3007/auth/callback",
@@ -41,11 +41,11 @@ export default defineNuxtConfig({
         "openid profile email roles offline_access",
       accountUrl:
         process.env.NUXT_PUBLIC_ACCOUNT_URL || "http://localhost:3000",
-      siteSlug: process.env.NUXT_PUBLIC_SITE_SLUG || "gallery-ae",
+      siteSlug: process.env.NUXT_PUBLIC_SITE_SLUG || "gallery-main",
       siteBrand,
       siteDomain: process.env.NUXT_PUBLIC_SITE_DOMAIN || "gallery.localhost",
-      assetSpace: process.env.NUXT_PUBLIC_ASSET_SPACE || "ae",
-      assetNamespace: process.env.NUXT_PUBLIC_ASSET_NAMESPACE || "ae",
+      assetSpace: process.env.NUXT_PUBLIC_ASSET_SPACE || "yueli",
+      assetNamespace: process.env.NUXT_PUBLIC_ASSET_NAMESPACE || "yueli",
       assetProfile:
         process.env.NUXT_PUBLIC_ASSET_PROFILE || "gallery-default",
       operatorSubs: process.env.NUXT_PUBLIC_OPERATOR_SUBS || "",
