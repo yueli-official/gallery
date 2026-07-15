@@ -18,6 +18,14 @@ type GetDiscoveryRes struct {
 	Facets     []model.ClassificationFacet `json:"facets"`
 }
 
+type GetSubmissionOptionsReq struct {
+	g.Meta `path:"/api/v1/gallery/submission-options" method:"GET" tags:"Gallery submissions" summary:"Get active classification choices for a submission"`
+}
+type GetSubmissionOptionsRes struct {
+	Categories []model.ClassificationNode  `json:"categories"`
+	Facets     []model.ClassificationFacet `json:"facets"`
+}
+
 type ListImagesReq struct {
 	g.Meta     `path:"/api/v1/gallery/images" method:"GET" tags:"Gallery images" summary:"List eligible public images with page-based filtering"`
 	Search     string `p:"q"`

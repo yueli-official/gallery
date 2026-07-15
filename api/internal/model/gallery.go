@@ -82,6 +82,11 @@ type Discovery struct {
 	Facets     []ClassificationFacet `json:"facets"`
 }
 
+type SubmissionOptions struct {
+	Categories []ClassificationNode  `json:"categories"`
+	Facets     []ClassificationFacet `json:"facets"`
+}
+
 type ClassificationNode struct {
 	ID       string `json:"id"`
 	ParentID string `json:"parentId,omitempty"`

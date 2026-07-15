@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { createPlatformNotifier } from "@platform/ui/feedback";
-import type { GalleryDiscovery, GallerySubmission, GalleryUploadedAsset } from "~/types/gallery";
+import type { GallerySubmission, GallerySubmissionOptions, GalleryUploadedAsset } from "~/types/gallery";
 
 const { loggedIn, login } = useAuth();
 const { call } = useApi();
 const { upload } = useGalleryAssetUpload();
 const toast = createPlatformNotifier(useToast());
-const { data: discovery } = await useFetch<GalleryDiscovery>("/api/gallery/discovery", { query: { seed: "submission-form" } });
+const { data: submissionOptions } = await useFetch<GallerySubmissionOptions>("/api/gallery/submission-options");
 const file = ref<File>();
 const previewUrl = ref("");
 const title = ref("");
@@ -19,8 +19,8 @@ const progress = ref(0);
 const pending = ref(false);
 const completed = ref<GallerySubmission>();
 
-const categoryItems = computed(() => (discovery.value?.categories || []).map(item => ({ label: item.name, value: item.id })));
-const sceneFacet = computed(() => discovery.value?.facets.find(item => item.slug === "scene"));
+const categoryItems = computed(() => (submissionOptions.value?.categories || []).map(item => ({ label: item.name, value: item.id })));
+const sceneFacet = computed(() => submissionOptions.value?.facets.find(item => item.slug === "scene"));
 const sceneItems = computed(() => (sceneFacet.value?.values || []).map(item => ({ label: item.name, value: item.id })));
 const accepted = ".jpg,.jpeg,.png,.webp,.avif,.heic,.heif,image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif";
 

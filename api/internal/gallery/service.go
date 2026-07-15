@@ -109,7 +109,7 @@ func (s *Service) Discovery(ctx context.Context, seed string) (*model.Discovery,
 	if err != nil {
 		return nil, err
 	}
-	preparation := catalog.Discover(classification.DiscoverRequest{PolicyKey: "gallery.image.public", IncludeCandidates: true})
+	preparation := catalog.Discover(classification.DiscoverRequest{PolicyKey: "gallery.image.public", CandidateProjection: classification.CandidateProjectionAvailable})
 	factRequest := preparation.FactRequest()
 	countGroups, freshnessToken, err := s.store.ClassificationCandidateCounts(ctx, model.ImageQuery{}, factRequest.CountGroups)
 	if err != nil {
@@ -134,6 +134,29 @@ func (s *Service) Discovery(ctx context.Context, seed string) (*model.Discovery,
 	}, nil
 }
 
+func (s *Service) SubmissionOptions(ctx context.Context) (*model.SubmissionOptions, error) {
+	catalog, err := s.classificationCatalog(ctx)
+	if err != nil {
+		return nil, err
+	}
+	preparation := catalog.Discover(classification.DiscoverRequest{
+		PolicyKey:           "gallery.image.public",
+		CandidateProjection: classification.CandidateProjectionActive,
+	})
+	factRequest := preparation.FactRequest()
+	result := preparation.Complete(classification.DiscoverFacts{
+		CatalogRevision: factRequest.CatalogRevision,
+		RequestToken:    factRequest.RequestToken,
+	})
+	if result.Outcome != classification.OutcomeAccepted {
+		return nil, classificationValidation(result.Diagnostics)
+	}
+	return &model.SubmissionOptions{
+		Categories: categoryCandidates(result.Candidates.Categories),
+		Facets:     facetCandidates(result.Candidates.Facets),
+	}, nil
+}
+
 func (s *Service) Images(ctx context.Context, query model.ImageQuery) (*model.ImagePage, error) {
 	query.Search = strings.TrimSpace(query.Search)
 	query.Tag = strings.TrimSpace(query.Tag)
@@ -151,7 +174,7 @@ func (s *Service) Images(ctx context.Context, query model.ImageQuery) (*model.Im
 	if err != nil {
 		return nil, err
 	}
-	discoverRequest.IncludeCandidates = true
+	discoverRequest.CandidateProjection = classification.CandidateProjectionAvailable
 	preparation := catalog.Discover(discoverRequest)
 	factRequest := preparation.FactRequest()
 	countGroups, freshnessToken, err := s.store.ClassificationCandidateCounts(ctx, query, factRequest.CountGroups)

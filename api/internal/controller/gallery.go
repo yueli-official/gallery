@@ -24,6 +24,14 @@ func (c *Public) GetDiscovery(ctx context.Context, req *v1.GetDiscoveryReq) (*v1
 	}, nil
 }
 
+func (c *Public) GetSubmissionOptions(ctx context.Context, _ *v1.GetSubmissionOptionsReq) (*v1.GetSubmissionOptionsRes, error) {
+	value, err := c.service.SubmissionOptions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.GetSubmissionOptionsRes{Categories: value.Categories, Facets: value.Facets}, nil
+}
+
 func (c *Public) ListImages(ctx context.Context, req *v1.ListImagesReq) (*v1.ListImagesRes, error) {
 	page, err := c.service.Images(ctx, model.ImageQuery{
 		Search: req.Search, Sort: req.Sort, Page: req.Page, PageSize: req.Size,

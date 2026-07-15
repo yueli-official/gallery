@@ -28,6 +28,7 @@ type fakeStore struct {
 	submitSeen             model.SubmissionInput
 	classificationSnapshot classification.Snapshot
 	tagMatches             []classification.TagMatch
+	candidateCountCalls    int
 	filterPlanSeen         classification.FilterPlan
 	governanceImpacts      []classification.ReferenceImpact
 	governanceToken        string
@@ -52,6 +53,7 @@ func (f *fakeStore) ClassificationTagMatches(_ context.Context, _ []classificati
 	return append([]classification.TagMatch(nil), f.tagMatches...), "tags:test", nil
 }
 func (f *fakeStore) ClassificationCandidateCounts(_ context.Context, _ model.ImageQuery, requests []classification.CandidateCountGroupRequest) ([]classification.CandidateCountGroup, string, error) {
+	f.candidateCountCalls++
 	groups := make([]classification.CandidateCountGroup, 0, len(requests))
 	for _, request := range requests {
 		group := classification.CandidateCountGroup{Kind: request.Kind, OwnerID: request.OwnerID}
@@ -154,6 +156,28 @@ func (f *fakeStore) RecordEvent(context.Context, model.Subject, string, model.Ev
 func TestDiscoveryRequiresSettings(t *testing.T) {
 	_, err := New(&fakeStore{}).Discovery(context.Background(), "seed")
 	assertCode(t, err, "gallery.not_initialized")
+}
+
+func TestSubmissionOptionsKeepActiveClassificationOnEmptyGallery(t *testing.T) {
+	store := validSubmissionStore()
+	options, err := New(store).SubmissionOptions(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if store.candidateCountCalls != 0 {
+		t.Fatalf("submission options requested public candidate counts %d times", store.candidateCountCalls)
+	}
+	if !reflect.DeepEqual(options.Categories, []model.ClassificationNode{{
+		ID: testCategoryID, Slug: "wallpaper", Name: "壁纸",
+	}}) {
+		t.Fatalf("categories = %#v", options.Categories)
+	}
+	if !reflect.DeepEqual(options.Facets, []model.ClassificationFacet{{
+		ID: testFacetID, Slug: "scene", Name: "场景",
+		Values: []model.ClassificationNode{{ID: testValueID, Slug: "landscape", Name: "风景"}},
+	}}) {
+		t.Fatalf("facets = %#v", options.Facets)
+	}
 }
 
 func TestSeededDiscoveryIsStableAndAvoidsAdjacentTopics(t *testing.T) {

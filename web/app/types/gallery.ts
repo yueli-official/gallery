@@ -50,6 +50,11 @@ export interface GalleryDiscovery {
 	facets: GalleryFacet[];
 }
 
+export interface GallerySubmissionOptions {
+	categories: GalleryClassificationNode[];
+	facets: GalleryFacet[];
+}
+
 export interface GalleryClassificationNode {
 	id: string;
 	parentId?: string;
