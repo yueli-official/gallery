@@ -171,6 +171,8 @@ CREATE INDEX gallery_tag_lookup_source_idx
 CREATE INDEX gallery_tags_replacement_idx
     ON gallery_tags (catalog_id, replacement_id)
     WHERE replacement_id IS NOT NULL;
+CREATE INDEX gallery_tags_name_cursor_idx
+    ON gallery_tags (LOWER(current_name), id);
 
 CREATE TABLE gallery_classification_outbox (
     event_id UUID PRIMARY KEY DEFAULT uuidv7(),

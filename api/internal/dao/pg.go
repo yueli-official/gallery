@@ -168,6 +168,10 @@ func (p *PG) ClassificationTagMatches(ctx context.Context, lookups []classificat
 	for _, lookup := range lookups {
 		keys = append(keys, lookup.LookupKey)
 	}
+	keyArray, err := pq.StringArray(keys).Value()
+	if err != nil {
+		return nil, "", gerror.Wrap(err, "encode gallery classification tag lookup keys")
+	}
 	type matchRow struct {
 		LookupKey      string `orm:"lookup_key"`
 		Kind           string `orm:"kind"`
@@ -197,7 +201,7 @@ CROSS JOIN catalog
 LEFT JOIN gallery_tag_lookup_entries entry
   ON entry.catalog_id = catalog.id AND entry.lookup_key = requested.lookup_key
 LEFT JOIN gallery_tags target ON target.id = entry.target_tag_id
-ORDER BY requested.ordinal`, pq.Array(keys)).Scan(&rows); err != nil {
+ORDER BY requested.ordinal`, keyArray).Scan(&rows); err != nil {
 		return nil, "", gerror.Wrap(err, "query gallery classification tag matches")
 	}
 	if len(rows) != len(keys) {
@@ -238,8 +242,8 @@ func (p *PG) ClassificationCandidateCounts(ctx context.Context, input model.Imag
 		return []classification.CandidateCountGroup{}, "", nil
 	}
 	type candidatePayload struct {
-		ValueID     string   `json:"valueId"`
-		MatchingIDs []string `json:"matchingIds"`
+		ValueID     string   `json:"value_id"`
+		MatchingIDs []string `json:"matching_ids"`
 	}
 	type countRow struct {
 		ValueID string `orm:"value_id"`
@@ -363,7 +367,7 @@ func publicImagePredicates(input model.ImageQuery, plan classification.FilterPla
                 WHERE category_assignment.image_id = i.id
                   AND category_assignment.category_id = ANY(?::uuid[])
             )`)
-			args = append(args, pq.Array(group.ValueIDs))
+			args = append(args, uuidArrayLiteral(group.ValueIDs))
 		case classification.FilterGroupFacet:
 			where = append(where, `EXISTS (
                 SELECT 1
@@ -373,10 +377,14 @@ func publicImagePredicates(input model.ImageQuery, plan classification.FilterPla
                   AND facet_value.facet_id = ?::uuid
                   AND facet_assignment.facet_value_id = ANY(?::uuid[])
             )`)
-			args = append(args, group.OwnerID, pq.Array(group.ValueIDs))
+			args = append(args, group.OwnerID, uuidArrayLiteral(group.ValueIDs))
 		}
 	}
 	return where, args
+}
+
+func uuidArrayLiteral(values []string) string {
+	return "{" + strings.Join(values, ",") + "}"
 }
 
 func (p *PG) Image(ctx context.Context, id, userID string) (*model.ImageDetail, error) {
@@ -1024,7 +1032,7 @@ func (p *PG) Collectable(ctx context.Context, ids []string) (map[string]bool, er
 		ID string `orm:"id"`
 	}
 	query := `SELECT i.id::text AS id FROM gallery_images i WHERE i.id = ANY(?::uuid[]) AND ` + eligibleImage
-	if err := p.db.Ctx(ctx).Raw(query, pq.Array(ids)).Scan(&rows); err != nil {
+	if err := p.db.Ctx(ctx).Raw(query, uuidArrayLiteral(ids)).Scan(&rows); err != nil {
 		return nil, gerror.Wrap(err, "validate collectable gallery images")
 	}
 	for _, row := range rows {
