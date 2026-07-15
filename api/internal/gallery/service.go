@@ -3,7 +3,9 @@ package gallery
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"math"
 	"net/url"
@@ -26,6 +28,11 @@ type Store interface {
 	ClassificationSnapshot(context.Context) (classification.Snapshot, error)
 	ClassificationTagMatches(context.Context, []classification.TagLookupRequest) ([]classification.TagMatch, string, error)
 	ClassificationCandidateCounts(context.Context, model.ImageQuery, []classification.CandidateCountGroupRequest) ([]classification.CandidateCountGroup, string, error)
+	ClassificationGovernanceImpacts(context.Context, []classification.ImpactRequest) ([]classification.ReferenceImpact, string, error)
+	ExecuteClassificationGovernance(context.Context, string, classification.GovernFactRequest, classification.GovernancePlan) (uint64, error)
+	ClassificationTags(context.Context, model.ClassificationTagCursor, int) ([]model.ClassificationTag, bool, error)
+	ClassificationTagProposals(context.Context, string, int, int) ([]model.ClassificationTagProposal, int, error)
+	ReviewClassificationTagProposal(context.Context, string, string, model.ClassificationTagProposalReviewInput) (*model.ClassificationTagProposal, bool, error)
 	RandomCandidates(context.Context, int) ([]model.ImageCard, error)
 	ListImages(context.Context, model.ImageQuery, classification.FilterPlan) ([]model.ImageCard, int, error)
 	Image(context.Context, string, string) (*model.ImageDetail, error)
@@ -527,6 +534,313 @@ func (s *Service) classificationCatalog(ctx context.Context) (*classification.Ca
 	s.catalogRevision = compiled.CatalogRevision
 	s.catalogCheckedAt = now
 	return s.catalog, nil
+}
+
+func (s *Service) PreviewClassificationGovernance(ctx context.Context, input model.ClassificationGovernancePreviewInput) (*model.ClassificationGovernancePreview, error) {
+	_, result, err := s.prepareClassificationGovernance(ctx, input.Command)
+	if err != nil {
+		return nil, err
+	}
+	return governancePreview(result), nil
+}
+
+func (s *Service) ClassificationCatalog(ctx context.Context) (*model.ClassificationCatalog, error) {
+	snapshot, err := s.store.ClassificationSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := &model.ClassificationCatalog{
+		Revision: snapshot.Revision, Categories: make([]model.ClassificationCatalogNode, 0, len(snapshot.Categories)),
+		Facets: make([]model.ClassificationCatalogFacet, 0, len(snapshot.Facets)),
+	}
+	for _, category := range snapshot.Categories {
+		result.Categories = append(result.Categories, classificationCatalogNode(
+			category.ID, category.ParentID, category.Slug, category.Name, category.Status,
+			category.EditorialPosition, category.ReplacementID,
+		))
+	}
+	valuesByFacet := make(map[string][]model.ClassificationCatalogNode, len(snapshot.Facets))
+	for _, value := range snapshot.FacetValues {
+		valuesByFacet[value.FacetID] = append(valuesByFacet[value.FacetID], classificationCatalogNode(
+			value.ID, value.ParentID, value.Slug, value.Name, value.Status,
+			value.EditorialPosition, value.ReplacementID,
+		))
+	}
+	for _, facet := range snapshot.Facets {
+		values := valuesByFacet[facet.ID]
+		if values == nil {
+			values = []model.ClassificationCatalogNode{}
+		}
+		result.Facets = append(result.Facets, model.ClassificationCatalogFacet{
+			ID: facet.ID, Slug: facet.Slug, Name: facet.Name, Status: string(facet.Status),
+			EditorialPosition: facet.EditorialPosition, ReplacementID: facet.ReplacementID, Values: values,
+		})
+	}
+	return result, nil
+}
+
+func (s *Service) ClassificationTags(ctx context.Context, cursor string, size int) (*model.ClassificationTagPage, error) {
+	parsed, err := decodeClassificationTagCursor(cursor)
+	if err != nil {
+		return nil, galleryerr.Validation("cursor", "cursor is invalid")
+	}
+	size = bounded(size, 1, 100, 50)
+	items, hasMore, err := s.store.ClassificationTags(ctx, parsed, size)
+	if err != nil {
+		return nil, err
+	}
+	page := &model.ClassificationTagPage{Items: items}
+	if page.Items == nil {
+		page.Items = []model.ClassificationTag{}
+	}
+	if hasMore && len(items) > 0 {
+		page.NextCursor, err = encodeClassificationTagCursor(model.ClassificationTagCursor{
+			Name: items[len(items)-1].Name,
+			ID:   items[len(items)-1].ID,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return page, nil
+}
+
+func (s *Service) ClassificationTagProposals(ctx context.Context, status string, page, size int) ([]model.ClassificationTagProposal, int, error) {
+	status = defaultString(strings.TrimSpace(status), "pending")
+	if !oneOf(status, "pending", "approved", "rejected") {
+		return nil, 0, galleryerr.Validation("status", "unsupported tag proposal status")
+	}
+	page = bounded(page, 1, 100000, 1)
+	size = bounded(size, 1, 100, 30)
+	values, total, err := s.store.ClassificationTagProposals(ctx, status, page, size)
+	if values == nil {
+		values = []model.ClassificationTagProposal{}
+	}
+	return values, total, err
+}
+
+func (s *Service) ReviewClassificationTagProposal(ctx context.Context, operator, rawID string, input model.ClassificationTagProposalReviewInput) (*model.ClassificationTagProposal, error) {
+	operator = strings.TrimSpace(operator)
+	if operator == "" {
+		return nil, galleryerr.Forbidden()
+	}
+	id, err := DatabaseID(rawID)
+	if err != nil {
+		return nil, galleryerr.Validation("proposalId", "proposal ID must be a UUID or compact UUID")
+	}
+	input.Decision = strings.TrimSpace(input.Decision)
+	if !oneOf(input.Decision, "approve", "reject") {
+		return nil, galleryerr.Validation("decision", "decision must be approve or reject")
+	}
+	if input.TargetTagID = strings.TrimSpace(input.TargetTagID); input.TargetTagID != "" {
+		input.TargetTagID, err = DatabaseID(input.TargetTagID)
+		if err != nil {
+			return nil, galleryerr.Validation("targetTagId", "target tag ID must be a UUID or compact UUID")
+		}
+	}
+	value, catalogChanged, err := s.store.ReviewClassificationTagProposal(ctx, operator, id, input)
+	if err != nil {
+		return nil, err
+	}
+	if value == nil {
+		return nil, galleryerr.NotFound("tag_proposal", rawID)
+	}
+	if catalogChanged {
+		s.invalidateClassificationCatalog()
+	}
+	return value, nil
+}
+
+type classificationTagCursorEnvelope struct {
+	Name string `json:"n"`
+	ID   string `json:"i"`
+}
+
+func decodeClassificationTagCursor(raw string) (model.ClassificationTagCursor, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return model.ClassificationTagCursor{}, nil
+	}
+	if len(raw) > 2048 {
+		return model.ClassificationTagCursor{}, fmt.Errorf("classification tag cursor is too long")
+	}
+	decoded, err := base64.RawURLEncoding.DecodeString(raw)
+	if err != nil {
+		return model.ClassificationTagCursor{}, err
+	}
+	var envelope classificationTagCursorEnvelope
+	if err := json.Unmarshal(decoded, &envelope); err != nil {
+		return model.ClassificationTagCursor{}, err
+	}
+	if strings.TrimSpace(envelope.Name) == "" {
+		return model.ClassificationTagCursor{}, fmt.Errorf("classification tag cursor name is empty")
+	}
+	id, err := DatabaseID(envelope.ID)
+	if err != nil {
+		return model.ClassificationTagCursor{}, err
+	}
+	return model.ClassificationTagCursor{Name: envelope.Name, ID: id}, nil
+}
+
+func encodeClassificationTagCursor(cursor model.ClassificationTagCursor) (string, error) {
+	encoded, err := json.Marshal(classificationTagCursorEnvelope{Name: cursor.Name, ID: cursor.ID})
+	if err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(encoded), nil
+}
+
+func classificationCatalogNode(id, parentID, slug, name string, status classification.Status, position *int, replacementID string) model.ClassificationCatalogNode {
+	return model.ClassificationCatalogNode{
+		ID: id, ParentID: parentID, Slug: slug, Name: name, Status: string(status),
+		EditorialPosition: position, ReplacementID: replacementID,
+	}
+}
+
+func (s *Service) ExecuteClassificationGovernance(ctx context.Context, operator string, input model.ClassificationGovernanceExecuteInput) (*model.ClassificationGovernanceExecution, error) {
+	operator = strings.TrimSpace(operator)
+	if operator == "" {
+		return nil, galleryerr.Forbidden()
+	}
+	factRequest, result, err := s.prepareClassificationGovernance(ctx, input.Command)
+	if err != nil {
+		return nil, err
+	}
+	if result.Outcome != classification.OutcomePlanned {
+		return nil, classificationValidation(result.Diagnostics)
+	}
+	if input.ExpectedCatalogRevision == 0 || strings.TrimSpace(input.ExpectedRequestToken) == "" ||
+		(len(factRequest.Impacts) != 0 && strings.TrimSpace(input.ExpectedImpactToken) == "") {
+		return nil, galleryerr.Validation("governance", "a governance preview envelope is required")
+	}
+	if input.ExpectedCatalogRevision != result.Plan.ExpectedCatalogRevision ||
+		strings.TrimSpace(input.ExpectedRequestToken) != result.Plan.ExpectedRequestToken ||
+		strings.TrimSpace(input.ExpectedImpactToken) != result.Plan.ExpectedImpactToken {
+		return nil, galleryerr.Conflict("classification_governance")
+	}
+	revision, err := s.store.ExecuteClassificationGovernance(ctx, operator, factRequest, result.Plan)
+	if err != nil {
+		return nil, err
+	}
+	s.invalidateClassificationCatalog()
+	return &model.ClassificationGovernanceExecution{Applied: true, CatalogRevision: revision}, nil
+}
+
+func (s *Service) prepareClassificationGovernance(ctx context.Context, command model.ClassificationGovernanceCommand) (classification.GovernFactRequest, classification.GovernResult, error) {
+	normalized, err := normalizeGovernanceCommand(command)
+	if err != nil {
+		return classification.GovernFactRequest{}, classification.GovernResult{}, err
+	}
+	catalog, err := s.classificationCatalog(ctx)
+	if err != nil {
+		return classification.GovernFactRequest{}, classification.GovernResult{}, err
+	}
+	preparation := catalog.Govern(classification.GovernRequest{
+		PolicyKey: "gallery.image.public",
+		Command:   normalized,
+	})
+	factRequest := preparation.FactRequest()
+	impacts, freshnessToken, err := s.store.ClassificationGovernanceImpacts(ctx, factRequest.Impacts)
+	if err != nil {
+		return classification.GovernFactRequest{}, classification.GovernResult{}, err
+	}
+	result := preparation.Complete(classification.GovernFacts{
+		CatalogRevision: factRequest.CatalogRevision,
+		RequestToken:    factRequest.RequestToken,
+		FreshnessToken:  freshnessToken,
+		Impacts:         impacts,
+	})
+	return factRequest, result, nil
+}
+
+func normalizeGovernanceCommand(input model.ClassificationGovernanceCommand) (classification.GovernCommand, error) {
+	command := classification.GovernCommand{
+		Operation:        classification.GovernOperation(strings.TrimSpace(input.Operation)),
+		Kind:             classification.GovernIdentityKind(strings.TrimSpace(input.Kind)),
+		Status:           classification.Status(strings.TrimSpace(input.Status)),
+		DeleteAllRelated: input.DeleteAllRelated,
+	}
+	var err error
+	if command.ID, err = governanceDatabaseID("id", input.ID, false); err != nil {
+		return classification.GovernCommand{}, err
+	}
+	if command.TargetID, err = governanceDatabaseID("targetId", input.TargetID, true); err != nil {
+		return classification.GovernCommand{}, err
+	}
+	if command.ParentID, err = governanceDatabaseID("parentId", input.ParentID, true); err != nil {
+		return classification.GovernCommand{}, err
+	}
+	for _, move := range input.ChildPlan {
+		childID, childErr := governanceDatabaseID("childPlan.childId", move.ChildID, false)
+		if childErr != nil {
+			return classification.GovernCommand{}, childErr
+		}
+		parentID, parentErr := governanceDatabaseID("childPlan.parentId", move.ParentID, true)
+		if parentErr != nil {
+			return classification.GovernCommand{}, parentErr
+		}
+		command.ChildPlan = append(command.ChildPlan, classification.ChildMove{ChildID: childID, ParentID: parentID})
+	}
+	return command, nil
+}
+
+func governanceDatabaseID(field, raw string, optional bool) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" && optional {
+		return "", nil
+	}
+	id, err := DatabaseID(raw)
+	if err != nil {
+		return "", galleryerr.Validation(field, field+" must be a UUID or compact UUID")
+	}
+	return id, nil
+}
+
+func governancePreview(result classification.GovernResult) *model.ClassificationGovernancePreview {
+	preview := &model.ClassificationGovernancePreview{
+		CatalogRevision: result.CatalogRevision,
+		Outcome:         string(result.Outcome),
+		Diagnostics:     make([]model.ClassificationGovernanceDiagnostic, 0, len(result.Diagnostics)),
+		Plan: model.ClassificationGovernancePlan{
+			ExpectedCatalogRevision: result.Plan.ExpectedCatalogRevision,
+			ExpectedRequestToken:    result.Plan.ExpectedRequestToken,
+			ExpectedImpactToken:     result.Plan.ExpectedImpactToken,
+			Steps:                   make([]model.ClassificationGovernanceStep, 0, len(result.Plan.Steps)),
+		},
+	}
+	for _, diagnostic := range result.Diagnostics {
+		preview.Diagnostics = append(preview.Diagnostics, model.ClassificationGovernanceDiagnostic{
+			Code: string(diagnostic.Code), Path: append([]string(nil), diagnostic.Path...),
+			Reference: diagnostic.Reference, Params: diagnostic.Params,
+		})
+	}
+	for _, step := range result.Plan.Steps {
+		preview.Plan.Steps = append(preview.Plan.Steps, model.ClassificationGovernanceStep{
+			Kind: string(step.Kind), IdentityKind: string(step.IdentityKind), SourceID: step.SourceID,
+			TargetID: step.TargetID, ParentID: step.ParentID, Status: string(step.Status), AffectedCount: step.AffectedCount,
+		})
+	}
+	return preview
+}
+
+func (s *Service) invalidateClassificationCatalog() {
+	s.catalogMu.Lock()
+	defer s.catalogMu.Unlock()
+	s.catalog = nil
+	s.catalogRevision = 0
+	s.catalogCheckedAt = time.Time{}
+}
+
+func (s *Service) MarkClassificationCatalogStale() {
+	s.catalogMu.Lock()
+	defer s.catalogMu.Unlock()
+	s.catalogCheckedAt = time.Time{}
+}
+
+func (s *Service) RefreshClassificationCatalog(ctx context.Context) error {
+	s.MarkClassificationCatalogStale()
+	_, err := s.classificationCatalog(ctx)
+	return err
 }
 
 func classificationValidation(diagnostics []classification.Diagnostic) error {

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"os"
+	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/os/gctx"
@@ -13,6 +15,7 @@ import (
 	"platform/gokit/openapiexport"
 	"platform/products/gallery/api/internal/appconfig"
 	"platform/products/gallery/api/internal/assetclient"
+	"platform/products/gallery/api/internal/classificationwatcher"
 	"platform/products/gallery/api/internal/dao"
 	galleryservice "platform/products/gallery/api/internal/gallery"
 	"platform/products/gallery/api/internal/server"
@@ -39,6 +42,18 @@ func main() {
 
 	service := galleryservice.New(dao.NewPG(g.DB()))
 	service.SetAssetReferencePort(assetclient.NewHTTP(appconfig.AssetBaseURL(ctx), appconfig.SiteSlug(ctx)))
+	watcher, watcherErr := classificationwatcher.Start(g.DB().GetConfig(), func() {
+		refreshCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if refreshErr := service.RefreshClassificationCatalog(refreshCtx); refreshErr != nil {
+			g.Log().Warning(refreshCtx, "gallery classification catalog refresh failed", "error", refreshErr)
+		}
+	})
+	if watcherErr != nil {
+		g.Log().Warning(ctx, "gallery classification listener unavailable; request-time revision checks remain active", "error", watcherErr)
+	} else {
+		defer watcher.Close()
+	}
 	jwks := appconfig.LoadJWKS(ctx)
 	verifier, err := authjwt.NewVerifier(authjwt.VerifierConfig{
 		Keys: authjwt.NewRemoteKeySource(jwks.URL), Issuer: jwks.Issuer, Audience: jwks.Audience,

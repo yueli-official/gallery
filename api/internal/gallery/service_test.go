@@ -29,6 +29,14 @@ type fakeStore struct {
 	classificationSnapshot classification.Snapshot
 	tagMatches             []classification.TagMatch
 	filterPlanSeen         classification.FilterPlan
+	governanceImpacts      []classification.ReferenceImpact
+	governanceToken        string
+	governanceExecuted     bool
+	governanceFactRequest  classification.GovernFactRequest
+	governancePlan         classification.GovernancePlan
+	classificationTags     []model.ClassificationTag
+	tagProposals           []model.ClassificationTagProposal
+	tagProposalReviewSeen  model.ClassificationTagProposalReviewInput
 }
 
 func (f *fakeStore) SiteSettings(context.Context) (*model.SiteSettings, error) {
@@ -53,6 +61,31 @@ func (f *fakeStore) ClassificationCandidateCounts(_ context.Context, _ model.Ima
 		groups = append(groups, group)
 	}
 	return groups, "counts:test", nil
+}
+func (f *fakeStore) ClassificationGovernanceImpacts(_ context.Context, requests []classification.ImpactRequest) ([]classification.ReferenceImpact, string, error) {
+	if len(requests) == 0 {
+		return []classification.ReferenceImpact{}, "", nil
+	}
+	return append([]classification.ReferenceImpact(nil), f.governanceImpacts...), f.governanceToken, nil
+}
+func (f *fakeStore) ExecuteClassificationGovernance(_ context.Context, _ string, request classification.GovernFactRequest, plan classification.GovernancePlan) (uint64, error) {
+	f.governanceExecuted = true
+	f.governanceFactRequest = request
+	f.governancePlan = plan
+	return plan.ExpectedCatalogRevision + 1, nil
+}
+func (f *fakeStore) ClassificationTags(_ context.Context, _ model.ClassificationTagCursor, _ int) ([]model.ClassificationTag, bool, error) {
+	return append([]model.ClassificationTag(nil), f.classificationTags...), false, nil
+}
+func (f *fakeStore) ClassificationTagProposals(context.Context, string, int, int) ([]model.ClassificationTagProposal, int, error) {
+	return append([]model.ClassificationTagProposal(nil), f.tagProposals...), len(f.tagProposals), nil
+}
+func (f *fakeStore) ReviewClassificationTagProposal(_ context.Context, _ string, _ string, input model.ClassificationTagProposalReviewInput) (*model.ClassificationTagProposal, bool, error) {
+	f.tagProposalReviewSeen = input
+	if len(f.tagProposals) == 0 {
+		return nil, false, nil
+	}
+	return &f.tagProposals[0], true, nil
 }
 func (f *fakeStore) RandomCandidates(context.Context, int) ([]model.ImageCard, error) {
 	return f.candidates, nil
@@ -247,6 +280,140 @@ func TestImagesExecutesCatalogFilterPlanWithDescendants(t *testing.T) {
 		},
 	}) {
 		t.Fatalf("filter plan = %#v", store.filterPlanSeen)
+	}
+}
+
+func TestGovernancePreviewBuildsPlanFromFreshImpactFacts(t *testing.T) {
+	store := validSubmissionStore()
+	store.governanceToken = "impact:category"
+	store.governanceImpacts = []classification.ReferenceImpact{
+		{Kind: classification.GovernCategory, ID: testCategoryID, Exists: true, Status: classification.StatusActive, AssignmentCount: 4, PrimaryCount: 3},
+	}
+	preview, err := New(store).PreviewClassificationGovernance(context.Background(), model.ClassificationGovernancePreviewInput{
+		Command: model.ClassificationGovernanceCommand{
+			Operation: "delete", Kind: "category", ID: testCategoryID, DeleteAllRelated: true,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Outcome != "planned" || preview.Plan.ExpectedRequestToken == "" || preview.Plan.ExpectedImpactToken != "impact:category" {
+		t.Fatalf("preview = %#v", preview)
+	}
+	if len(preview.Plan.Steps) != 3 || preview.Plan.Steps[0].Kind != "clear_primary_assignments" {
+		t.Fatalf("steps = %#v", preview.Plan.Steps)
+	}
+}
+
+func TestClassificationCatalogIncludesInactiveManagementIdentities(t *testing.T) {
+	store := validSubmissionStore()
+	store.classificationSnapshot.Categories = append(store.classificationSnapshot.Categories, classification.Category{
+		ID: "019817c8-0000-7000-8300-000000000099", Slug: "archive", Name: "归档", Status: classification.StatusInactive,
+	})
+	catalog, err := New(store).ClassificationCatalog(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if catalog.Revision != 1 || len(catalog.Categories) != 2 || catalog.Categories[1].Status != "inactive" {
+		t.Fatalf("catalog = %#v", catalog)
+	}
+	if len(catalog.Facets) != 1 || len(catalog.Facets[0].Values) != 1 {
+		t.Fatalf("facets = %#v", catalog.Facets)
+	}
+}
+
+func TestGovernanceExecuteRecomputesPlanAndRejectsStaleEnvelope(t *testing.T) {
+	store := validSubmissionStore()
+	store.governanceToken = "impact:current"
+	store.governanceImpacts = []classification.ReferenceImpact{
+		{Kind: classification.GovernCategory, ID: testCategoryID, Exists: true, Status: classification.StatusActive},
+	}
+	service := New(store)
+	_, err := service.ExecuteClassificationGovernance(context.Background(), "operator-1", model.ClassificationGovernanceExecuteInput{
+		Command:                 model.ClassificationGovernanceCommand{Operation: "set_status", Kind: "category", ID: testCategoryID, Status: "inactive"},
+		ExpectedCatalogRevision: 99,
+		ExpectedRequestToken:    "preview-token",
+	})
+	assertCode(t, err, "gallery.conflict")
+	if store.governanceExecuted {
+		t.Fatal("stale preview must not reach the transaction executor")
+	}
+}
+
+func TestGovernanceExecuteUsesCanonicalPlanAndInvalidatesCatalog(t *testing.T) {
+	store := validSubmissionStore()
+	store.governanceToken = "impact:current"
+	store.governanceImpacts = []classification.ReferenceImpact{
+		{Kind: classification.GovernCategory, ID: testCategoryID, Exists: true, Status: classification.StatusActive},
+	}
+	service := New(store)
+	if _, err := service.classificationCatalog(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	command := model.ClassificationGovernanceCommand{Operation: "set_status", Kind: "category", ID: testCategoryID, Status: "inactive"}
+	preview, err := service.PreviewClassificationGovernance(context.Background(), model.ClassificationGovernancePreviewInput{Command: command})
+	if err != nil {
+		t.Fatal(err)
+	}
+	execution, err := service.ExecuteClassificationGovernance(context.Background(), "operator-1", model.ClassificationGovernanceExecuteInput{
+		Command:                 command,
+		ExpectedCatalogRevision: 1,
+		ExpectedRequestToken:    preview.Plan.ExpectedRequestToken,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !execution.Applied || execution.CatalogRevision != 2 || !store.governanceExecuted {
+		t.Fatalf("execution = %#v", execution)
+	}
+	if len(store.governancePlan.Steps) != 1 || store.governancePlan.Steps[0].Kind != classification.GovernChangeStatus {
+		t.Fatalf("plan = %#v", store.governancePlan)
+	}
+	if service.catalog != nil || service.catalogRevision != 0 {
+		t.Fatal("successful governance must invalidate the local catalog immediately")
+	}
+}
+
+func TestGovernanceExecuteRejectsACommandSwappedAfterPreview(t *testing.T) {
+	service := New(validSubmissionStore())
+	preview, err := service.PreviewClassificationGovernance(context.Background(), model.ClassificationGovernancePreviewInput{
+		Command: model.ClassificationGovernanceCommand{Operation: "set_status", Kind: "category", ID: testCategoryID, Status: "inactive"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = service.ExecuteClassificationGovernance(context.Background(), "operator-1", model.ClassificationGovernanceExecuteInput{
+		Command:                 model.ClassificationGovernanceCommand{Operation: "reparent", Kind: "category", ID: testCategoryID},
+		ExpectedCatalogRevision: preview.Plan.ExpectedCatalogRevision,
+		ExpectedRequestToken:    preview.Plan.ExpectedRequestToken,
+	})
+	assertCode(t, err, "gallery.conflict")
+}
+
+func TestClassificationTagsRejectsMalformedCursor(t *testing.T) {
+	_, err := New(validSubmissionStore()).ClassificationTags(context.Background(), "not-a-cursor", 20)
+	assertCode(t, err, "common.validation_failed")
+}
+
+func TestReviewTagProposalNormalizesTargetAndInvalidatesChangedCatalog(t *testing.T) {
+	store := validSubmissionStore()
+	store.tagProposals = []model.ClassificationTagProposal{{ID: "019817c8-0000-7000-8400-000000000001"}}
+	service := New(store)
+	if _, err := service.classificationCatalog(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	target := "019817c8-0000-7000-8500-000000000001"
+	_, err := service.ReviewClassificationTagProposal(context.Background(), "operator-1", "019817c8-0000-7000-8400-000000000001", model.ClassificationTagProposalReviewInput{
+		Decision: "approve", TargetTagID: target,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if store.tagProposalReviewSeen.TargetTagID != target {
+		t.Fatalf("review input = %#v", store.tagProposalReviewSeen)
+	}
+	if service.catalog != nil {
+		t.Fatal("catalog-changing tag review must invalidate the catalog")
 	}
 }
 

@@ -96,6 +96,71 @@ func (c *Admin) GetAdminOverview(ctx context.Context, _ *v1.GetAdminOverviewReq)
 	return &v1.GetAdminOverviewRes{Overview: *value}, nil
 }
 
+func (c *Admin) GetClassificationCatalog(ctx context.Context, _ *v1.GetClassificationCatalogReq) (*v1.GetClassificationCatalogRes, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	catalog, err := c.service.ClassificationCatalog(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.GetClassificationCatalogRes{Catalog: *catalog}, nil
+}
+
+func (c *Admin) ListClassificationTags(ctx context.Context, req *v1.ListClassificationTagsReq) (*v1.ListClassificationTagsRes, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	page, err := c.service.ClassificationTags(ctx, req.Cursor, req.Size)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.ListClassificationTagsRes{Page: *page}, nil
+}
+
+func (c *Admin) ListClassificationTagProposals(ctx context.Context, req *v1.ListClassificationTagProposalsReq) (*v1.ListClassificationTagProposalsRes, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	proposals, total, err := c.service.ClassificationTagProposals(ctx, req.Status, req.Page, req.Size)
+	return &v1.ListClassificationTagProposalsRes{Proposals: proposals, Total: total}, err
+}
+
+func (c *Admin) ReviewClassificationTagProposal(ctx context.Context, req *v1.ReviewClassificationTagProposalReq) (*v1.ReviewClassificationTagProposalRes, error) {
+	operator, err := requireAdmin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	proposal, err := c.service.ReviewClassificationTagProposal(ctx, operator, req.ProposalID, req.ClassificationTagProposalReviewInput)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.ReviewClassificationTagProposalRes{Proposal: *proposal}, nil
+}
+
+func (c *Admin) PreviewClassificationGovernance(ctx context.Context, req *v1.PreviewClassificationGovernanceReq) (*v1.PreviewClassificationGovernanceRes, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	preview, err := c.service.PreviewClassificationGovernance(ctx, req.ClassificationGovernancePreviewInput)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.PreviewClassificationGovernanceRes{Preview: *preview}, nil
+}
+
+func (c *Admin) ExecuteClassificationGovernance(ctx context.Context, req *v1.ExecuteClassificationGovernanceReq) (*v1.ExecuteClassificationGovernanceRes, error) {
+	operator, err := requireAdmin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	execution, err := c.service.ExecuteClassificationGovernance(ctx, operator, req.ClassificationGovernanceExecuteInput)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.ExecuteClassificationGovernanceRes{Execution: *execution}, nil
+}
+
 func (c *Admin) ListSubmissionReviews(ctx context.Context, req *v1.ListSubmissionReviewsReq) (*v1.ListSubmissionReviewsRes, error) {
 	if _, err := requireAdmin(ctx); err != nil {
 		return nil, err

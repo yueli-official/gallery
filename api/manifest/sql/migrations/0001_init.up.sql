@@ -63,6 +63,9 @@ CREATE TABLE gallery_categories (
 
 CREATE INDEX gallery_categories_parent_idx
     ON gallery_categories (catalog_id, parent_id, editorial_position, id);
+CREATE INDEX gallery_categories_replacement_idx
+    ON gallery_categories (catalog_id, replacement_id)
+    WHERE replacement_id IS NOT NULL;
 
 CREATE TABLE gallery_facets (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
@@ -116,6 +119,12 @@ CREATE TABLE gallery_facet_values (
 
 CREATE INDEX gallery_facet_values_parent_idx
     ON gallery_facet_values (catalog_id, facet_id, parent_id, editorial_position, id);
+CREATE INDEX gallery_facets_replacement_idx
+    ON gallery_facets (catalog_id, replacement_id)
+    WHERE replacement_id IS NOT NULL;
+CREATE INDEX gallery_facet_values_replacement_idx
+    ON gallery_facet_values (catalog_id, facet_id, replacement_id)
+    WHERE replacement_id IS NOT NULL;
 
 CREATE TABLE gallery_tags (
     id UUID PRIMARY KEY DEFAULT uuidv7(),
@@ -156,6 +165,12 @@ CREATE TABLE gallery_tag_lookup_entries (
 
 CREATE INDEX gallery_tag_lookup_target_idx
     ON gallery_tag_lookup_entries (catalog_id, target_tag_id, lookup_key);
+CREATE INDEX gallery_tag_lookup_source_idx
+    ON gallery_tag_lookup_entries (catalog_id, source_tag_id)
+    WHERE source_tag_id IS NOT NULL;
+CREATE INDEX gallery_tags_replacement_idx
+    ON gallery_tags (catalog_id, replacement_id)
+    WHERE replacement_id IS NOT NULL;
 
 CREATE TABLE gallery_classification_outbox (
     event_id UUID PRIMARY KEY DEFAULT uuidv7(),
@@ -279,6 +294,12 @@ CREATE TABLE gallery_tag_proposals (
         (status <> 'approved' AND resolved_tag_id IS NULL)
     )
 );
+
+CREATE INDEX gallery_tag_proposals_queue_idx
+    ON gallery_tag_proposals (status, created_at, id);
+CREATE INDEX gallery_tag_proposals_resolved_idx
+    ON gallery_tag_proposals (resolved_tag_id)
+    WHERE resolved_tag_id IS NOT NULL;
 
 CREATE TABLE gallery_images (
     id UUID PRIMARY KEY DEFAULT uuidv7(),

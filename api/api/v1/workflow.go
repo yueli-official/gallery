@@ -64,6 +64,58 @@ type GetAdminOverviewRes struct {
 	Overview model.AdminOverview `json:"overview"`
 }
 
+type GetClassificationCatalogReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/classification" method:"GET" tags:"Gallery admin" summary:"Get the authoritative classification catalog including inactive identities"`
+}
+type GetClassificationCatalogRes struct {
+	Catalog model.ClassificationCatalog `json:"catalog"`
+}
+
+type ListClassificationTagsReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/classification/tags" method:"GET" tags:"Gallery admin" summary:"List classification tags with a stable keyset cursor"`
+	Cursor string `p:"cursor"`
+	Size   int    `p:"size" d:"50"`
+}
+type ListClassificationTagsRes struct {
+	Page model.ClassificationTagPage `json:"page"`
+}
+
+type ListClassificationTagProposalsReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/classification/tag-proposals" method:"GET" tags:"Gallery admin" summary:"List tag proposals awaiting or completing governance"`
+	Status string `p:"status" d:"pending"`
+	Page   int    `p:"page" d:"1"`
+	Size   int    `p:"size" d:"30"`
+}
+type ListClassificationTagProposalsRes struct {
+	Proposals []model.ClassificationTagProposal `json:"proposals"`
+	Total     int                               `json:"total"`
+}
+
+type ReviewClassificationTagProposalReq struct {
+	g.Meta     `path:"/api/v1/gallery/admin/classification/tag-proposals/{proposalId}/review" method:"POST" tags:"Gallery admin" summary:"Resolve, create, alias or reject a tag proposal"`
+	ProposalID string `p:"proposalId" v:"required"`
+	model.ClassificationTagProposalReviewInput
+}
+type ReviewClassificationTagProposalRes struct {
+	Proposal model.ClassificationTagProposal `json:"proposal"`
+}
+
+type PreviewClassificationGovernanceReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/classification/governance/preview" method:"POST" tags:"Gallery admin" summary:"Preview an immutable classification governance plan"`
+	model.ClassificationGovernancePreviewInput
+}
+type PreviewClassificationGovernanceRes struct {
+	Preview model.ClassificationGovernancePreview `json:"preview"`
+}
+
+type ExecuteClassificationGovernanceReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/classification/governance/execute" method:"POST" tags:"Gallery admin" summary:"Execute a freshly previewed classification governance plan"`
+	model.ClassificationGovernanceExecuteInput
+}
+type ExecuteClassificationGovernanceRes struct {
+	Execution model.ClassificationGovernanceExecution `json:"execution"`
+}
+
 type ListSubmissionReviewsReq struct {
 	g.Meta `path:"/api/v1/gallery/admin/submissions" method:"GET" tags:"Gallery admin" summary:"List submissions requiring operator review"`
 	Page   int `p:"page" d:"1"`

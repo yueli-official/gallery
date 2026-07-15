@@ -750,6 +750,17 @@ func (p *PG) ReviewSubmission(ctx context.Context, operator, id string, input mo
 	var value *model.Submission
 	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		tx = tx.Ctx(ctx)
+		catalog, err := tx.GetOne(`
+SELECT id
+FROM gallery_classification_catalogs
+WHERE catalog_key = 'gallery'
+FOR SHARE`)
+		if err != nil {
+			return gerror.Wrap(err, "lock gallery classification catalog for review")
+		}
+		if len(catalog) == 0 {
+			return galleryerr.NotInitialized("classification_catalog")
+		}
 		var current *struct {
 			model.Submission
 			Width                int    `orm:"width"`

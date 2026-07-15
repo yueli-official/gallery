@@ -84,6 +84,98 @@ export interface GalleryClassificationDiagnostic {
 	params?: Record<string, string>;
 }
 
+export type GalleryClassificationStatus = "draft" | "active" | "inactive" | "replaced";
+
+export interface GalleryClassificationCatalogNode {
+  id: string;
+  parentId: string;
+  slug: string;
+  name: string;
+  status: GalleryClassificationStatus;
+  editorialPosition?: number;
+  replacementId: string;
+}
+
+export interface GalleryClassificationCatalogFacet {
+  id: string;
+  slug: string;
+  name: string;
+  status: GalleryClassificationStatus;
+  editorialPosition?: number;
+  replacementId: string;
+  values: GalleryClassificationCatalogNode[];
+}
+
+export interface GalleryClassificationCatalog {
+  revision: number;
+  categories: GalleryClassificationCatalogNode[];
+  facets: GalleryClassificationCatalogFacet[];
+}
+
+export interface GalleryClassificationChildMove {
+  childId: string;
+  parentId: string;
+}
+
+export interface GalleryClassificationGovernanceCommand {
+  operation: "set_status" | "reparent" | "merge" | "delete";
+  kind: "category" | "facet" | "facet_value" | "tag";
+  id: string;
+  targetId?: string;
+  parentId?: string;
+  status?: GalleryClassificationStatus;
+  childPlan: GalleryClassificationChildMove[];
+  deleteAllRelated: boolean;
+}
+
+export interface GalleryClassificationGovernanceStep {
+  kind: string;
+  identityKind: string;
+  sourceId: string;
+  targetId: string;
+  parentId: string;
+  status: string;
+  affectedCount: number;
+}
+
+export interface GalleryClassificationGovernancePreview {
+  catalogRevision: number;
+  outcome: "planned" | "rejected";
+  diagnostics: GalleryClassificationDiagnostic[];
+  plan: {
+    expectedCatalogRevision: number;
+    expectedRequestToken: string;
+    expectedImpactToken: string;
+    steps: GalleryClassificationGovernanceStep[];
+  };
+}
+
+export interface GalleryClassificationTag {
+  id: string;
+  name: string;
+  slug: string;
+  status: GalleryClassificationStatus;
+  replacementId: string;
+  assignmentCount: number;
+  aliasCount: number;
+}
+
+export interface GalleryClassificationTagPage {
+  items: GalleryClassificationTag[];
+  nextCursor: string;
+}
+
+export interface GalleryClassificationTagProposal {
+  id: string;
+  submissionId: string;
+  inputValue: string;
+  lookupKey: string;
+  status: "pending" | "approved" | "rejected";
+  resolvedTagId: string;
+  createdAt?: string;
+  reviewedAt?: string;
+}
+
 export interface GalleryCollection {
   id: string;
   kind: "gallery.editorial" | "gallery.favorites";

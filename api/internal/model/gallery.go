@@ -191,6 +191,131 @@ type ClassificationWrite struct {
 	TagCreations      []TagCreationInput
 }
 
+type ClassificationChildMove struct {
+	ChildID  string `json:"childId"`
+	ParentID string `json:"parentId"`
+}
+
+type ClassificationGovernanceCommand struct {
+	Operation        string                    `json:"operation"`
+	Kind             string                    `json:"kind"`
+	ID               string                    `json:"id"`
+	TargetID         string                    `json:"targetId"`
+	ParentID         string                    `json:"parentId"`
+	Status           string                    `json:"status"`
+	ChildPlan        []ClassificationChildMove `json:"childPlan"`
+	DeleteAllRelated bool                      `json:"deleteAllRelated"`
+}
+
+type ClassificationGovernancePreviewInput struct {
+	Command ClassificationGovernanceCommand `json:"command"`
+}
+
+type ClassificationGovernanceExecuteInput struct {
+	Command                 ClassificationGovernanceCommand `json:"command"`
+	ExpectedCatalogRevision uint64                          `json:"expectedCatalogRevision"`
+	ExpectedRequestToken    string                          `json:"expectedRequestToken"`
+	ExpectedImpactToken     string                          `json:"expectedImpactToken"`
+}
+
+type ClassificationGovernanceDiagnostic struct {
+	Code      string            `json:"code"`
+	Path      []string          `json:"path"`
+	Reference string            `json:"reference"`
+	Params    map[string]string `json:"params"`
+}
+
+type ClassificationGovernanceStep struct {
+	Kind          string `json:"kind"`
+	IdentityKind  string `json:"identityKind"`
+	SourceID      string `json:"sourceId"`
+	TargetID      string `json:"targetId"`
+	ParentID      string `json:"parentId"`
+	Status        string `json:"status"`
+	AffectedCount int64  `json:"affectedCount"`
+}
+
+type ClassificationGovernancePlan struct {
+	ExpectedCatalogRevision uint64                         `json:"expectedCatalogRevision"`
+	ExpectedRequestToken    string                         `json:"expectedRequestToken"`
+	ExpectedImpactToken     string                         `json:"expectedImpactToken"`
+	Steps                   []ClassificationGovernanceStep `json:"steps"`
+}
+
+type ClassificationGovernancePreview struct {
+	CatalogRevision uint64                               `json:"catalogRevision"`
+	Outcome         string                               `json:"outcome"`
+	Diagnostics     []ClassificationGovernanceDiagnostic `json:"diagnostics"`
+	Plan            ClassificationGovernancePlan         `json:"plan"`
+}
+
+type ClassificationGovernanceExecution struct {
+	Applied         bool   `json:"applied"`
+	CatalogRevision uint64 `json:"catalogRevision"`
+}
+
+type ClassificationCatalogNode struct {
+	ID                string `json:"id"`
+	ParentID          string `json:"parentId"`
+	Slug              string `json:"slug"`
+	Name              string `json:"name"`
+	Status            string `json:"status"`
+	EditorialPosition *int   `json:"editorialPosition"`
+	ReplacementID     string `json:"replacementId"`
+}
+
+type ClassificationCatalogFacet struct {
+	ID                string                      `json:"id"`
+	Slug              string                      `json:"slug"`
+	Name              string                      `json:"name"`
+	Status            string                      `json:"status"`
+	EditorialPosition *int                        `json:"editorialPosition"`
+	ReplacementID     string                      `json:"replacementId"`
+	Values            []ClassificationCatalogNode `json:"values"`
+}
+
+type ClassificationCatalog struct {
+	Revision   uint64                       `json:"revision"`
+	Categories []ClassificationCatalogNode  `json:"categories"`
+	Facets     []ClassificationCatalogFacet `json:"facets"`
+}
+
+type ClassificationTagCursor struct {
+	Name string
+	ID   string
+}
+
+type ClassificationTag struct {
+	ID              string `json:"id" orm:"id"`
+	Name            string `json:"name" orm:"name"`
+	Slug            string `json:"slug" orm:"slug"`
+	Status          string `json:"status" orm:"status"`
+	ReplacementID   string `json:"replacementId" orm:"replacement_id"`
+	AssignmentCount int64  `json:"assignmentCount" orm:"assignment_count"`
+	AliasCount      int64  `json:"aliasCount" orm:"alias_count"`
+}
+
+type ClassificationTagPage struct {
+	Items      []ClassificationTag `json:"items"`
+	NextCursor string              `json:"nextCursor"`
+}
+
+type ClassificationTagProposal struct {
+	ID            string      `json:"id" orm:"id"`
+	SubmissionID  string      `json:"submissionId" orm:"submission_id"`
+	InputValue    string      `json:"inputValue" orm:"input_value"`
+	LookupKey     string      `json:"lookupKey" orm:"lookup_key"`
+	Status        string      `json:"status" orm:"status"`
+	ResolvedTagID string      `json:"resolvedTagId" orm:"resolved_tag_id"`
+	CreatedAt     *gtime.Time `json:"createdAt" orm:"created_at"`
+	ReviewedAt    *gtime.Time `json:"reviewedAt" orm:"reviewed_at"`
+}
+
+type ClassificationTagProposalReviewInput struct {
+	Decision    string `json:"decision"`
+	TargetTagID string `json:"targetTagId"`
+}
+
 type Submission struct {
 	ID                string      `json:"id" orm:"id"`
 	SubjectKind       string      `json:"-" orm:"subject_kind"`
