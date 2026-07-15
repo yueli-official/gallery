@@ -45,12 +45,12 @@ Collection 与 Image 之间的幂等关系；删除关系或集合永远不删�
 _Avoid_: Image 所有权、分类指派
 
 **Facet（维度）**:
-运营方治理的结构化筛选轴，例如 topic、orientation、color、style、medium。
+运营方治理的结构化属性筛选轴，例如 scene、orientation、color、style、medium。
 _Avoid_: Tag、Collection
 
 **Category（分类）**:
-公开界面中的主主题分类；后端映射到保留的 single-select `topic` Facet。
-_Avoid_: 所有 Facet、Tag
+公开界面中的主要内容大类和浏览入口，例如壁纸、插画；它高于场景、方向等 Facet，不映射为 Facet Value。
+_Avoid_: Facet、Facet Value、Tag
 
 **Tag（标签）**:
 用于描述图片细节的自由关键词，可通过别名归一化。
@@ -75,4 +75,5 @@ _Avoid_: hidden、软删除 Image
 - 已发布 Image 不允许替换像素；撤稿后只能重新投稿。
 - 用户收藏只有 private singleton“我的收藏”，没有多个相册或社交分享。
 - 首页是 seeded random discovery；主目录是分页固定网格。
+- Category 表达内容大类，Facet 表达可组合属性；场景“风景”属于 Facet，不属于 Category。
 - source URL 可空、仅作元数据，服务器不抓取外部来源。
