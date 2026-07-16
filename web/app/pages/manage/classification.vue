@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import {
-  ManageEmpty,
-  ManageHeader,
-  SkeletonList,
-} from "@platform/manage/components";
+import { ManageHeader, SkeletonList } from "@platform/manage/components";
 import { createPlatformNotifier } from "@platform/ui/feedback";
 import type {
   GalleryClassificationCatalog,
@@ -24,6 +20,7 @@ type ManagedIdentity =
   | GalleryClassificationCatalogNode
   | GalleryClassificationCatalogFacet
   | GalleryClassificationTag;
+type IdentityOperation = "status" | "reparent" | "merge" | "delete";
 
 const { call } = useApi();
 const hydrated = useClientHydrated();
@@ -74,9 +71,7 @@ const editorOpen = ref(false);
 const editorMode = ref<"reparent" | "merge">("reparent");
 const editorKind = ref<IdentityKind>("category");
 const editorIdentity = ref<ManagedIdentity>();
-const editorTargetID = ref("");
 const loadingMoreTags = ref(false);
-const proposalTargets = ref<Record<string, string>>({});
 const reviewingProposal = ref("");
 
 const catalog = computed(() => data.value.catalog);
@@ -86,29 +81,20 @@ const destructivePreview = computed(
     pendingCommand.value?.operation === "merge",
 );
 
-function valuesForFacet(
-  facet: GalleryClassificationCatalogFacet,
-): GalleryClassificationCatalogNode[] {
-  return facet.values;
-}
-
 function childrenOf(
   kind: IdentityKind,
   id: string,
 ): GalleryClassificationCatalogNode[] {
   if (kind === "category")
     return catalog.value.categories.filter((item) => item.parentId === id);
-  if (kind === "facet_value") {
+  if (kind === "facet_value")
     return catalog.value.facets
       .flatMap((facet) => facet.values)
       .filter((item) => item.parentId === id);
-  }
   return [];
 }
 
-function owningFacet(
-  id: string,
-): GalleryClassificationCatalogFacet | undefined {
+function owningFacet(id: string) {
   return catalog.value.facets.find((facet) =>
     facet.values.some((value) => value.id === id),
   );
@@ -117,23 +103,25 @@ function owningFacet(
 const editorTargets = computed<ManagedIdentity[]>(() => {
   const source = editorIdentity.value;
   if (!source) return [];
-  if (editorKind.value === "category") {
+  if (editorKind.value === "category")
     return catalog.value.categories.filter(
       (item) => item.id !== source.id && item.status === "active",
     );
-  }
-  if (editorKind.value === "facet_value") {
+  if (editorKind.value === "facet_value")
     return (owningFacet(source.id)?.values || []).filter(
       (item) => item.id !== source.id && item.status === "active",
     );
-  }
-  if (editorKind.value === "tag") {
+  if (editorKind.value === "tag")
     return tagData.value.page.items.filter(
       (item) => item.id !== source.id && item.status === "active",
     );
-  }
   return [];
 });
+const editorChildCount = computed(() =>
+  editorIdentity.value
+    ? childrenOf(editorKind.value, editorIdentity.value.id).length
+    : 0,
+);
 
 async function requestPreview(command: GalleryClassificationGovernanceCommand) {
   previewing.value = true;
@@ -185,13 +173,22 @@ function openEditor(
   editorMode.value = mode;
   editorKind.value = kind;
   editorIdentity.value = item;
-  editorTargetID.value = "";
   editorOpen.value = true;
 }
 
-function previewEditor() {
+function handleIdentityAction(
+  operation: IdentityOperation,
+  kind: IdentityKind,
+  item: ManagedIdentity,
+) {
+  if (operation === "status") return setStatus(kind, item);
+  if (operation === "delete") return deleteIdentity(kind, item);
+  return openEditor(operation, kind, item);
+}
+
+function previewEditor(targetID: string) {
   const source = editorIdentity.value;
-  if (!source || !editorTargetID.value) return;
+  if (!source) return;
   const command: GalleryClassificationGovernanceCommand = {
     operation: editorMode.value,
     kind: editorKind.value,
@@ -199,15 +196,14 @@ function previewEditor() {
     childPlan: [],
     deleteAllRelated: false,
   };
-  if (editorMode.value === "reparent") {
-    command.parentId =
-      editorTargetID.value === "root" ? "" : editorTargetID.value;
-  } else {
-    command.targetId = editorTargetID.value;
+  if (editorMode.value === "reparent")
+    command.parentId = targetID === "root" ? "" : targetID;
+  else {
+    command.targetId = targetID;
     command.childPlan = childrenOf(editorKind.value, source.id).map(
       (child) => ({
         childId: child.id,
-        parentId: editorTargetID.value,
+        parentId: targetID,
       }),
     );
   }
@@ -239,7 +235,6 @@ async function executePreview() {
     preview.value = undefined;
     pendingCommand.value = undefined;
     await Promise.all([refresh(), refreshTags(), refreshProposals()]);
-    // feedback-contract: execution closes the preview modal and refreshes multiple catalog sections.
     toast.add({
       title: "分类治理已执行",
       description:
@@ -276,6 +271,7 @@ async function loadMoreTags() {
 async function reviewTagProposal(
   item: GalleryClassificationTagProposal,
   decision: "approve" | "reject",
+  targetTagId: string,
 ) {
   reviewingProposal.value = item.id;
   actionError.value = "";
@@ -286,13 +282,11 @@ async function reviewTagProposal(
         method: "POST",
         body: {
           decision,
-          targetTagId:
-            decision === "approve" ? proposalTargets.value[item.id] || "" : "",
+          targetTagId: decision === "approve" ? targetTagId : "",
         },
       },
     );
     await Promise.all([refresh(), refreshTags(), refreshProposals()]);
-    // feedback-contract: the reviewed proposal leaves its current queue row after refresh.
     toast.add({
       title: decision === "approve" ? "Tag 提案已批准" : "Tag 提案已拒绝",
       color: "success",
@@ -304,47 +298,22 @@ async function reviewTagProposal(
     reviewingProposal.value = "";
   }
 }
-
-function needsDeleteConfirmation(): boolean {
-  return Boolean(
-    preview.value?.diagnostics.some(
-      (item) => item.code === "govern.delete_confirmation_required",
-    ),
-  );
-}
-
-function stepLabel(kind: string): string {
-  const labels: Record<string, string> = {
-    change_status: "切换状态",
-    move_child: "移动子节点",
-    migrate_assignments: "迁移对象归属",
-    migrate_primary: "迁移主分类",
-    migrate_aliases: "迁移别名",
-    set_replacement: "建立直接替代",
-    clear_primary_assignments: "清除主分类",
-    delete_assignments: "删除对象归属",
-    delete_aliases: "删除别名",
-    delete_references: "删除历史引用",
-    delete_identity: "删除标识",
-  };
-  return labels[kind] || kind;
-}
 </script>
 
 <template>
   <div>
     <ManageHeader title="分类与维度">
-      <template #subtitle
-        >Category 是主要浏览树，Facet
-        是结构化筛选轴；所有变更先预览影响，再按同一 revision
-        原子执行。</template
-      >
-      <template #actions
-        ><UBadge
+      <template #subtitle>
+        Category 是主要浏览树，Facet
+        是结构化筛选轴；所有变更先预览影响，再按同一 revision 原子执行。
+      </template>
+      <template #actions>
+        <UBadge
           color="neutral"
           variant="soft"
           :label="`revision ${catalog.revision}`"
-      /></template>
+        />
+      </template>
     </ManageHeader>
 
     <UAlert
@@ -369,541 +338,58 @@ function stepLabel(kind: string): string {
       color="error"
       variant="subtle"
       title="分类目录加载失败"
-      ><template #actions
-        ><UButton class="min-h-11" label="重试" @click="refresh()" /></template
-    ></UAlert>
+    >
+      <template #actions>
+        <UButton class="min-h-11" label="重试" @click="refresh()" />
+      </template>
+    </UAlert>
 
     <div v-else class="space-y-8">
-      <section>
-        <div class="mb-3 flex items-end justify-between gap-3">
-          <div>
-            <h2 class="font-semibold text-highlighted">Category</h2>
-            <p class="mt-1 text-sm text-muted">
-              多归属、单父层级；主分类保存在独立 companion 关系中。
-            </p>
-          </div>
-          <span class="text-xs text-dimmed"
-            >{{ catalog.categories.length }} 项</span
-          >
-        </div>
-        <div class="divide-y divide-default border-y border-default">
-          <article
-            v-for="item in catalog.categories"
-            :key="item.id"
-            class="grid gap-3 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
-          >
-            <div class="min-w-0">
-              <div class="flex flex-wrap items-center gap-2">
-                <h3 class="font-medium text-highlighted">{{ item.name }}</h3>
-                <UBadge
-                  :color="
-                    item.status === 'active'
-                      ? 'success'
-                      : item.status === 'replaced'
-                        ? 'warning'
-                        : 'neutral'
-                  "
-                  variant="soft"
-                  :label="item.status"
-                />
-              </div>
-              <p class="mt-1 truncate text-sm text-muted">
-                {{ item.slug }} · {{ item.id }}
-              </p>
-              <p v-if="item.parentId" class="mt-1 text-xs text-dimmed">
-                父节点 {{ item.parentId }}
-              </p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <UButton
-                v-if="item.status !== 'replaced'"
-                class="min-h-11"
-                color="neutral"
-                variant="outline"
-                size="sm"
-                :label="item.status === 'active' ? '停用' : '启用'"
-                @click="setStatus('category', item)"
-              />
-              <UButton
-                v-if="item.status !== 'replaced'"
-                class="min-h-11"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                label="移动"
-                @click="openEditor('reparent', 'category', item)"
-              />
-              <UButton
-                v-if="item.status !== 'replaced'"
-                class="min-h-11"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                label="合并"
-                @click="openEditor('merge', 'category', item)"
-              />
-              <UButton
-                class="min-h-11"
-                color="error"
-                variant="ghost"
-                size="sm"
-                label="删除"
-                @click="deleteIdentity('category', item)"
-              />
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section>
-        <div class="mb-3">
-          <h2 class="font-semibold text-highlighted">Facet</h2>
-          <p class="mt-1 text-sm text-muted">
-            Facet 本身只启停或删除；需要合并轴时，先逐个治理 Value，再删除空轴。
-          </p>
-        </div>
-        <div class="grid gap-4 xl:grid-cols-2">
-          <article
-            v-for="facet in catalog.facets"
-            :key="facet.id"
-            class="rounded-lg border border-default bg-default p-4 sm:p-5"
-          >
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div class="flex items-center gap-2">
-                  <h3 class="font-semibold text-highlighted">
-                    {{ facet.name }}
-                  </h3>
-                  <UBadge
-                    :color="
-                      facet.status === 'active'
-                        ? 'success'
-                        : facet.status === 'replaced'
-                          ? 'warning'
-                          : 'neutral'
-                    "
-                    variant="soft"
-                    :label="facet.status"
-                  />
-                </div>
-                <p class="mt-1 text-xs text-muted">
-                  {{ facet.slug }} · {{ facet.id }}
-                </p>
-              </div>
-              <div class="flex gap-2">
-                <UButton
-                  v-if="facet.status !== 'replaced'"
-                  class="min-h-11"
-                  color="neutral"
-                  variant="ghost"
-                  size="sm"
-                  :label="facet.status === 'active' ? '停用' : '启用'"
-                  @click="setStatus('facet', facet)"
-                /><UButton
-                  class="min-h-11"
-                  color="error"
-                  variant="ghost"
-                  size="sm"
-                  label="删除"
-                  @click="deleteIdentity('facet', facet)"
-                />
-              </div>
-            </div>
-            <div class="mt-4 divide-y divide-default">
-              <div
-                v-for="value in valuesForFacet(facet)"
-                :key="value.id"
-                class="py-3"
-              >
-                <div
-                  class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div class="min-w-0">
-                    <div class="flex items-center gap-2">
-                      <span class="text-sm font-medium text-highlighted">{{
-                        value.name
-                      }}</span
-                      ><UBadge
-                        size="xs"
-                        :color="
-                          value.status === 'active'
-                            ? 'success'
-                            : value.status === 'replaced'
-                              ? 'warning'
-                              : 'neutral'
-                        "
-                        variant="soft"
-                        :label="value.status"
-                      />
-                    </div>
-                    <p class="mt-1 truncate text-xs text-dimmed">
-                      {{ value.slug }} · {{ value.id }}
-                    </p>
-                  </div>
-                  <div class="flex flex-wrap gap-2">
-                    <UButton
-                      v-if="value.status !== 'replaced'"
-                      class="min-h-11"
-                      color="neutral"
-                      variant="ghost"
-                      size="xs"
-                      :label="value.status === 'active' ? '停用' : '启用'"
-                      @click="setStatus('facet_value', value)"
-                    /><UButton
-                      v-if="value.status !== 'replaced'"
-                      class="min-h-11"
-                      color="neutral"
-                      variant="ghost"
-                      size="xs"
-                      label="移动"
-                      @click="openEditor('reparent', 'facet_value', value)"
-                    /><UButton
-                      v-if="value.status !== 'replaced'"
-                      class="min-h-11"
-                      color="neutral"
-                      variant="ghost"
-                      size="xs"
-                      label="合并"
-                      @click="openEditor('merge', 'facet_value', value)"
-                    /><UButton
-                      class="min-h-11"
-                      color="error"
-                      variant="ghost"
-                      size="xs"
-                      label="删除"
-                      @click="deleteIdentity('facet_value', value)"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <section>
-        <div class="mb-3 flex items-end justify-between gap-3">
-          <div>
-            <h2 class="font-semibold text-highlighted">Tag Proposal</h2>
-            <p class="mt-1 text-sm text-muted">
-              批准时先重新解析最新 Lookup Registry；可创建 canonical
-              Tag，或显式归并为已有 Tag 的 Alias。
-            </p>
-          </div>
-          <span class="text-xs text-dimmed"
-            >{{ proposalData.total }} 条待审</span
-          >
-        </div>
-        <SkeletonList v-if="!hydrated || proposalsPending" :rows="3" />
-        <div
-          v-else-if="proposalData.proposals.length"
-          class="divide-y divide-default border-y border-default"
-        >
-          <article
-            v-for="item in proposalData.proposals"
-            :key="item.id"
-            class="grid gap-3 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,22rem)_auto] lg:items-center"
-          >
-            <div class="min-w-0">
-              <p class="font-medium text-highlighted">{{ item.inputValue }}</p>
-              <p class="mt-1 truncate text-xs text-muted">
-                lookup: {{ item.lookupKey }} · submission
-                {{ item.submissionId }}
-              </p>
-            </div>
-            <UFormField label="批准方式">
-              <select
-                v-model="proposalTargets[item.id]"
-                class="h-11 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted"
-                :aria-label="`选择 ${item.inputValue} 的 Tag 处理方式`"
-              >
-                <option value="">批准并创建新 canonical Tag</option>
-                <option
-                  v-for="tag in tagData.page.items.filter(
-                    (entry) => entry.status === 'active',
-                  )"
-                  :key="tag.id"
-                  :value="tag.id"
-                >
-                  作为 {{ tag.name }} 的 Alias
-                </option>
-              </select>
-            </UFormField>
-            <div class="flex gap-2">
-              <UButton
-                class="min-h-11"
-                color="neutral"
-                variant="outline"
-                label="拒绝"
-                :loading="reviewingProposal === item.id"
-                @click="reviewTagProposal(item, 'reject')"
-              /><UButton
-                class="min-h-11"
-                label="批准"
-                :loading="reviewingProposal === item.id"
-                @click="reviewTagProposal(item, 'approve')"
-              />
-            </div>
-          </article>
-        </div>
-        <ManageEmpty
-          v-else
-          icon="i-tabler-tag-off"
-          title="没有待审 Tag"
-          description="未知投稿词会进入独立 Proposal，不会提前污染公开目录。"
-        />
-      </section>
-
-      <section>
-        <div class="mb-3 flex items-end justify-between gap-3">
-          <div>
-            <h2 class="font-semibold text-highlighted">Tag</h2>
-            <p class="mt-1 text-sm text-muted">
-              扁平长尾词；Alias 和 replacement 直接解析到 canonical
-              Tag，不允许链。
-            </p>
-          </div>
-          <span class="text-xs text-dimmed">keyset cursor</span>
-        </div>
-        <SkeletonList v-if="!hydrated || tagsPending" :rows="4" />
-        <div
-          v-else-if="tagData.page.items.length"
-          class="divide-y divide-default border-y border-default"
-        >
-          <article
-            v-for="tag in tagData.page.items"
-            :key="tag.id"
-            class="grid gap-3 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
-          >
-            <div class="min-w-0">
-              <div class="flex flex-wrap items-center gap-2">
-                <h3 class="font-medium text-highlighted">{{ tag.name }}</h3>
-                <UBadge
-                  :color="
-                    tag.status === 'active'
-                      ? 'success'
-                      : tag.status === 'replaced'
-                        ? 'warning'
-                        : 'neutral'
-                  "
-                  variant="soft"
-                  :label="tag.status"
-                />
-              </div>
-              <p class="mt-1 truncate text-xs text-muted">
-                {{ tag.slug }} · {{ tag.id }}
-              </p>
-              <p class="mt-1 text-xs text-dimmed">
-                {{ tag.assignmentCount }} 个关系 · {{ tag.aliasCount }} 个 Alias
-              </p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <UButton
-                v-if="tag.status !== 'replaced'"
-                class="min-h-11"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                :label="tag.status === 'active' ? '停用' : '启用'"
-                @click="setStatus('tag', tag)"
-              /><UButton
-                v-if="tag.status !== 'replaced'"
-                class="min-h-11"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                label="合并"
-                @click="openEditor('merge', 'tag', tag)"
-              /><UButton
-                class="min-h-11"
-                color="error"
-                variant="ghost"
-                size="sm"
-                label="删除"
-                @click="deleteIdentity('tag', tag)"
-              />
-            </div>
-          </article>
-          <div v-if="tagData.page.nextCursor" class="flex justify-center py-4">
-            <UButton
-              class="min-h-11"
-              color="neutral"
-              variant="outline"
-              label="加载更多 Tag"
-              :loading="loadingMoreTags"
-              @click="loadMoreTags"
-            />
-          </div>
-        </div>
-        <ManageEmpty
-          v-else
-          icon="i-tabler-tags"
-          title="还没有 canonical Tag"
-          description="批准第一个 Proposal 后会在这里出现。"
-        />
-      </section>
+      <ClassificationCategoryPanel
+        :items="catalog.categories"
+        @action="handleIdentityAction"
+      />
+      <ClassificationFacetPanel
+        :facets="catalog.facets"
+        @action="handleIdentityAction"
+      />
+      <ClassificationProposalPanel
+        :proposals="proposalData.proposals"
+        :total="proposalData.total"
+        :tags="tagData.page.items"
+        :pending="proposalsPending"
+        :hydrated="hydrated"
+        :reviewing-id="reviewingProposal"
+        @review="reviewTagProposal"
+      />
+      <ClassificationTagPanel
+        :tags="tagData.page.items"
+        :pending="tagsPending"
+        :hydrated="hydrated"
+        :next-cursor="tagData.page.nextCursor"
+        :loading-more="loadingMoreTags"
+        @action="handleIdentityAction"
+        @load-more="loadMoreTags"
+      />
     </div>
 
-    <UModal
+    <ClassificationEditorModal
       v-model:open="editorOpen"
-      :title="editorMode === 'merge' ? '合并标识' : '移动节点'"
-      description="系统会根据最新目录生成计划；这里只选择目标，不直接写数据库。"
-    >
-      <template #body>
-        <form class="space-y-4" @submit.prevent="previewEditor">
-          <div class="rounded-md bg-elevated p-3 text-sm">
-            <p class="font-medium text-highlighted">
-              {{ editorIdentity?.name }}
-            </p>
-            <p class="mt-1 break-all text-xs text-muted">
-              {{ editorIdentity?.id }}
-            </p>
-          </div>
-          <UFormField
-            :label="editorMode === 'merge' ? '合并目标' : '新父节点'"
-            required
-          >
-            <select
-              v-model="editorTargetID"
-              class="h-11 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted"
-            >
-              <option value="" disabled>请选择</option>
-              <option v-if="editorMode === 'reparent'" value="root">
-                设为根节点
-              </option>
-              <option
-                v-for="target in editorTargets"
-                :key="target.id"
-                :value="target.id"
-              >
-                {{ target.name }} · {{ target.slug }}
-              </option>
-            </select>
-          </UFormField>
-          <p
-            v-if="
-              editorMode === 'merge' &&
-              editorIdentity &&
-              childrenOf(editorKind, editorIdentity.id).length
-            "
-            class="text-xs text-muted"
-          >
-            其直接子节点将显式移动到目标；预览会再次验证完整性和环。
-          </p>
-          <div class="flex justify-end gap-2">
-            <UButton
-              class="min-h-11"
-              color="neutral"
-              variant="ghost"
-              label="取消"
-              @click="
-                editorOpen = false;
-                void 0;
-              "
-            /><UButton
-              class="min-h-11"
-              type="submit"
-              label="生成预览"
-              :disabled="!editorTargetID"
-            />
-          </div>
-        </form>
-      </template>
-    </UModal>
-
-    <UModal
+      :mode="editorMode"
+      :identity="editorIdentity"
+      :targets="editorTargets"
+      :child-count="editorChildCount"
+      @preview="previewEditor"
+    />
+    <ClassificationPreviewModal
       v-model:open="previewOpen"
-      title="治理影响预览"
-      description="执行时会重算 revision 和 impact token；任何变化都会拒绝旧计划。"
-    >
-      <template #body>
-        <div class="space-y-4">
-          <div v-if="previewing" class="py-8"><SkeletonList :rows="4" /></div>
-          <UAlert
-            v-else-if="actionError"
-            color="error"
-            variant="subtle"
-            title="操作失败"
-            :description="actionError"
-          />
-          <template v-else-if="preview">
-            <div class="flex items-center justify-between gap-3">
-              <UBadge
-                :color="preview.outcome === 'planned' ? 'success' : 'warning'"
-                variant="soft"
-                :label="preview.outcome"
-              /><span class="text-xs text-muted"
-                >revision {{ preview.catalogRevision }}</span
-              >
-            </div>
-            <div v-if="preview.diagnostics.length" class="space-y-2">
-              <UAlert
-                v-for="item in preview.diagnostics"
-                :key="`${item.code}:${item.reference}`"
-                color="warning"
-                variant="subtle"
-                :title="item.code"
-                :description="item.reference || item.path.join('.')"
-              />
-            </div>
-            <ol
-              v-if="preview.plan.steps.length"
-              class="divide-y divide-default rounded-lg border border-default px-4"
-            >
-              <li
-                v-for="(step, index) in preview.plan.steps"
-                :key="`${index}:${step.kind}:${step.sourceId}`"
-                class="flex items-start justify-between gap-3 py-3 text-sm"
-              >
-                <div>
-                  <p class="font-medium text-highlighted">
-                    {{ index + 1 }}. {{ stepLabel(step.kind) }}
-                  </p>
-                  <p class="mt-1 break-all text-xs text-muted">
-                    {{ step.sourceId
-                    }}<template v-if="step.targetId">
-                      → {{ step.targetId }}</template
-                    >
-                  </p>
-                </div>
-                <UBadge
-                  v-if="step.affectedCount"
-                  color="neutral"
-                  variant="soft"
-                  :label="`${step.affectedCount} 项`"
-                />
-              </li>
-            </ol>
-          </template>
-          <div class="flex flex-wrap justify-end gap-2">
-            <UButton
-              class="min-h-11"
-              color="neutral"
-              variant="ghost"
-              label="关闭"
-              @click="
-                previewOpen = false;
-                void 0;
-              "
-            /><UButton
-              v-if="needsDeleteConfirmation()"
-              class="min-h-11"
-              color="error"
-              variant="outline"
-              label="生成全部删除计划"
-              :loading="previewing"
-              @click="confirmDeleteAllRelated"
-            /><UButton
-              v-if="preview?.outcome === 'planned'"
-              class="min-h-11"
-              :color="destructivePreview ? 'error' : 'primary'"
-              :label="destructivePreview ? '确认并执行' : '执行计划'"
-              :loading="executing"
-              @click="executePreview"
-            />
-          </div>
-        </div>
-      </template>
-    </UModal>
+      :previewing="previewing"
+      :executing="executing"
+      :error="actionError"
+      :preview="preview"
+      :destructive="destructivePreview"
+      @delete-all="confirmDeleteAllRelated"
+      @execute="executePreview"
+    />
   </div>
 </template>

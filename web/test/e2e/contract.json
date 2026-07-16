@@ -1,7 +1,7 @@
 {
   "$schema": "../../../../../tests/e2e/contract.schema.json",
   "version": 1,
-  "public": { "path": "/", "readySelector": "main h1" },
+  "public": { "path": "/?seed=visual-contract", "readySelector": "main h1" },
   "manage": {
     "path": "/manage",
     "heading": "控制台",
@@ -48,33 +48,33 @@
       {
         "key": "my-submissions",
         "path": "/submissions",
-        "readySelector": "text=还没有投稿记录",
+        "readySelector": "text=批量投稿样本",
         "authenticated": true,
         "viewports": ["mobile", "desktop"]
       },
       {
         "key": "collections",
         "path": "/collections",
-        "readySelector": "text=还没有公开专题",
+        "readySelector": "text=安静的蓝色时刻",
         "viewports": ["mobile", "desktop"]
       },
       {
         "key": "rankings",
         "path": "/rankings",
-        "readySelector": "text=还没有形成排行",
+        "readySelector": "main h1",
         "viewports": ["mobile", "desktop"]
       },
       {
         "key": "manage-collections",
         "path": "/manage/collections",
-        "readySelector": "text=还没有专题",
+        "readySelector": "text=下期专题草稿",
         "authenticated": true,
         "viewports": ["mobile", "desktop"]
       },
       {
         "key": "manage-images",
         "path": "/manage/images",
-        "readySelector": "text=没有符合条件的图片",
+        "readySelector": "text=图片资产台",
         "authenticated": true,
         "viewports": ["mobile", "desktop"]
       },
@@ -88,14 +88,14 @@
       {
         "key": "review-queue",
         "path": "/manage/submissions",
-        "readySelector": "text=当前筛选没有投稿",
+        "readySelector": "text=批量投稿样本",
         "authenticated": true,
         "viewports": ["mobile", "desktop"]
       },
       {
         "key": "case-queue",
         "path": "/manage/cases",
-        "readySelector": "text=当前队列为空",
+        "readySelector": "text=演示工单原因",
         "authenticated": true,
         "viewports": ["mobile", "desktop"]
       },

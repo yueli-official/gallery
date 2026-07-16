@@ -11,6 +11,7 @@ describe("gallery image projection", () => {
     expect(galleryRendition("asset id", "grid-lg")).toContain(
       "asset%20id/image/@960x720",
     );
+    expect(galleryRendition("asset id", "grid-lg")).toContain("mode=fill");
   });
 
   it("preserves source aspect ratios for masonry", () => {

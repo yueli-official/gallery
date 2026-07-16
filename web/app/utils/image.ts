@@ -20,14 +20,14 @@ export interface GalleryImageSourcePolicy {
 }
 
 const compatibilitySpecs: Record<GalleryRendition, string> = {
-  thumbnail: "@240x180_mode=cover_type=webp_q=82.webp",
-  "grid-sm": "@480x360_mode=cover_type=webp_q=84.webp",
-  "grid-lg": "@960x720_mode=cover_type=webp_q=86.webp",
+  thumbnail: "@240x180_mode=fill_type=webp_q=82.webp",
+  "grid-sm": "@480x360_mode=fill_type=webp_q=84.webp",
+  "grid-lg": "@960x720_mode=fill_type=webp_q=86.webp",
   "masonry-sm": "@960x960_mode=fit_type=webp_q=85.webp",
   "masonry-lg": "@1600x1600_mode=fit_type=webp_q=88.webp",
   preview: "@1600x1600_mode=fit_type=webp_q=88.webp",
   display: "@2560x2560_mode=fit_type=webp_q=90.webp",
-  og: "@1200x630_mode=cover_type=webp_q=86.webp",
+  og: "@1200x630_mode=fill_type=webp_q=86.webp",
 };
 
 // Asset 后续会以 released named rendition 替换兼容 transform URL；映射集中在此，
