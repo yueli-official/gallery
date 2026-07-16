@@ -49,6 +49,11 @@ type fakeStore struct {
 	adminImages            []model.AdminImage
 	adminImageQuerySeen    model.AdminImageQuery
 	adminImageUpdateSeen   model.AdminImageUpdateInput
+	adminSubmissions       []model.Submission
+	adminSubmissionQuery   model.AdminSubmissionQuery
+	adminCases             []model.Case
+	adminCaseQuery         model.AdminCaseQuery
+	caseResolutionSeen     model.CaseResolutionInput
 }
 
 func (f *fakeStore) SiteSettings(context.Context) (*model.SiteSettings, error) {
@@ -203,18 +208,24 @@ func (f *fakeStore) UpdateAdminImage(_ context.Context, _ string, input model.Ad
 	f.adminImageUpdateSeen = input
 	return &model.AdminImage{ImageCard: model.ImageCard{ID: testCategoryID}}, nil
 }
-func (f *fakeStore) ReviewQueue(context.Context, int, int) ([]model.Submission, int, error) {
-	return nil, 0, nil
+func (f *fakeStore) ReviewQueue(_ context.Context, query model.AdminSubmissionQuery) ([]model.Submission, int, error) {
+	f.adminSubmissionQuery = query
+	return f.adminSubmissions, len(f.adminSubmissions), nil
 }
 func (f *fakeStore) ReviewSubmission(context.Context, string, string, model.SubmissionReviewInput) (*model.Submission, error) {
 	return f.submission, nil
 }
 func (f *fakeStore) HideImage(context.Context, string, string, string) error { return nil }
-func (f *fakeStore) Cases(context.Context, string, int, int) ([]model.Case, int, error) {
-	return nil, 0, nil
+func (f *fakeStore) Cases(_ context.Context, query model.AdminCaseQuery) ([]model.Case, int, error) {
+	f.adminCaseQuery = query
+	return f.adminCases, len(f.adminCases), nil
 }
-func (f *fakeStore) ResolveCase(context.Context, string, string, model.CaseResolutionInput) (*model.Case, error) {
-	return nil, nil
+func (f *fakeStore) ResolveCase(_ context.Context, _ string, _ string, input model.CaseResolutionInput) (*model.Case, error) {
+	f.caseResolutionSeen = input
+	if len(f.adminCases) == 0 {
+		return nil, nil
+	}
+	return &f.adminCases[0], nil
 }
 func (f *fakeStore) RecordEvent(context.Context, model.Subject, string, model.EventInput) error {
 	return nil
@@ -374,6 +385,54 @@ func TestBulkHideImagesReportsPerItemOutcomes(t *testing.T) {
 	})
 	if len(results) != 2 || !results[0].Success || results[1].Success || results[1].Error == "" {
 		t.Fatalf("bulk hide results = %#v", results)
+	}
+}
+
+func TestAdminSubmissionQueueNormalizesFiltersAndPagination(t *testing.T) {
+	store := &fakeStore{adminSubmissions: []model.Submission{{ID: testCategoryID, AssetID: testFacetID, ImageID: testValueID}}}
+	page, err := New(store).ReviewQueue(context.Background(), model.AdminSubmissionQuery{
+		Search: "  rain  ", ProcessingState: "failed", ReviewState: "pending",
+		SafetyState: "uncertain", Outcome: "failed",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if store.adminSubmissionQuery.Search != "rain" || store.adminSubmissionQuery.Sort != "oldest" || store.adminSubmissionQuery.Page != 1 || store.adminSubmissionQuery.PageSize != 20 {
+		t.Fatalf("normalized submission query = %#v", store.adminSubmissionQuery)
+	}
+	if page.Total != 1 || page.TotalPages != 1 || len(page.Items) != 1 || page.Items[0].ID == testCategoryID {
+		t.Fatalf("admin submission page = %#v", page)
+	}
+	if _, err := New(store).ReviewQueue(context.Background(), model.AdminSubmissionQuery{Outcome: "archived"}); err == nil {
+		t.Fatal("unsupported admin submission outcome must be rejected")
+	}
+}
+
+func TestAdminCasesNormalizeQueryAndRequireCurrentVersion(t *testing.T) {
+	updatedAt := time.Now().UTC().Format(time.RFC3339Nano)
+	store := &fakeStore{adminCases: []model.Case{{ID: testCategoryID, ImageID: testFacetID, SubmissionID: testValueID}}}
+	page, err := New(store).Cases(context.Background(), model.AdminCaseQuery{
+		Search: "  source  ", Status: "all", Kind: "source_correction", Sort: "updated", Page: 2, PageSize: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if store.adminCaseQuery.Search != "source" || store.adminCaseQuery.Page != 2 || page.PageSize != 10 || page.Items[0].ID == testCategoryID {
+		t.Fatalf("admin case query/page = query %#v page %#v", store.adminCaseQuery, page)
+	}
+	value, err := New(store).ResolveCase(context.Background(), " operator ", PublicID(testCategoryID), model.CaseResolutionInput{
+		ExpectedUpdatedAt: updatedAt, Status: "resolved", Note: "  source corrected  ",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value.ID == testCategoryID || store.caseResolutionSeen.Note != "source corrected" || store.caseResolutionSeen.ExpectedUpdatedAt != updatedAt {
+		t.Fatalf("resolved case = value %#v input %#v", value, store.caseResolutionSeen)
+	}
+	if _, err := New(store).ResolveCase(context.Background(), "operator", PublicID(testCategoryID), model.CaseResolutionInput{
+		ExpectedUpdatedAt: "stale", Status: "reviewing",
+	}); err == nil {
+		t.Fatal("case resolution without an RFC3339 version must be rejected")
 	}
 }
 

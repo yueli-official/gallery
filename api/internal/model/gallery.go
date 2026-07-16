@@ -437,6 +437,25 @@ type Submission struct {
 	UpdatedAt         *gtime.Time `json:"updatedAt" orm:"updated_at"`
 }
 
+type AdminSubmissionQuery struct {
+	Search          string
+	Sort            string
+	Page            int
+	PageSize        int
+	ProcessingState string
+	ReviewState     string
+	SafetyState     string
+	Outcome         string
+}
+
+type AdminSubmissionPage struct {
+	Items      []Submission `json:"items"`
+	Page       int          `json:"page"`
+	PageSize   int          `json:"pageSize"`
+	Total      int          `json:"total"`
+	TotalPages int          `json:"totalPages"`
+}
+
 type SubmissionReviewInput struct {
 	Decision string `json:"decision"`
 	Note     string `json:"note"`
@@ -463,9 +482,27 @@ type Case struct {
 	UpdatedAt         *gtime.Time `json:"updatedAt" orm:"updated_at"`
 }
 
+type AdminCaseQuery struct {
+	Search   string
+	Sort     string
+	Page     int
+	PageSize int
+	Status   string
+	Kind     string
+}
+
+type AdminCasePage struct {
+	Items      []Case `json:"items"`
+	Page       int    `json:"page"`
+	PageSize   int    `json:"pageSize"`
+	Total      int    `json:"total"`
+	TotalPages int    `json:"totalPages"`
+}
+
 type CaseResolutionInput struct {
-	Status string `json:"status"`
-	Note   string `json:"note"`
+	ExpectedUpdatedAt string `json:"expectedUpdatedAt"`
+	Status            string `json:"status"`
+	Note              string `json:"note"`
 }
 
 type EventInput struct {

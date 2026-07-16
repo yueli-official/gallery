@@ -261,7 +261,10 @@ VALUES ('01990000-0000-7000-8c00-000000000001', 'gallery.favorites', 'gallery.im
 INSERT INTO gallery_collection_members (collection_id, image_id, added_at) VALUES
 ('01990000-0000-7000-8c00-000000000001', '01990000-0000-7000-8a00-000000000001', NOW() - INTERVAL '2 hours'),
 ('01990000-0000-7000-8c00-000000000001', '01990000-0000-7000-8a00-000000000002', NOW() - INTERVAL '1 hour'),
-('01990000-0000-7000-8c00-000000000001', '01990000-0000-7000-8a00-000000000003', NOW());`); err != nil {
+('01990000-0000-7000-8c00-000000000001', '01990000-0000-7000-8a00-000000000003', NOW());
+INSERT INTO gallery_cases (id, image_id, kind, status, reason, description, resolution_note, created_at) VALUES
+('01990000-0000-7000-8d00-000000000001', '01990000-0000-7000-8a00-000000000001', 'report', 'open', '版权争议', '等待权利证明', '', NOW() - INTERVAL '2 hours'),
+('01990000-0000-7000-8d00-000000000002', '01990000-0000-7000-8a00-000000000002', 'source_correction', 'resolved', '来源需要修正', '原链接失效', '已替换来源', NOW() - INTERVAL '1 hour');`); err != nil {
 		t.Fatal(err)
 	}
 
@@ -273,6 +276,37 @@ INSERT INTO gallery_collection_members (collection_id, image_id, added_at) VALUE
 	}
 	if total != 1 || len(submissions) != 1 || submissions[0].Title != "已发布项" {
 		t.Fatalf("filtered submissions = total %d values %#v", total, submissions)
+	}
+
+	adminSubmissions, adminSubmissionTotal, err := fixture.Store.ReviewQueue(context.Background(), model.AdminSubmissionQuery{
+		Page: 1, PageSize: 1, Sort: "oldest", ProcessingState: "ready", ReviewState: "approved", Outcome: "published",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if adminSubmissionTotal != 2 || len(adminSubmissions) != 1 || adminSubmissions[0].Title != "已发布项" {
+		t.Fatalf("admin submission queue = total %d values %#v", adminSubmissionTotal, adminSubmissions)
+	}
+
+	adminCases, adminCaseTotal, err := fixture.Store.Cases(context.Background(), model.AdminCaseQuery{
+		Page: 1, PageSize: 20, Sort: "oldest", Status: "open", Kind: "report", Search: "权利",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if adminCaseTotal != 1 || len(adminCases) != 1 || adminCases[0].Reason != "版权争议" || adminCases[0].UpdatedAt == nil {
+		t.Fatalf("admin case queue = total %d values %#v", adminCaseTotal, adminCases)
+	}
+	caseVersion := adminCases[0].UpdatedAt.Time.Format(time.RFC3339Nano)
+	if _, err := fixture.Store.ResolveCase(context.Background(), "operator-1", "01990000-0000-7000-8d00-000000000001", model.CaseResolutionInput{
+		ExpectedUpdatedAt: caseVersion, Status: "reviewing",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.Store.ResolveCase(context.Background(), "operator-2", "01990000-0000-7000-8d00-000000000001", model.CaseResolutionInput{
+		ExpectedUpdatedAt: caseVersion, Status: "resolved", Note: "stale conclusion",
+	}); err == nil {
+		t.Fatal("stale case resolution must be rejected")
 	}
 
 	favorites, err := fixture.Store.FavoritesDetail(context.Background(), "01990000-0000-7000-8c00-000000000001", 1, 1, "title_asc")

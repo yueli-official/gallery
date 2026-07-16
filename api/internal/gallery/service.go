@@ -55,10 +55,10 @@ type Store interface {
 	AdminOverview(context.Context) (*model.AdminOverview, error)
 	AdminImages(context.Context, model.AdminImageQuery) ([]model.AdminImage, int, error)
 	UpdateAdminImage(context.Context, string, model.AdminImageUpdateInput) (*model.AdminImage, error)
-	ReviewQueue(context.Context, int, int) ([]model.Submission, int, error)
+	ReviewQueue(context.Context, model.AdminSubmissionQuery) ([]model.Submission, int, error)
 	ReviewSubmission(context.Context, string, string, model.SubmissionReviewInput) (*model.Submission, error)
 	HideImage(context.Context, string, string, string) error
-	Cases(context.Context, string, int, int) ([]model.Case, int, error)
+	Cases(context.Context, model.AdminCaseQuery) ([]model.Case, int, error)
 	ResolveCase(context.Context, string, string, model.CaseResolutionInput) (*model.Case, error)
 	RecordEvent(context.Context, model.Subject, string, model.EventInput) error
 }
@@ -1276,15 +1276,44 @@ func (s *Service) BulkHideImages(ctx context.Context, operator string, input mod
 	return results
 }
 
-func (s *Service) ReviewQueue(ctx context.Context, page, size int) ([]model.Submission, int, error) {
-	values, total, err := s.store.ReviewQueue(ctx, bounded(page, 1, 100000, 1), bounded(size, 10, 60, 20))
+func (s *Service) ReviewQueue(ctx context.Context, query model.AdminSubmissionQuery) (*model.AdminSubmissionPage, error) {
+	query.Search = strings.TrimSpace(query.Search)
+	query.Sort = defaultString(strings.TrimSpace(query.Sort), "oldest")
+	query.Page, query.PageSize = bounded(query.Page, 1, 100000, 1), bounded(query.PageSize, 10, 60, 20)
+	if !oneOf(query.Sort, "oldest", "newest", "updated") {
+		return nil, galleryerr.Validation("sort", "unsupported submission sort")
+	}
+	query.ProcessingState = strings.TrimSpace(query.ProcessingState)
+	query.ReviewState = strings.TrimSpace(query.ReviewState)
+	query.SafetyState = strings.TrimSpace(query.SafetyState)
+	query.Outcome = strings.TrimSpace(query.Outcome)
+	if query.ProcessingState != "" && !oneOf(query.ProcessingState, "queued", "processing", "ready", "failed") {
+		return nil, galleryerr.Validation("processingState", "unsupported processing state")
+	}
+	if query.ReviewState != "" && !oneOf(query.ReviewState, "not_required", "pending", "approved", "rejected") {
+		return nil, galleryerr.Validation("reviewState", "unsupported review state")
+	}
+	if query.SafetyState != "" && !oneOf(query.SafetyState, "pending", "safe", "uncertain", "blocked", "unavailable") {
+		return nil, galleryerr.Validation("safetyState", "unsupported safety state")
+	}
+	if query.Outcome != "" && !oneOf(query.Outcome, "pending", "published", "duplicate", "rejected", "withdrawn", "failed") {
+		return nil, galleryerr.Validation("outcome", "unsupported submission outcome")
+	}
+	values, total, err := s.store.ReviewQueue(ctx, query)
 	if values == nil {
 		values = []model.Submission{}
 	}
 	for index := range values {
 		normalizeSubmission(&values[index])
 	}
-	return values, total, err
+	if err != nil {
+		return nil, err
+	}
+	pages := 0
+	if total > 0 {
+		pages = int(math.Ceil(float64(total) / float64(query.PageSize)))
+	}
+	return &model.AdminSubmissionPage{Items: values, Page: query.Page, PageSize: query.PageSize, Total: total, TotalPages: pages}, nil
 }
 
 func (s *Service) ReviewSubmission(ctx context.Context, operator, rawID string, input model.SubmissionReviewInput) (*model.Submission, error) {
@@ -1319,12 +1348,22 @@ func (s *Service) HideImage(ctx context.Context, operator, rawID, reason string)
 	return s.store.HideImage(ctx, strings.TrimSpace(operator), id, strings.TrimSpace(reason))
 }
 
-func (s *Service) Cases(ctx context.Context, status string, page, size int) ([]model.Case, int, error) {
-	status = defaultString(strings.TrimSpace(status), "open")
-	if !oneOf(status, "open", "reviewing", "resolved", "dismissed") {
-		return nil, 0, galleryerr.Validation("status", "unsupported case status")
+func (s *Service) Cases(ctx context.Context, query model.AdminCaseQuery) (*model.AdminCasePage, error) {
+	query.Search = strings.TrimSpace(query.Search)
+	query.Sort = defaultString(strings.TrimSpace(query.Sort), "oldest")
+	query.Status = defaultString(strings.TrimSpace(query.Status), "open")
+	query.Kind = strings.TrimSpace(query.Kind)
+	query.Page, query.PageSize = bounded(query.Page, 1, 100000, 1), bounded(query.PageSize, 10, 60, 20)
+	if !oneOf(query.Sort, "oldest", "newest", "updated") {
+		return nil, galleryerr.Validation("sort", "unsupported case sort")
 	}
-	values, total, err := s.store.Cases(ctx, status, bounded(page, 1, 100000, 1), bounded(size, 10, 60, 20))
+	if query.Status != "all" && !oneOf(query.Status, "open", "reviewing", "resolved", "dismissed") {
+		return nil, galleryerr.Validation("status", "unsupported case status")
+	}
+	if query.Kind != "" && !oneOf(query.Kind, "report", "source_correction", "safety_uncertain", "near_duplicate", "takedown") {
+		return nil, galleryerr.Validation("kind", "unsupported case kind")
+	}
+	values, total, err := s.store.Cases(ctx, query)
 	if values == nil {
 		values = []model.Case{}
 	}
@@ -1333,7 +1372,14 @@ func (s *Service) Cases(ctx context.Context, status string, page, size int) ([]m
 		values[index].ImageID = PublicID(values[index].ImageID)
 		values[index].SubmissionID = PublicID(values[index].SubmissionID)
 	}
-	return values, total, err
+	if err != nil {
+		return nil, err
+	}
+	pages := 0
+	if total > 0 {
+		pages = int(math.Ceil(float64(total) / float64(query.PageSize)))
+	}
+	return &model.AdminCasePage{Items: values, Page: query.Page, PageSize: query.PageSize, Total: total, TotalPages: pages}, nil
 }
 
 func (s *Service) ResolveCase(ctx context.Context, operator, rawID string, input model.CaseResolutionInput) (*model.Case, error) {
@@ -1343,11 +1389,15 @@ func (s *Service) ResolveCase(ctx context.Context, operator, rawID string, input
 	}
 	input.Status = strings.TrimSpace(input.Status)
 	input.Note = strings.TrimSpace(input.Note)
+	input.ExpectedUpdatedAt = strings.TrimSpace(input.ExpectedUpdatedAt)
 	if !oneOf(input.Status, "reviewing", "resolved", "dismissed") {
 		return nil, galleryerr.Validation("status", "case status must be reviewing, resolved or dismissed")
 	}
 	if oneOf(input.Status, "resolved", "dismissed") && input.Note == "" {
 		return nil, galleryerr.Validation("note", "a resolution note is required")
+	}
+	if _, parseErr := time.Parse(time.RFC3339Nano, input.ExpectedUpdatedAt); parseErr != nil {
+		return nil, galleryerr.Validation("expectedUpdatedAt", "a current RFC3339 timestamp is required")
 	}
 	value, err := s.store.ResolveCase(ctx, strings.TrimSpace(operator), id, input)
 	if err != nil {

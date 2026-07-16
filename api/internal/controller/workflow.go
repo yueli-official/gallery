@@ -173,8 +173,15 @@ func (c *Admin) ListSubmissionReviews(ctx context.Context, req *v1.ListSubmissio
 	if _, err := requireAdmin(ctx); err != nil {
 		return nil, err
 	}
-	values, total, err := c.service.ReviewQueue(ctx, req.Page, req.Size)
-	return &v1.ListSubmissionReviewsRes{Submissions: values, Total: total}, err
+	page, err := c.service.ReviewQueue(ctx, model.AdminSubmissionQuery{
+		Search: req.Q, Sort: req.Sort, Page: req.Page, PageSize: req.Size,
+		ProcessingState: req.ProcessingState, ReviewState: req.ReviewState,
+		SafetyState: req.SafetyState, Outcome: req.Outcome,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &v1.ListSubmissionReviewsRes{AdminSubmissionPage: *page}, nil
 }
 
 func (c *Admin) ReviewSubmission(ctx context.Context, req *v1.ReviewSubmissionReq) (*v1.ReviewSubmissionRes, error) {
@@ -238,8 +245,13 @@ func (c *Admin) ListCases(ctx context.Context, req *v1.ListCasesReq) (*v1.ListCa
 	if _, err := requireAdmin(ctx); err != nil {
 		return nil, err
 	}
-	values, total, err := c.service.Cases(ctx, req.Status, req.Page, req.Size)
-	return &v1.ListCasesRes{Cases: values, Total: total}, err
+	page, err := c.service.Cases(ctx, model.AdminCaseQuery{
+		Search: req.Q, Sort: req.Sort, Status: req.Status, Kind: req.Kind, Page: req.Page, PageSize: req.Size,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &v1.ListCasesRes{AdminCasePage: *page}, nil
 }
 
 func (c *Admin) ResolveCase(ctx context.Context, req *v1.ResolveCaseReq) (*v1.ResolveCaseRes, error) {

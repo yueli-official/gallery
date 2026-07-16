@@ -19,7 +19,7 @@ const cards = computed(() => [
     label: "待审投稿",
     value: overview.value?.pendingSubmissions ?? 0,
     icon: "i-tabler-photo-check",
-    to: "/manage/submissions",
+    to: "/manage/submissions?reviewState=pending&outcome=pending",
   },
   {
     label: "待处理 Case",
@@ -37,7 +37,7 @@ const cards = computed(() => [
     label: "处理失败",
     value: overview.value?.failedProcessing ?? 0,
     icon: "i-tabler-alert-triangle",
-    to: "/manage/submissions",
+    to: "/manage/submissions?processingState=failed",
   },
 ]);
 </script>
@@ -84,7 +84,7 @@ const cards = computed(() => [
       >
         <UButton
           v-if="overview.pendingSubmissions"
-          to="/manage/submissions"
+          to="/manage/submissions?reviewState=pending&outcome=pending"
           color="neutral"
           variant="soft"
           icon="i-tabler-photo-check"
@@ -115,7 +115,7 @@ const cards = computed(() => [
           color="neutral"
           variant="outline"
           icon="i-tabler-photo"
-          label="管理已公开图片"
+          label="管理全部图片"
           block
         /><UButton
           to="/manage/collections"

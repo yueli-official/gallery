@@ -267,6 +267,14 @@ export interface GallerySubmission {
   updatedAt?: string;
 }
 
+export interface GalleryAdminSubmissionPage {
+  items: GallerySubmission[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface GalleryRanking {
   kind: "trending" | "most_viewed" | "most_favorited";
   window: "24h" | "7d" | "30d" | "all";
@@ -278,14 +286,27 @@ export interface GalleryCase {
   id: string;
   imageId: string;
   submissionId: string;
-  kind: string;
-  status: string;
+  kind:
+    | "report"
+    | "source_correction"
+    | "safety_uncertain"
+    | "near_duplicate"
+    | "takedown";
+  status: "open" | "reviewing" | "resolved" | "dismissed";
   reason: string;
   description: string;
   proposedSourceUrl: string;
   resolutionNote: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface GalleryAdminCasePage {
+  items: GalleryCase[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
 }
 
 export interface GalleryAdminOverview {

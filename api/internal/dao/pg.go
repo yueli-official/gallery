@@ -1036,12 +1036,35 @@ RETURNING id::text AS id, asset_id::text AS asset_id, title, description,
 	return value, nil
 }
 
-func (p *PG) ReviewQueue(ctx context.Context, page, size int) ([]model.Submission, int, error) {
-	count, err := p.db.GetValue(ctx, `SELECT COUNT(*) FROM gallery_submissions WHERE review_state = 'pending' AND outcome = 'pending'`)
-	if err != nil {
-		return nil, 0, gerror.Wrap(err, "count gallery review queue")
+func (p *PG) ReviewQueue(ctx context.Context, input model.AdminSubmissionQuery) ([]model.Submission, int, error) {
+	where := []string{"TRUE"}
+	args := []any{}
+	if input.Search != "" {
+		where, args = append(where, "(submission.title ILIKE ? OR submission.description ILIKE ? OR COALESCE(submission.source_url, '') ILIKE ?)"), append(args, "%"+input.Search+"%", "%"+input.Search+"%", "%"+input.Search+"%")
 	}
-	const query = `
+	if input.ProcessingState != "" {
+		where, args = append(where, "submission.processing_state = ?"), append(args, input.ProcessingState)
+	}
+	if input.ReviewState != "" {
+		where, args = append(where, "submission.review_state = ?"), append(args, input.ReviewState)
+	}
+	if input.SafetyState != "" {
+		where, args = append(where, "submission.safety_state = ?"), append(args, input.SafetyState)
+	}
+	if input.Outcome != "" {
+		where, args = append(where, "submission.outcome = ?"), append(args, input.Outcome)
+	}
+	predicate := strings.Join(where, " AND ")
+	count, err := p.db.GetValue(ctx, `SELECT COUNT(*) FROM gallery_submissions submission WHERE `+predicate, args...)
+	if err != nil {
+		return nil, 0, gerror.Wrap(err, "count gallery submission workbench")
+	}
+	orders := map[string]string{
+		"oldest":  "submission.created_at ASC, submission.id ASC",
+		"newest":  "submission.created_at DESC, submission.id DESC",
+		"updated": "submission.updated_at DESC, submission.id DESC",
+	}
+	query := `
 SELECT submission.id::text AS id, submission.subject_kind, submission.subject_id, submission.asset_id::text AS asset_id,
        COALESCE(submission.image_id::text, '') AS image_id, submission.title, submission.description,
        COALESCE(submission.source_url, '') AS source_url, submission.alt_text,
@@ -1050,11 +1073,12 @@ SELECT submission.id::text AS id, submission.subject_kind, submission.subject_id
        submission.outcome, submission.failure_code, submission.review_note, submission.created_at, submission.updated_at
 FROM gallery_submissions submission
 LEFT JOIN gallery_submission_primary_categories primary_category ON primary_category.submission_id = submission.id
-WHERE submission.review_state = 'pending' AND submission.outcome = 'pending'
-ORDER BY submission.created_at ASC, submission.id ASC LIMIT ? OFFSET ?`
+WHERE ` + predicate + `
+ORDER BY ` + orders[input.Sort] + ` LIMIT ? OFFSET ?`
+	pageArgs := append(append([]any{}, args...), input.PageSize, (input.Page-1)*input.PageSize)
 	var values []model.Submission
-	if err := p.db.Ctx(ctx).Raw(query, size, (page-1)*size).Scan(&values); err != nil {
-		return nil, 0, gerror.Wrap(err, "query gallery review queue")
+	if err := p.db.Ctx(ctx).Raw(query, pageArgs...).Scan(&values); err != nil {
+		return nil, 0, gerror.Wrap(err, "query gallery submission workbench")
 	}
 	return values, count.Int(), nil
 }
@@ -1214,19 +1238,35 @@ SELECT id, 'takedown', 'resolved', 'operator', ?, ?, ? FROM hidden`, id, operato
 	return nil
 }
 
-func (p *PG) Cases(ctx context.Context, status string, page, size int) ([]model.Case, int, error) {
-	count, err := p.db.GetValue(ctx, `SELECT COUNT(*) FROM gallery_cases WHERE status = ?`, status)
+func (p *PG) Cases(ctx context.Context, input model.AdminCaseQuery) ([]model.Case, int, error) {
+	where := []string{"TRUE"}
+	args := []any{}
+	if input.Status != "all" {
+		where, args = append(where, "status = ?"), append(args, input.Status)
+	}
+	if input.Kind != "" {
+		where, args = append(where, "kind = ?"), append(args, input.Kind)
+	}
+	if input.Search != "" {
+		where, args = append(where, "(reason ILIKE ? OR description ILIKE ? OR resolution_note ILIKE ?)"), append(args, "%"+input.Search+"%", "%"+input.Search+"%", "%"+input.Search+"%")
+	}
+	predicate := strings.Join(where, " AND ")
+	count, err := p.db.GetValue(ctx, `SELECT COUNT(*) FROM gallery_cases WHERE `+predicate, args...)
 	if err != nil {
 		return nil, 0, gerror.Wrap(err, "count gallery cases")
 	}
-	const query = `
+	orders := map[string]string{
+		"oldest": "created_at ASC, id ASC", "newest": "created_at DESC, id DESC", "updated": "updated_at DESC, id DESC",
+	}
+	query := `
 SELECT id::text AS id, COALESCE(image_id::text, '') AS image_id,
        COALESCE(submission_id::text, '') AS submission_id, kind, status, reason, description,
        COALESCE(proposed_source_url, '') AS proposed_source_url, resolution_note, created_at, updated_at
-FROM gallery_cases WHERE status = ?
-ORDER BY created_at ASC, id ASC LIMIT ? OFFSET ?`
+FROM gallery_cases WHERE ` + predicate + `
+ORDER BY ` + orders[input.Sort] + ` LIMIT ? OFFSET ?`
+	pageArgs := append(append([]any{}, args...), input.PageSize, (input.Page-1)*input.PageSize)
 	var values []model.Case
-	if err := p.db.Ctx(ctx).Raw(query, status, size, (page-1)*size).Scan(&values); err != nil {
+	if err := p.db.Ctx(ctx).Raw(query, pageArgs...).Scan(&values); err != nil {
 		return nil, 0, gerror.Wrap(err, "query gallery cases")
 	}
 	return values, count.Int(), nil
@@ -1240,15 +1280,22 @@ func (p *PG) ResolveCase(ctx context.Context, operator, id string, input model.C
 	query := `
 UPDATE gallery_cases
 SET status = ?, operator_sub = ?, resolution_note = ?, resolved_at = ` + resolvedAt + `, updated_at = NOW()
-WHERE id = ?::uuid AND status IN ('open', 'reviewing')
+WHERE id = ?::uuid AND status IN ('open', 'reviewing') AND updated_at = ?::timestamptz
 RETURNING id::text AS id, COALESCE(image_id::text, '') AS image_id,
           COALESCE(submission_id::text, '') AS submission_id, kind, status, reason, description,
           COALESCE(proposed_source_url, '') AS proposed_source_url, resolution_note, created_at, updated_at`
-	record, err := p.db.GetOne(ctx, query, input.Status, operator, input.Note, id)
+	record, err := p.db.GetOne(ctx, query, input.Status, operator, input.Note, id, input.ExpectedUpdatedAt)
 	if err != nil {
 		return nil, gerror.Wrap(err, "resolve gallery case")
 	}
-	return recordAs[model.Case](record)
+	value, err := recordAs[model.Case](record)
+	if err != nil {
+		return nil, err
+	}
+	if value == nil {
+		return nil, galleryerr.Conflict("case_version")
+	}
+	return value, nil
 }
 
 func (p *PG) RecordEvent(ctx context.Context, subject model.Subject, imageID string, input model.EventInput) error {

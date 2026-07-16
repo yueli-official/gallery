@@ -126,14 +126,17 @@ type ExecuteClassificationGovernanceRes struct {
 }
 
 type ListSubmissionReviewsReq struct {
-	g.Meta `path:"/api/v1/gallery/admin/submissions" method:"GET" tags:"Gallery admin" summary:"List submissions requiring operator review"`
-	Page   int `p:"page" d:"1"`
-	Size   int `p:"size" d:"20"`
+	g.Meta          `path:"/api/v1/gallery/admin/submissions" method:"GET" tags:"Gallery admin" summary:"List Gallery submissions across processing, review, safety and outcome states"`
+	Q               string `p:"q"`
+	Sort            string `p:"sort" d:"oldest"`
+	Page            int    `p:"page" d:"1"`
+	Size            int    `p:"size" d:"20"`
+	ProcessingState string `p:"processingState"`
+	ReviewState     string `p:"reviewState"`
+	SafetyState     string `p:"safetyState"`
+	Outcome         string `p:"outcome"`
 }
-type ListSubmissionReviewsRes struct {
-	Submissions []model.Submission `json:"submissions"`
-	Total       int                `json:"total"`
-}
+type ListSubmissionReviewsRes struct{ model.AdminSubmissionPage }
 
 type ReviewSubmissionReq struct {
 	g.Meta       `path:"/api/v1/gallery/admin/submissions/{submissionId}/review" method:"POST" tags:"Gallery admin" summary:"Approve or reject a ready submission"`
@@ -184,15 +187,15 @@ type BulkHideImagesRes struct {
 }
 
 type ListCasesReq struct {
-	g.Meta `path:"/api/v1/gallery/admin/cases" method:"GET" tags:"Gallery admin" summary:"List Gallery moderation and correction cases"`
+	g.Meta `path:"/api/v1/gallery/admin/cases" method:"GET" tags:"Gallery admin" summary:"List and filter Gallery moderation and correction cases"`
+	Q      string `p:"q"`
+	Sort   string `p:"sort" d:"oldest"`
 	Status string `p:"status" d:"open"`
+	Kind   string `p:"kind"`
 	Page   int    `p:"page" d:"1"`
 	Size   int    `p:"size" d:"20"`
 }
-type ListCasesRes struct {
-	Cases []model.Case `json:"cases"`
-	Total int          `json:"total"`
-}
+type ListCasesRes struct{ model.AdminCasePage }
 
 type ResolveCaseReq struct {
 	g.Meta `path:"/api/v1/gallery/admin/cases/{caseId}/resolve" method:"POST" tags:"Gallery admin" summary:"Move a Gallery case to reviewing, resolved or dismissed"`

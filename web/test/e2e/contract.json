@@ -88,7 +88,14 @@
       {
         "key": "review-queue",
         "path": "/manage/submissions",
-        "readySelector": "text=没有待审投稿",
+        "readySelector": "text=当前筛选没有投稿",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "case-queue",
+        "path": "/manage/cases",
+        "readySelector": "text=当前队列为空",
         "authenticated": true,
         "viewports": ["mobile", "desktop"]
       },
