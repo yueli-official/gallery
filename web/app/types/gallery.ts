@@ -91,6 +91,26 @@ export interface GalleryImagePage {
   facets: GalleryFacet[];
 }
 
+export interface GalleryAdminImage extends GalleryImageCard {
+  description: string;
+  sourceUrl: string;
+  processingState: "queued" | "processing" | "ready" | "failed";
+  reviewState: "not_required" | "pending" | "approved" | "rejected";
+  publicationState: "draft" | "published" | "hidden" | "deleted";
+  safetyState: "pending" | "safe" | "uncertain" | "blocked" | "unavailable";
+  publicRenditionReady: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface GalleryAdminImagePage {
+  items: GalleryAdminImage[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
 export interface GallerySearchSuggestion {
   key: string;
   label: string;

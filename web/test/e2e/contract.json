@@ -72,6 +72,13 @@
         "viewports": ["mobile", "desktop"]
       },
       {
+        "key": "manage-images",
+        "path": "/manage/images",
+        "readySelector": "text=没有符合条件的图片",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"]
+      },
+      {
         "key": "classification",
         "path": "/manage/classification",
         "readySelector": "text=壁纸",

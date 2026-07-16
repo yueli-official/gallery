@@ -46,6 +46,9 @@ type fakeStore struct {
 	tagProposals           []model.ClassificationTagProposal
 	tagProposalReviewSeen  model.ClassificationTagProposalReviewInput
 	mySubmissionsQuerySeen model.MySubmissionQuery
+	adminImages            []model.AdminImage
+	adminImageQuerySeen    model.AdminImageQuery
+	adminImageUpdateSeen   model.AdminImageUpdateInput
 }
 
 func (f *fakeStore) SiteSettings(context.Context) (*model.SiteSettings, error) {
@@ -192,6 +195,14 @@ func (f *fakeStore) CreateCase(context.Context, model.Subject, string, model.Cas
 func (f *fakeStore) AdminOverview(context.Context) (*model.AdminOverview, error) {
 	return &model.AdminOverview{}, nil
 }
+func (f *fakeStore) AdminImages(_ context.Context, query model.AdminImageQuery) ([]model.AdminImage, int, error) {
+	f.adminImageQuerySeen = query
+	return f.adminImages, len(f.adminImages), nil
+}
+func (f *fakeStore) UpdateAdminImage(_ context.Context, _ string, input model.AdminImageUpdateInput) (*model.AdminImage, error) {
+	f.adminImageUpdateSeen = input
+	return &model.AdminImage{ImageCard: model.ImageCard{ID: testCategoryID}}, nil
+}
 func (f *fakeStore) ReviewQueue(context.Context, int, int) ([]model.Submission, int, error) {
 	return nil, 0, nil
 }
@@ -316,6 +327,53 @@ func TestAdminCollectionNormalizesPaginationAndPublicIDs(t *testing.T) {
 	}
 	if value.Page != 1 || value.PageSize != 12 || value.TotalPages != 3 {
 		t.Fatalf("unexpected collection pagination: %#v", value)
+	}
+}
+
+func TestAdminImagesNormalizesLifecycleQueryAndMetrics(t *testing.T) {
+	store := validSubmissionStore()
+	store.adminImages = []model.AdminImage{{ImageCard: model.ImageCard{ID: testCategoryID, ViewCount: 42, FavoriteCount: 7}}}
+	page, err := New(store).AdminImages(context.Background(), model.AdminImageQuery{
+		Search: "  rain  ", Sort: "updated", Page: -1, PageSize: 99,
+		ProcessingState: "ready", ReviewState: "approved", PublicationState: "hidden", SafetyState: "safe",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if store.adminImageQuerySeen.Search != "rain" || store.adminImageQuerySeen.Page != 1 || store.adminImageQuerySeen.PageSize != 60 {
+		t.Fatalf("admin image query = %#v", store.adminImageQuerySeen)
+	}
+	if page.Items[0].ID != PublicID(testCategoryID) || page.Items[0].Metrics.Views != 42 || page.Total != 1 || page.TotalPages != 1 {
+		t.Fatalf("admin image page = %#v", page)
+	}
+	_, err = New(store).AdminImages(context.Background(), model.AdminImageQuery{SafetyState: "trusted"})
+	assertCode(t, err, "common.validation_failed")
+}
+
+func TestUpdateAdminImageValidatesAndNormalizesMetadata(t *testing.T) {
+	store := validSubmissionStore()
+	service := New(store)
+	updatedAt := "2026-07-16T14:00:00.123456Z"
+	value, err := service.UpdateAdminImage(context.Background(), PublicID(testCategoryID), model.AdminImageUpdateInput{
+		ExpectedUpdatedAt: updatedAt, Title: "  雨夜  ", Description: "  城市  ", AltText: "  雨夜街道  ", SourceURL: " https://example.com/source ",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value.ID != PublicID(testCategoryID) || store.adminImageUpdateSeen.Title != "雨夜" || store.adminImageUpdateSeen.SourceURL != "https://example.com/source" {
+		t.Fatalf("admin update = %#v value = %#v", store.adminImageUpdateSeen, value)
+	}
+	_, err = service.UpdateAdminImage(context.Background(), PublicID(testCategoryID), model.AdminImageUpdateInput{ExpectedUpdatedAt: "stale", Title: "雨夜", AltText: "雨夜"})
+	assertCode(t, err, "common.validation_failed")
+}
+
+func TestBulkHideImagesReportsPerItemOutcomes(t *testing.T) {
+	store := validSubmissionStore()
+	results := New(store).BulkHideImages(context.Background(), "operator-1", model.BulkImageHideInput{
+		ImageIDs: []string{PublicID(testCategoryID), "not-an-id", PublicID(testCategoryID)}, Reason: "policy",
+	})
+	if len(results) != 2 || !results[0].Success || results[1].Success || results[1].Error == "" {
+		t.Fatalf("bulk hide results = %#v", results)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 
 	v1 "platform/products/gallery/api/api/v1"
 	galleryservice "platform/products/gallery/api/internal/gallery"
+	"platform/products/gallery/api/internal/model"
 )
 
 type Workflow struct{ service *galleryservice.Service }
@@ -197,6 +198,40 @@ func (c *Admin) HideImage(ctx context.Context, req *v1.HideImageReq) (*v1.HideIm
 		return nil, err
 	}
 	return &v1.HideImageRes{Hidden: true}, nil
+}
+
+func (c *Admin) ListAdminImages(ctx context.Context, req *v1.ListAdminImagesReq) (*v1.ListAdminImagesRes, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	page, err := c.service.AdminImages(ctx, model.AdminImageQuery{
+		Search: req.Q, Sort: req.Sort, Page: req.Page, PageSize: req.Size,
+		ProcessingState: req.ProcessingState, ReviewState: req.ReviewState,
+		PublicationState: req.PublicationState, SafetyState: req.SafetyState,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &v1.ListAdminImagesRes{AdminImagePage: *page}, nil
+}
+
+func (c *Admin) UpdateAdminImage(ctx context.Context, req *v1.UpdateAdminImageReq) (*v1.UpdateAdminImageRes, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	value, err := c.service.UpdateAdminImage(ctx, req.ImageID, req.AdminImageUpdateInput)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.UpdateAdminImageRes{Image: *value}, nil
+}
+
+func (c *Admin) BulkHideImages(ctx context.Context, req *v1.BulkHideImagesReq) (*v1.BulkHideImagesRes, error) {
+	operator, err := requireAdmin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.BulkHideImagesRes{Results: c.service.BulkHideImages(ctx, operator, req.BulkImageHideInput)}, nil
 }
 
 func (c *Admin) ListCases(ctx context.Context, req *v1.ListCasesReq) (*v1.ListCasesRes, error) {

@@ -77,6 +77,57 @@ type ImagePage struct {
 	Facets      []ClassificationFacet      `json:"facets"`
 }
 
+type AdminImage struct {
+	ImageCard
+	Description          string      `json:"description" orm:"description"`
+	SourceURL            string      `json:"sourceUrl" orm:"source_url"`
+	ProcessingState      string      `json:"processingState" orm:"processing_state"`
+	ReviewState          string      `json:"reviewState" orm:"review_state"`
+	PublicationState     string      `json:"publicationState" orm:"publication_state"`
+	SafetyState          string      `json:"safetyState" orm:"safety_state"`
+	PublicRenditionReady bool        `json:"publicRenditionReady" orm:"public_rendition_ready"`
+	CreatedAt            *gtime.Time `json:"createdAt" orm:"created_at"`
+	UpdatedAt            *gtime.Time `json:"updatedAt" orm:"updated_at"`
+}
+
+type AdminImageQuery struct {
+	Search           string
+	Sort             string
+	Page             int
+	PageSize         int
+	ProcessingState  string
+	ReviewState      string
+	PublicationState string
+	SafetyState      string
+}
+
+type AdminImagePage struct {
+	Items      []AdminImage `json:"items"`
+	Page       int          `json:"page"`
+	PageSize   int          `json:"pageSize"`
+	Total      int          `json:"total"`
+	TotalPages int          `json:"totalPages"`
+}
+
+type AdminImageUpdateInput struct {
+	ExpectedUpdatedAt string `json:"expectedUpdatedAt"`
+	Title             string `json:"title"`
+	Description       string `json:"description"`
+	AltText           string `json:"altText"`
+	SourceURL         string `json:"sourceUrl"`
+}
+
+type BulkImageHideInput struct {
+	ImageIDs []string `json:"imageIds"`
+	Reason   string   `json:"reason"`
+}
+
+type BulkImageActionResult struct {
+	ImageID string `json:"imageId"`
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+}
+
 type ClassificationDiagnostic struct {
 	Code      string            `json:"code"`
 	Path      []string          `json:"path"`

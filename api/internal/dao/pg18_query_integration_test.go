@@ -289,6 +289,38 @@ INSERT INTO gallery_collection_members (collection_id, image_id, added_at) VALUE
 	if len(second.Images) != 1 || second.Images[0].Title != "Beta" {
 		t.Fatalf("second favorite page = %#v", second)
 	}
+
+	adminImages, adminTotal, err := fixture.Store.AdminImages(context.Background(), model.AdminImageQuery{
+		Page: 1, PageSize: 20, Sort: "updated", PublicationState: "hidden", SafetyState: "safe",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if adminTotal != 1 || len(adminImages) != 1 || adminImages[0].Title != "Hidden" {
+		t.Fatalf("admin lifecycle filter = total %d values %#v", adminTotal, adminImages)
+	}
+	if adminImages[0].UpdatedAt == nil {
+		t.Fatal("admin image must carry an optimistic concurrency timestamp")
+	}
+	expectedUpdatedAt := adminImages[0].UpdatedAt.Time.Format(time.RFC3339Nano)
+	updated, err := fixture.Store.UpdateAdminImage(context.Background(), "01990000-0000-7000-8a00-000000000003", model.AdminImageUpdateInput{
+		ExpectedUpdatedAt: expectedUpdatedAt,
+		Title:             "Hidden revised",
+		Description:       "curated from the lifecycle workbench",
+		AltText:           "Hidden revised",
+		SourceURL:         "https://example.com/hidden",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Title != "Hidden revised" || updated.SourceURL != "https://example.com/hidden" {
+		t.Fatalf("updated admin image = %#v", updated)
+	}
+	if _, err := fixture.Store.UpdateAdminImage(context.Background(), "01990000-0000-7000-8a00-000000000003", model.AdminImageUpdateInput{
+		ExpectedUpdatedAt: expectedUpdatedAt, Title: "stale write", AltText: "stale write",
+	}); err == nil {
+		t.Fatal("stale admin image update must be rejected")
+	}
 }
 
 func TestPostgreSQL18TagKeysetCursorBreaksCaseInsensitiveNameTiesWithoutGaps(t *testing.T) {

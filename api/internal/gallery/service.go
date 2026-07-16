@@ -53,6 +53,8 @@ type Store interface {
 	FavoritesDetail(context.Context, string, int, int, string) (*model.CollectionDetail, error)
 	CreateCase(context.Context, model.Subject, string, model.CaseInput) (*model.Case, error)
 	AdminOverview(context.Context) (*model.AdminOverview, error)
+	AdminImages(context.Context, model.AdminImageQuery) ([]model.AdminImage, int, error)
+	UpdateAdminImage(context.Context, string, model.AdminImageUpdateInput) (*model.AdminImage, error)
 	ReviewQueue(context.Context, int, int) ([]model.Submission, int, error)
 	ReviewSubmission(context.Context, string, string, model.SubmissionReviewInput) (*model.Submission, error)
 	HideImage(context.Context, string, string, string) error
@@ -1175,6 +1177,103 @@ func (s *Service) Report(ctx context.Context, subject model.Subject, rawImageID 
 
 func (s *Service) AdminOverview(ctx context.Context) (*model.AdminOverview, error) {
 	return s.store.AdminOverview(ctx)
+}
+
+func (s *Service) AdminImages(ctx context.Context, query model.AdminImageQuery) (*model.AdminImagePage, error) {
+	query.Search = strings.TrimSpace(query.Search)
+	query.Sort = strings.TrimSpace(query.Sort)
+	if query.Sort == "" {
+		query.Sort = "newest"
+	}
+	query.Page, query.PageSize = bounded(query.Page, 1, 100000, 1), bounded(query.PageSize, 12, 60, 24)
+	if !oneOf(query.Sort, "newest", "oldest", "title_asc", "title_desc", "updated") {
+		return nil, galleryerr.Validation("sort", "unsupported admin image sort")
+	}
+	query.ProcessingState = strings.TrimSpace(query.ProcessingState)
+	query.ReviewState = strings.TrimSpace(query.ReviewState)
+	query.PublicationState = strings.TrimSpace(query.PublicationState)
+	query.SafetyState = strings.TrimSpace(query.SafetyState)
+	if query.ProcessingState != "" && !oneOf(query.ProcessingState, "queued", "processing", "ready", "failed") {
+		return nil, galleryerr.Validation("processingState", "unsupported processing state")
+	}
+	if query.ReviewState != "" && !oneOf(query.ReviewState, "not_required", "pending", "approved", "rejected") {
+		return nil, galleryerr.Validation("reviewState", "unsupported review state")
+	}
+	if query.PublicationState != "" && !oneOf(query.PublicationState, "draft", "published", "hidden", "deleted") {
+		return nil, galleryerr.Validation("publicationState", "unsupported publication state")
+	}
+	if query.SafetyState != "" && !oneOf(query.SafetyState, "pending", "safe", "uncertain", "blocked", "unavailable") {
+		return nil, galleryerr.Validation("safetyState", "unsupported safety state")
+	}
+	values, total, err := s.store.AdminImages(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	if values == nil {
+		values = []model.AdminImage{}
+	}
+	for index := range values {
+		values[index].ID = PublicID(values[index].ID)
+		values[index].Metrics = model.Metrics{Views: values[index].ViewCount, Favorites: values[index].FavoriteCount}
+	}
+	pages := 0
+	if total > 0 {
+		pages = int(math.Ceil(float64(total) / float64(query.PageSize)))
+	}
+	return &model.AdminImagePage{Items: values, Page: query.Page, PageSize: query.PageSize, Total: total, TotalPages: pages}, nil
+}
+
+func (s *Service) UpdateAdminImage(ctx context.Context, rawID string, input model.AdminImageUpdateInput) (*model.AdminImage, error) {
+	id, err := DatabaseID(rawID)
+	if err != nil {
+		return nil, galleryerr.NotFound("image", rawID)
+	}
+	input.Title, input.Description = strings.TrimSpace(input.Title), strings.TrimSpace(input.Description)
+	input.AltText, input.SourceURL = strings.TrimSpace(input.AltText), strings.TrimSpace(input.SourceURL)
+	input.ExpectedUpdatedAt = strings.TrimSpace(input.ExpectedUpdatedAt)
+	if input.Title == "" || len([]rune(input.Title)) > 160 {
+		return nil, galleryerr.Validation("title", "title is required and must be at most 160 characters")
+	}
+	if input.AltText == "" {
+		return nil, galleryerr.Validation("altText", "alt text is required")
+	}
+	if _, parseErr := time.Parse(time.RFC3339Nano, input.ExpectedUpdatedAt); parseErr != nil {
+		return nil, galleryerr.Validation("expectedUpdatedAt", "a current RFC3339 timestamp is required")
+	}
+	if input.SourceURL != "" {
+		parsed, parseErr := url.ParseRequestURI(input.SourceURL)
+		if parseErr != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+			return nil, galleryerr.Validation("sourceUrl", "source URL must be HTTP or HTTPS")
+		}
+	}
+	value, err := s.store.UpdateAdminImage(ctx, id, input)
+	if value != nil {
+		value.ID = PublicID(value.ID)
+	}
+	return value, err
+}
+
+func (s *Service) BulkHideImages(ctx context.Context, operator string, input model.BulkImageHideInput) []model.BulkImageActionResult {
+	reason := strings.TrimSpace(input.Reason)
+	results := make([]model.BulkImageActionResult, 0, len(input.ImageIDs))
+	seen := map[string]struct{}{}
+	for _, rawID := range input.ImageIDs {
+		publicID := strings.TrimSpace(rawID)
+		if _, duplicate := seen[publicID]; duplicate {
+			continue
+		}
+		seen[publicID] = struct{}{}
+		result := model.BulkImageActionResult{ImageID: publicID}
+		if reason == "" {
+			result.Error = "reason_required"
+		} else if err := s.HideImage(ctx, operator, publicID, reason); err != nil {
+			result.Error = "not_hidden"
+		} else {
+			result.Success = true
+		}
+		results = append(results, result)
+	}
+	return results
 }
 
 func (s *Service) ReviewQueue(ctx context.Context, page, size int) ([]model.Submission, int, error) {

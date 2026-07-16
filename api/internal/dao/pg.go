@@ -50,6 +50,29 @@ LEFT JOIN LATERAL (
     WHERE m.image_id = i.id
 ) metric ON TRUE`
 
+const adminImageSelect = `
+SELECT i.id::text AS id, i.asset_id::text AS asset_id, i.title, i.description,
+       COALESCE(i.source_url, '') AS source_url, i.alt_text, i.width, i.height, i.dominant_color,
+       i.processing_state, i.review_state, i.publication_state, i.safety_state,
+       i.public_rendition_ready, i.published_at, i.created_at, i.updated_at,
+       COALESCE(primary_category.name, '') AS primary_category,
+       COALESCE(primary_category.slug, '') AS primary_category_slug,
+       COALESCE(metric.view_count, 0)::bigint AS view_count,
+       COALESCE(metric.favorite_count, 0)::bigint AS favorite_count
+FROM gallery_images i
+LEFT JOIN LATERAL (
+    SELECT category.name, category.slug
+    FROM gallery_image_primary_categories primary_assignment
+    JOIN gallery_categories category ON category.id = primary_assignment.category_id
+    WHERE primary_assignment.image_id = i.id
+) primary_category ON TRUE
+LEFT JOIN LATERAL (
+    SELECT COALESCE(SUM(m.qualified_views), 0) AS view_count,
+           COALESCE(SUM(m.favorites), 0) AS favorite_count
+    FROM gallery_image_metrics_daily m
+    WHERE m.image_id = i.id
+) metric ON TRUE`
+
 func (p *PG) SiteSettings(ctx context.Context) (*model.SiteSettings, error) {
 	var value *model.SiteSettings
 	if err := p.db.Model("gallery_site_settings").Ctx(ctx).Order("site_key ASC").Limit(1).Scan(&value); err != nil {
@@ -951,6 +974,64 @@ SELECT
 	var value *model.AdminOverview
 	if err := p.db.Ctx(ctx).Raw(query).Scan(&value); err != nil {
 		return nil, gerror.Wrap(err, "query gallery admin overview")
+	}
+	return value, nil
+}
+
+func (p *PG) AdminImages(ctx context.Context, input model.AdminImageQuery) ([]model.AdminImage, int, error) {
+	where := []string{"TRUE"}
+	args := []any{}
+	if input.Search != "" {
+		where, args = append(where, "(i.title ILIKE ? OR i.description ILIKE ? OR i.alt_text ILIKE ?)"), append(args, "%"+input.Search+"%", "%"+input.Search+"%", "%"+input.Search+"%")
+	}
+	if input.ProcessingState != "" {
+		where, args = append(where, "i.processing_state = ?"), append(args, input.ProcessingState)
+	}
+	if input.ReviewState != "" {
+		where, args = append(where, "i.review_state = ?"), append(args, input.ReviewState)
+	}
+	if input.PublicationState != "" {
+		where, args = append(where, "i.publication_state = ?"), append(args, input.PublicationState)
+	}
+	if input.SafetyState != "" {
+		where, args = append(where, "i.safety_state = ?"), append(args, input.SafetyState)
+	}
+	predicate := strings.Join(where, " AND ")
+	count, err := p.db.GetValue(ctx, `SELECT COUNT(*) FROM gallery_images i WHERE `+predicate, args...)
+	if err != nil {
+		return nil, 0, gerror.Wrap(err, "count admin gallery images")
+	}
+	orders := map[string]string{
+		"newest": "i.created_at DESC, i.id DESC", "oldest": "i.created_at ASC, i.id ASC",
+		"updated": "i.updated_at DESC, i.id DESC", "title_asc": "LOWER(i.title) ASC, i.id ASC", "title_desc": "LOWER(i.title) DESC, i.id DESC",
+	}
+	query := adminImageSelect + ` WHERE ` + predicate + ` ORDER BY ` + orders[input.Sort] + ` LIMIT ? OFFSET ?`
+	pageArgs := append(append([]any{}, args...), input.PageSize, (input.Page-1)*input.PageSize)
+	var values []model.AdminImage
+	if err := p.db.Ctx(ctx).Raw(query, pageArgs...).Scan(&values); err != nil {
+		return nil, 0, gerror.Wrap(err, "query admin gallery images")
+	}
+	return values, count.Int(), nil
+}
+
+func (p *PG) UpdateAdminImage(ctx context.Context, id string, input model.AdminImageUpdateInput) (*model.AdminImage, error) {
+	record, err := p.db.GetOne(ctx, `
+UPDATE gallery_images
+SET title = ?, description = ?, alt_text = ?, source_url = NULLIF(?, ''), updated_at = NOW()
+WHERE id = ?::uuid AND updated_at = ?::timestamptz AND publication_state <> 'deleted'
+RETURNING id::text AS id, asset_id::text AS asset_id, title, description,
+          COALESCE(source_url, '') AS source_url, alt_text, width, height, dominant_color,
+          processing_state, review_state, publication_state, safety_state, public_rendition_ready,
+          published_at, created_at, updated_at`, input.Title, input.Description, input.AltText, input.SourceURL, id, input.ExpectedUpdatedAt)
+	if err != nil {
+		return nil, gerror.Wrap(err, "update admin gallery image")
+	}
+	value, err := recordAs[model.AdminImage](record)
+	if err != nil {
+		return nil, err
+	}
+	if value == nil {
+		return nil, galleryerr.Conflict("image_version")
 	}
 	return value, nil
 }

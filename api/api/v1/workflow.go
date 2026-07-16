@@ -153,6 +153,36 @@ type HideImageRes struct {
 	Hidden bool `json:"hidden"`
 }
 
+type ListAdminImagesReq struct {
+	g.Meta           `path:"/api/v1/gallery/admin/images" method:"GET" tags:"Gallery admin" summary:"List all Gallery images for lifecycle operations"`
+	Q                string `p:"q"`
+	Sort             string `p:"sort" d:"newest"`
+	Page             int    `p:"page" d:"1"`
+	Size             int    `p:"size" d:"24"`
+	ProcessingState  string `p:"processingState"`
+	ReviewState      string `p:"reviewState"`
+	PublicationState string `p:"publicationState"`
+	SafetyState      string `p:"safetyState"`
+}
+type ListAdminImagesRes struct{ model.AdminImagePage }
+
+type UpdateAdminImageReq struct {
+	g.Meta  `path:"/api/v1/gallery/admin/images/{imageId}" method:"PATCH" tags:"Gallery admin" summary:"Optimistically update Gallery image metadata"`
+	ImageID string `p:"imageId" v:"required"`
+	model.AdminImageUpdateInput
+}
+type UpdateAdminImageRes struct {
+	Image model.AdminImage `json:"image"`
+}
+
+type BulkHideImagesReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/images/bulk-hide" method:"POST" tags:"Gallery admin" summary:"Hide multiple published images with per-item outcomes"`
+	model.BulkImageHideInput
+}
+type BulkHideImagesRes struct {
+	Results []model.BulkImageActionResult `json:"results"`
+}
+
 type ListCasesReq struct {
 	g.Meta `path:"/api/v1/gallery/admin/cases" method:"GET" tags:"Gallery admin" summary:"List Gallery moderation and correction cases"`
 	Status string `p:"status" d:"open"`
