@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import {
+  ManageCollectionToolbar,
   ManageEmpty,
   ManageHeader,
+  ManageTabs,
   SkeletonList,
 } from "@platform/manage/components";
 import type { GalleryAdminCasePage, GalleryCase } from "~/types/gallery";
@@ -25,6 +27,7 @@ watch(q, (value) => {
 const notes = ref<Record<string, string>>({});
 const acting = ref("");
 const actionErrors = ref<Record<string, string>>({});
+const resolvingId = ref("");
 const { data, pending, error, refresh } = await useAsyncData(
   "gallery-manage-cases",
   () =>
@@ -77,6 +80,29 @@ const kindLabel = Object.fromEntries(
 const statusLabel = Object.fromEntries(
   statusTabs.slice(0, 4).map((item) => [item.value, item.label]),
 );
+const statusModel = computed({
+  get: () => status.value,
+  set: (value: string) => setQuery({ status: value }),
+});
+const tabItems = statusTabs.map((item) => ({
+  key: item.value,
+  label: item.label,
+}));
+const filterCount = computed(
+  () =>
+    [kind.value, sort.value !== "oldest" ? sort.value : ""].filter(Boolean)
+      .length,
+);
+
+function formatDate(value?: string) {
+  if (!value) return "时间未知";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
 
 function setQuery(values: Record<string, string | number | undefined>) {
   const resetsPage = !("page" in values);
@@ -146,66 +172,68 @@ async function resolve(
 
 <template>
   <div>
-    <ManageHeader title="处理单工作台"
-      ><template #subtitle
-        >举报、来源修正、安全不确定、近重复与下架调查共享同一队列；状态变化使用更新时间避免覆盖其他运营者。</template
-      ></ManageHeader
-    >
+    <ManageHeader title="信任处理单">
+      <template #subtitle>
+        先接手，再记录判断。举报、来源、安全和下架调查保留同一条审计上下文。
+      </template>
+    </ManageHeader>
 
-    <section
-      class="mb-5 space-y-3 rounded-xl border border-default bg-default p-4"
-      aria-label="处理单筛选"
+    <ManageTabs v-model="statusModel" :items="tabItems" class="mb-4" />
+    <ManageCollectionToolbar
+      v-model:search="qDraft"
+      search-placeholder="搜索原因、说明或处理结论…"
+      :filter-count="filterCount"
+      filter-label="队列筛选"
+      compact-filters
+      class="mb-3"
     >
-      <div class="flex gap-1 overflow-x-auto pb-1" aria-label="处理单状态">
-        <UButton
-          v-for="tab in statusTabs"
-          :key="tab.value"
-          color="neutral"
-          :variant="status === tab.value ? 'soft' : 'ghost'"
-          :label="tab.label"
-          @click="setQuery({ status: tab.value })"
-        />
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <UInput
-          v-model="qDraft"
-          class="min-w-64 flex-1"
-          icon="i-tabler-search"
-          placeholder="搜索原因、说明或处理结论"
-          @keyup.enter="search"
-        /><UButton
-          label="搜索"
-          color="neutral"
-          variant="outline"
-          @click="search"
-        /><USelect
+      <template #filters>
+        <USelect
           :model-value="kind || 'all'"
           :items="kindItems"
           value-key="value"
-          class="w-40"
           aria-label="处理单类型"
           @update:model-value="setQuery({ kind: String($event) })"
         /><USelect
           :model-value="sort"
           :items="sortItems"
           value-key="value"
-          class="w-36"
           aria-label="处理单排序"
           @update:model-value="setQuery({ sort: String($event) })"
         />
-      </div>
-      <div class="flex items-center justify-between text-xs text-muted">
-        <span>共 {{ data.total }} 个处理单</span>
+      </template>
+      <template #actions>
         <UButton
-          v-if="q || kind || sort !== 'oldest'"
+          label="搜索"
           color="neutral"
-          variant="link"
-          size="xs"
-          label="清除查询"
-          @click="clearQuery"
+          variant="outline"
+          size="sm"
+          @click="search"
         />
-      </div>
-    </section>
+      </template>
+      <template #mobile-actions>
+        <UButton
+          label="搜索"
+          color="neutral"
+          variant="outline"
+          size="sm"
+          @click="search"
+        />
+      </template>
+    </ManageCollectionToolbar>
+    <div
+      class="mb-4 flex min-h-7 items-center justify-between gap-3 px-1 text-xs text-muted"
+    >
+      <span>共 {{ data.total }} 个处理单</span>
+      <UButton
+        v-if="q || kind || sort !== 'oldest'"
+        color="neutral"
+        variant="link"
+        size="xs"
+        label="清除查询"
+        @click="clearQuery"
+      />
+    </div>
 
     <SkeletonList v-if="!hydrated || pending" :rows="6" />
     <UAlert
@@ -215,55 +243,65 @@ async function resolve(
       title="处理单加载失败"
       ><template #actions><UButton label="重试" @click="refresh()" /></template
     ></UAlert>
-    <div
+    <section
       v-else-if="data.items.length"
-      class="divide-y divide-default border-y border-default"
+      class="overflow-hidden rounded-xl border border-default bg-default"
+      aria-label="信任处理单队列"
     >
       <article
         v-for="item in data.items"
         :key="item.id"
-        class="grid gap-3 py-4 sm:grid-cols-[9rem_minmax(0,1fr)]"
+        class="grid gap-3 border-b border-default p-4 last:border-b-0 lg:grid-cols-[3rem_minmax(0,1fr)_16rem] lg:items-start"
       >
-        <div>
-          <UBadge
-            color="neutral"
-            variant="soft"
-            :label="kindLabel[item.kind]"
+        <div
+          class="grid size-10 place-items-center rounded-lg"
+          :class="
+            item.kind === 'takedown'
+              ? 'bg-error/10 text-error'
+              : item.kind === 'safety_uncertain'
+                ? 'bg-warning/10 text-warning'
+                : 'bg-primary/10 text-primary'
+          "
+        >
+          <UIcon
+            :name="
+              item.kind === 'source_correction'
+                ? 'i-tabler-link'
+                : item.kind === 'near_duplicate'
+                  ? 'i-tabler-copy'
+                  : item.kind === 'takedown'
+                    ? 'i-tabler-photo-off'
+                    : 'i-tabler-shield-question'
+            "
+            class="size-5"
           />
-          <p class="mt-2 text-xs text-muted">{{ statusLabel[item.status] }}</p>
         </div>
         <div class="min-w-0">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div class="min-w-0">
-              <p class="font-medium text-highlighted">
-                {{ item.reason || kindLabel[item.kind] || "待运营复核" }}
-              </p>
-              <p
-                v-if="item.description"
-                class="mt-1 text-sm leading-6 text-toned"
-              >
-                {{ item.description }}
-              </p>
-              <a
-                v-if="item.proposedSourceUrl"
-                :href="item.proposedSourceUrl"
-                target="_blank"
-                rel="noopener noreferrer nofollow"
-                class="mt-2 block break-all text-sm text-primary hover:underline"
-                >{{ item.proposedSourceUrl }}</a
-              >
-            </div>
-            <div class="flex gap-1">
-              <UButton
-                v-if="item.imageId"
-                :to="`/images/${item.imageId}`"
-                target="_blank"
-                color="neutral"
-                variant="ghost"
-                icon="i-tabler-photo"
-                aria-label="查看关联图片"
-              />
-            </div>
+          <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h2 class="font-semibold text-highlighted">
+              {{ item.reason || kindLabel[item.kind] || "待运营复核" }}
+            </h2>
+            <span class="text-xs text-muted">{{ kindLabel[item.kind] }}</span>
+          </div>
+          <p
+            v-if="item.description"
+            class="mt-1 line-clamp-2 text-sm leading-5 text-muted"
+          >
+            {{ item.description }}
+          </p>
+          <div
+            class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-dimmed"
+          >
+            <span>{{ statusLabel[item.status] }}</span>
+            <span>创建于 {{ formatDate(item.createdAt) }}</span>
+            <a
+              v-if="item.proposedSourceUrl"
+              :href="item.proposedSourceUrl"
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              class="max-w-72 truncate text-primary hover:underline"
+              >查看建议来源</a
+            >
           </div>
           <UAlert
             v-if="actionErrors[item.id]"
@@ -274,31 +312,32 @@ async function resolve(
             :description="actionErrors[item.id]"
           />
           <div
-            v-if="['open', 'reviewing'].includes(item.status)"
-            class="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto]"
+            v-if="resolvingId === item.id"
+            class="mt-4 rounded-lg border border-default bg-elevated/35 p-3"
           >
-            <UInput
-              v-model="notes[item.id]"
-              placeholder="处理结论（解决或忽略时必填）"
-            />
-            <div class="flex flex-wrap gap-2">
+            <UFormField label="处理结论" required>
+              <UTextarea
+                v-model="notes[item.id]"
+                :rows="3"
+                placeholder="说明核查依据和最终判断"
+              />
+            </UFormField>
+            <div class="mt-3 flex flex-wrap justify-end gap-2">
               <UButton
-                v-if="item.status === 'open'"
                 color="neutral"
+                variant="ghost"
+                label="取消"
+                @click="resolvingId = ''"
+              />
+              <UButton
+                color="error"
                 variant="outline"
-                label="开始处理"
-                :loading="acting === item.id"
-                :disabled="!item.updatedAt"
-                @click="resolve(item, 'reviewing')"
-              /><UButton
-                color="neutral"
-                variant="outline"
-                label="忽略"
+                label="忽略处理单"
                 :loading="acting === item.id"
                 :disabled="!item.updatedAt || !notes[item.id]?.trim()"
                 @click="resolve(item, 'dismissed')"
               /><UButton
-                label="解决"
+                label="标记已解决"
                 :loading="acting === item.id"
                 :disabled="!item.updatedAt || !notes[item.id]?.trim()"
                 @click="resolve(item, 'resolved')"
@@ -309,8 +348,31 @@ async function resolve(
             结论：{{ item.resolutionNote }}
           </p>
         </div>
+        <div class="flex flex-wrap items-center gap-2 lg:justify-end">
+          <UButton
+            v-if="item.status === 'open'"
+            label="接手处理"
+            :loading="acting === item.id"
+            :disabled="!item.updatedAt"
+            @click="resolve(item, 'reviewing')"
+          />
+          <UButton
+            v-else-if="item.status === 'reviewing'"
+            label="完成处理"
+            @click="resolvingId = resolvingId === item.id ? '' : item.id"
+          />
+          <UButton
+            v-if="item.imageId"
+            :to="`/images/${item.imageId}`"
+            target="_blank"
+            color="neutral"
+            variant="ghost"
+            icon="i-tabler-photo"
+            aria-label="查看关联图片"
+          />
+        </div>
       </article>
-    </div>
+    </section>
     <ManageEmpty
       v-else
       icon="i-tabler-flag-off"

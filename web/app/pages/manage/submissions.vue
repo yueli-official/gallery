@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import {
+  ManageCollectionToolbar,
   ManageEmpty,
   ManageHeader,
+  ManageTabs,
   SkeletonList,
 } from "@platform/manage/components";
 import type {
@@ -142,6 +144,19 @@ const activePreset = computed(() => {
   if (!filterCount.value) return "all";
   return "custom";
 });
+const presetModel = computed({
+  get: () => activePreset.value,
+  set: (value: string) => {
+    if (["review", "failed", "uncertain", "all"].includes(value))
+      preset(value as "review" | "failed" | "uncertain" | "all");
+  },
+});
+const presetItems = [
+  { key: "review", label: "待审核" },
+  { key: "failed", label: "处理失败" },
+  { key: "uncertain", label: "安全不确定" },
+  { key: "all", label: "全部投稿" },
+];
 
 function setQuery(values: Record<string, string | number | undefined>) {
   const resetsPage = !("page" in values);
@@ -231,64 +246,21 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
 
 <template>
   <div>
-    <ManageHeader title="投稿与审核台"
-      ><template #subtitle
-        >在一个队列查看媒体处理、人工审核、安全判断与最终结果；失败项会保留上下文，不会从界面消失。</template
-      ></ManageHeader
-    >
+    <ManageHeader title="投稿审核">
+      <template #subtitle>
+        先处理能进入目录的投稿；媒体失败和安全不确定保留为独立队列。
+      </template>
+    </ManageHeader>
 
-    <section
-      class="mb-5 space-y-3 rounded-xl border border-default bg-default p-4"
-      aria-label="投稿队列筛选"
+    <ManageTabs v-model="presetModel" :items="presetItems" class="mb-4" />
+    <ManageCollectionToolbar
+      v-model:search="qDraft"
+      search-placeholder="搜索标题、说明或来源…"
+      :filter-count="filterCount"
+      filter-label="状态筛选"
+      class="mb-3"
     >
-      <div class="flex flex-wrap gap-2">
-        <UInput
-          v-model="qDraft"
-          class="min-w-64 flex-1"
-          icon="i-tabler-search"
-          placeholder="搜索标题、说明或来源"
-          @keyup.enter="search"
-        /><UButton
-          label="搜索"
-          color="neutral"
-          variant="outline"
-          @click="search"
-        /><USelect
-          :model-value="sort"
-          :items="sortItems"
-          value-key="value"
-          class="w-36"
-          aria-label="投稿排序"
-          @update:model-value="setQuery({ sort: String($event) })"
-        />
-      </div>
-      <div class="flex gap-1 overflow-x-auto pb-1" aria-label="投稿快捷队列">
-        <UButton
-          color="neutral"
-          :variant="activePreset === 'review' ? 'soft' : 'ghost'"
-          label="待审核"
-          @click="preset('review')"
-        />
-        <UButton
-          color="neutral"
-          :variant="activePreset === 'failed' ? 'soft' : 'ghost'"
-          label="处理失败"
-          @click="preset('failed')"
-        />
-        <UButton
-          color="neutral"
-          :variant="activePreset === 'uncertain' ? 'soft' : 'ghost'"
-          label="安全不确定"
-          @click="preset('uncertain')"
-        />
-        <UButton
-          color="neutral"
-          :variant="activePreset === 'all' ? 'soft' : 'ghost'"
-          label="全部投稿"
-          @click="preset('all')"
-        />
-      </div>
-      <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <template #filters>
         <USelect
           :model-value="processingState || 'all'"
           :items="processingItems"
@@ -310,19 +282,46 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
           value-key="value"
           @update:model-value="setQuery({ outcome: String($event) })"
         />
-      </div>
-      <div class="flex items-center justify-between text-xs text-muted">
-        <span>共 {{ data.total }} 条投稿</span>
-        <UButton
-          v-if="filterCount || q"
-          color="neutral"
-          variant="link"
-          size="xs"
-          label="清除查询"
-          @click="clearFilters"
+        <USelect
+          :model-value="sort"
+          :items="sortItems"
+          value-key="value"
+          aria-label="投稿排序"
+          @update:model-value="setQuery({ sort: String($event) })"
         />
-      </div>
-    </section>
+      </template>
+      <template #actions>
+        <UButton
+          label="搜索"
+          color="neutral"
+          variant="outline"
+          size="sm"
+          @click="search"
+        />
+      </template>
+      <template #mobile-actions>
+        <UButton
+          label="搜索"
+          color="neutral"
+          variant="outline"
+          size="sm"
+          @click="search"
+        />
+      </template>
+    </ManageCollectionToolbar>
+    <div
+      class="mb-4 flex min-h-7 items-center justify-between gap-3 px-1 text-xs text-muted"
+    >
+      <span>共 {{ data.total }} 条投稿</span>
+      <UButton
+        v-if="filterCount || q || sort !== 'oldest'"
+        color="neutral"
+        variant="link"
+        size="xs"
+        label="清除筛选"
+        @click="clearFilters"
+      />
+    </div>
 
     <SkeletonList v-if="!hydrated || pending" :rows="6" />
     <UAlert
@@ -332,71 +331,74 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
       title="投稿队列加载失败"
       ><template #actions><UButton label="重试" @click="refresh()" /></template
     ></UAlert>
-    <div v-else-if="data.items.length" class="space-y-3">
+    <section
+      v-else-if="data.items.length"
+      class="overflow-hidden rounded-xl border border-default bg-default"
+      aria-label="投稿审核队列"
+    >
       <article
         v-for="item in data.items"
         :key="item.id"
-        class="grid gap-4 rounded-xl border border-default bg-default p-4 md:grid-cols-[6rem_minmax(0,1fr)]"
+        class="grid gap-3 border-b border-default p-3 last:border-b-0 sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:p-4 xl:grid-cols-[6.5rem_minmax(0,1fr)_19rem] xl:items-start"
       >
-        <img
-          :src="galleryRendition(item.assetId, 'thumbnail')"
-          :alt="item.altText"
-          class="aspect-[4/3] w-24 rounded-lg bg-elevated object-cover"
-        />
+        <div class="relative overflow-hidden rounded-lg bg-elevated">
+          <img
+            :src="galleryRendition(item.assetId, 'thumbnail')"
+            :alt="item.altText"
+            class="aspect-[4/3] size-full object-cover"
+          />
+          <span
+            class="absolute bottom-1.5 left-1.5 rounded bg-default/90 px-1.5 py-0.5 text-[11px] font-medium text-default backdrop-blur"
+          >
+            {{ outcomeLabel[item.outcome] }}
+          </span>
+        </div>
         <div class="min-w-0">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div class="min-w-0">
-              <h2 class="truncate font-medium text-highlighted">
-                {{ item.title }}
-              </h2>
-              <div class="mt-2 flex flex-wrap gap-1.5">
-                <UBadge
-                  color="neutral"
-                  variant="soft"
-                  :label="processingLabel[item.processingState]"
-                />
-                <UBadge
-                  color="neutral"
-                  variant="soft"
-                  :label="reviewLabel[item.reviewState]"
-                />
-                <UBadge
-                  :color="
-                    item.safetyState === 'safe'
-                      ? 'success'
-                      : item.safetyState === 'blocked'
-                        ? 'error'
-                        : 'warning'
-                  "
-                  variant="soft"
-                  :label="safetyLabel[item.safetyState]"
-                />
-                <UBadge
-                  :color="
-                    item.outcome === 'published'
-                      ? 'success'
-                      : item.outcome === 'failed' || item.outcome === 'rejected'
-                        ? 'error'
-                        : 'neutral'
-                  "
-                  variant="subtle"
-                  :label="outcomeLabel[item.outcome]"
-                />
-              </div>
-            </div>
-            <UButton
-              v-if="item.imageId"
-              :to="`/images/${item.imageId}`"
-              target="_blank"
-              color="neutral"
-              variant="ghost"
-              icon="i-tabler-external-link"
-              label="查看图片"
+          <div class="flex min-w-0 items-center gap-2">
+            <h2 class="truncate font-semibold text-highlighted">
+              {{ item.title }}
+            </h2>
+            <UBadge
+              v-if="item.safetyState !== 'safe'"
+              :color="item.safetyState === 'blocked' ? 'error' : 'warning'"
+              variant="soft"
+              :label="safetyLabel[item.safetyState]"
             />
           </div>
-          <p v-if="item.description" class="mt-3 text-sm leading-6 text-toned">
+          <p
+            v-if="item.description"
+            class="mt-1 line-clamp-2 text-sm leading-5 text-muted"
+          >
             {{ item.description }}
           </p>
+          <dl
+            class="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 text-xs sm:grid-cols-4 xl:grid-cols-2"
+          >
+            <div>
+              <dt class="text-dimmed">媒体</dt>
+              <dd class="mt-0.5 font-medium text-default">
+                {{ processingLabel[item.processingState] }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-dimmed">人工审核</dt>
+              <dd class="mt-0.5 font-medium text-default">
+                {{ reviewLabel[item.reviewState] }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-dimmed">安全判断</dt>
+              <dd class="mt-0.5 font-medium text-default">
+                {{ safetyLabel[item.safetyState] }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-dimmed">最终结果</dt>
+              <dd class="mt-0.5 font-medium text-default">
+                {{ outcomeLabel[item.outcome] }}
+              </dd>
+            </div>
+          </dl>
           <UAlert
             v-if="item.failureCode"
             class="mt-3"
@@ -406,7 +408,10 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
             title="媒体处理失败"
             :description="item.failureCode"
           />
-          <p v-if="item.reviewNote" class="mt-3 text-sm text-muted">
+          <p
+            v-if="item.reviewNote"
+            class="mt-3 border-l-2 border-default pl-3 text-sm text-muted"
+          >
             审核记录：{{ item.reviewNote }}
           </p>
           <UAlert
@@ -417,12 +422,50 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
             title="本项操作失败"
             :description="actionErrors[item.id]"
           />
-          <div
+        </div>
+        <div class="sm:col-start-2 xl:col-start-3">
+          <div class="flex flex-wrap items-center gap-2 xl:justify-end">
+            <UButton
+              v-if="
+                item.reviewState === 'pending' && item.outcome === 'pending'
+              "
+              label="批准进入目录"
+              :loading="acting === item.id"
+              :disabled="
+                item.processingState !== 'ready' ||
+                !['safe', 'uncertain'].includes(item.safetyState)
+              "
+              @click="review(item, 'approve')"
+            />
+            <UButton
+              v-if="item.imageId"
+              :to="`/images/${item.imageId}`"
+              target="_blank"
+              color="neutral"
+              variant="ghost"
+              icon="i-tabler-external-link"
+              aria-label="查看公开图片"
+            />
+          </div>
+          <details
             v-if="item.reviewState === 'pending' && item.outcome === 'pending'"
-            class="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]"
+            class="group mt-3 rounded-lg border border-default bg-elevated/35 px-3 py-2"
           >
-            <UInput v-model="note[item.id]" placeholder="拒绝原因或审核备注" />
-            <div class="flex flex-wrap gap-2">
+            <summary
+              class="flex min-h-8 cursor-pointer list-none items-center justify-between gap-2 text-sm font-medium text-default"
+            >
+              备注或拒绝
+              <UIcon
+                name="i-tabler-chevron-down"
+                class="size-4 text-muted transition group-open:rotate-180"
+              />
+            </summary>
+            <div class="space-y-2 border-t border-default pt-3">
+              <UTextarea
+                v-model="note[item.id]"
+                :rows="3"
+                placeholder="记录判断；拒绝时必须填写原因"
+              />
               <UButton
                 color="error"
                 variant="outline"
@@ -430,20 +473,12 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
                 :loading="acting === item.id"
                 :disabled="!note[item.id]?.trim()"
                 @click="review(item, 'reject')"
-              /><UButton
-                label="批准"
-                :loading="acting === item.id"
-                :disabled="
-                  item.processingState !== 'ready' ||
-                  !['safe', 'uncertain'].includes(item.safetyState)
-                "
-                @click="review(item, 'approve')"
               />
             </div>
-          </div>
+          </details>
         </div>
       </article>
-    </div>
+    </section>
     <ManageEmpty
       v-else
       icon="i-tabler-circle-check"
