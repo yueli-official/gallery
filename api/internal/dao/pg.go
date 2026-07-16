@@ -678,7 +678,7 @@ SELECT EXISTS (
 				return galleryerr.Validation("coverImageId", "cover image must be an eligible collection member")
 			}
 		}
-		if _, err := tx.Exec(`
+		if _, err := tx.Ctx(ctx).Exec(`
 UPDATE gallery_collections
 SET name = ?, description = ?, visibility = ?, version = version + 1, updated_at = NOW()
 WHERE id = ?::uuid`, input.Name, input.Description, input.Visibility, id); err != nil {
@@ -688,7 +688,7 @@ WHERE id = ?::uuid`, input.Name, input.Description, input.Visibility, id); err !
 		if input.CoverImageID != "" {
 			coverID = input.CoverImageID
 		}
-		if _, err := tx.Exec(`
+		if _, err := tx.Ctx(ctx).Exec(`
 UPDATE gallery_collection_editorial
 SET slug = ?, cover_image_id = ?::uuid, seo_title = ?, seo_description = ?
 WHERE collection_id = ?::uuid`, input.Slug, coverID, input.SEOTitle, input.SEODescription, id); err != nil {
@@ -743,11 +743,11 @@ FOR UPDATE OF c`, id)
 			}
 		}
 		for position, imageID := range imageIDs {
-			if _, err := tx.Exec(`UPDATE gallery_collection_members SET manual_position = ? WHERE collection_id = ?::uuid AND image_id = ?::uuid`, position, id, imageID); err != nil {
+			if _, err := tx.Ctx(ctx).Exec(`UPDATE gallery_collection_members SET manual_position = ? WHERE collection_id = ?::uuid AND image_id = ?::uuid`, position, id, imageID); err != nil {
 				return gerror.Wrap(err, "reorder editorial collection member")
 			}
 		}
-		if _, err := tx.Exec(`UPDATE gallery_collections SET version = version + 1, updated_at = NOW() WHERE id = ?::uuid`, id); err != nil {
+		if _, err := tx.Ctx(ctx).Exec(`UPDATE gallery_collections SET version = version + 1, updated_at = NOW() WHERE id = ?::uuid`, id); err != nil {
 			return gerror.Wrap(err, "bump editorial collection order version")
 		}
 		return nil
@@ -844,7 +844,7 @@ func (p *PG) refreshRankingSnapshot(ctx context.Context, kind, window string, cu
 	var snapshot *rankingSnapshot
 	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		tx = tx.Ctx(ctx)
-		if _, err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?::text, 0))`, "gallery-ranking:"+kind+":"+window); err != nil {
+		if _, err := tx.Ctx(ctx).Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?::text, 0))`, "gallery-ranking:"+kind+":"+window); err != nil {
 			return gerror.Wrap(err, "lock gallery ranking refresh")
 		}
 		var existing []rankingSnapshot
@@ -889,10 +889,10 @@ INSERT INTO gallery_ranking_entries (snapshot_id, image_id, rank, score)
 SELECT ?::uuid, id, rank, score
 FROM ranked
 WHERE rank <= ?`
-		if _, err := tx.Exec(query, cutoff, snapshot.ID, limit); err != nil {
+		if _, err := tx.Ctx(ctx).Exec(query, cutoff, snapshot.ID, limit); err != nil {
 			return gerror.Wrap(err, "populate gallery ranking snapshot")
 		}
-		if _, err := tx.Exec(`DELETE FROM gallery_ranking_snapshots WHERE expires_at < NOW() - INTERVAL '1 day'`); err != nil {
+		if _, err := tx.Ctx(ctx).Exec(`DELETE FROM gallery_ranking_snapshots WHERE expires_at < NOW() - INTERVAL '1 day'`); err != nil {
 			return gerror.Wrap(err, "prune gallery ranking snapshots")
 		}
 		return nil
@@ -1427,7 +1427,7 @@ func (p *PG) RecordEvent(ctx context.Context, subject model.Subject, imageID str
 		tx = tx.Ctx(ctx)
 		uniqueVisitor := int64(0)
 		if input.Type == "qualified_view" && identity != "" {
-			if _, err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?::text, 0))`, "gallery-visitor:"+metricDate+":"+imageID+":"+identity); err != nil {
+			if _, err := tx.Ctx(ctx).Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?::text, 0))`, "gallery-visitor:"+metricDate+":"+imageID+":"+identity); err != nil {
 				return gerror.Wrap(err, "lock gallery daily visitor")
 			}
 			seen, err := tx.GetValue(`
@@ -1448,7 +1448,7 @@ SELECT EXISTS (
 				uniqueVisitor = 1
 			}
 		}
-		result, err := tx.Exec(`
+		result, err := tx.Ctx(ctx).Exec(`
 INSERT INTO gallery_image_events (image_id, subject_key, session_key, event_type)
 SELECT i.id, ?, ?, ? FROM gallery_images i WHERE i.id = ?::uuid AND `+eligibleImage,
 			subjectKey, input.SessionKey, input.Type, imageID)
@@ -1470,7 +1470,7 @@ SELECT i.id, ?, ?, ? FROM gallery_images i WHERE i.id = ?::uuid AND `+eligibleIm
 			"share":          {0, 0, 0, 0, 1, 0},
 			"report":         {0, 0, 0, 0, 0, 1},
 		}[input.Type]
-		if _, err := tx.Exec(`
+		if _, err := tx.Ctx(ctx).Exec(`
 INSERT INTO gallery_image_metrics_daily (
     image_id, metric_date, exposures, qualified_views, unique_visitors, favorites, shares, reports
 )

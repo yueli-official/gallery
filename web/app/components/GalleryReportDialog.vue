@@ -41,6 +41,7 @@ async function submit(): Promise<void> {
       },
     );
     openModel.value = false;
+    // feedback-contract: the dialog closes after submission, so no stable inline surface remains.
     toast.add({
       title: props.kind === "report" ? "举报已提交" : "来源建议已提交",
       description: "运营人员会独立复核，不会按次数自动下架。",

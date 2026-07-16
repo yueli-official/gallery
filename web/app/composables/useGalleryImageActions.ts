@@ -61,6 +61,7 @@ export function useGalleryImageActions(
         await navigator.share({ title: image.value?.title, url });
       } else {
         await navigator.clipboard.writeText(url);
+        // feedback-contract: clipboard sharing has no persistent page surface for confirmation.
         toast.add({ title: "链接已复制", color: "success" });
       }
       await track("share");

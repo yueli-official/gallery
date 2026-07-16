@@ -141,11 +141,6 @@ async function withdraw(id: string) {
       `/api/v1/gallery/me/submissions/${encodeURIComponent(id)}/withdraw`,
       { method: "POST" },
     );
-    toast.add({
-      title: "投稿已撤回",
-      description: "如果图片已经展示，公开版本也会停止显示。",
-      color: "success",
-    });
     await refresh();
   } catch (reason: any) {
     toast.add({

@@ -1,8 +1,3 @@
-export default defineAppConfig({
-  ui: {
-    colors: {
-      primary: "blue",
-      neutral: "slate",
-    },
-  },
-});
+import { platformAppConfig } from "@platform/ui/app-config";
+
+export default defineAppConfig(platformAppConfig("gallery"));

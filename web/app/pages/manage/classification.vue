@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ManageHeader, SkeletonList } from "@platform/manage/components";
-import { createPlatformNotifier } from "@platform/ui/feedback";
 import type {
   GalleryClassificationCatalog,
   GalleryClassificationCatalogFacet,
@@ -24,7 +23,6 @@ type IdentityOperation = "status" | "reparent" | "merge" | "delete";
 
 const { call } = useApi();
 const hydrated = useClientHydrated();
-const toast = createPlatformNotifier(useToast());
 const { data, pending, error, refresh } = await useAsyncData(
   "gallery-manage-classification",
   () =>
@@ -65,6 +63,7 @@ const previewOpen = ref(false);
 const previewing = ref(false);
 const executing = ref(false);
 const actionError = ref("");
+const actionSuccess = ref("");
 const preview = ref<GalleryClassificationGovernancePreview>();
 const pendingCommand = ref<GalleryClassificationGovernanceCommand>();
 const editorOpen = ref(false);
@@ -126,6 +125,7 @@ const editorChildCount = computed(() =>
 async function requestPreview(command: GalleryClassificationGovernanceCommand) {
   previewing.value = true;
   actionError.value = "";
+  actionSuccess.value = "";
   pendingCommand.value = command;
   previewOpen.value = true;
   try {
@@ -220,6 +220,7 @@ async function executePreview() {
   if (!pendingCommand.value || preview.value?.outcome !== "planned") return;
   executing.value = true;
   actionError.value = "";
+  actionSuccess.value = "";
   const operation = pendingCommand.value.operation;
   try {
     await call("/api/v1/gallery/admin/classification/governance/execute", {
@@ -235,14 +236,10 @@ async function executePreview() {
     preview.value = undefined;
     pendingCommand.value = undefined;
     await Promise.all([refresh(), refreshTags(), refreshProposals()]);
-    toast.add({
-      title: "分类治理已执行",
-      description:
-        operation === "delete"
-          ? "相关标识和已确认依赖已删除。"
-          : "目录 revision 已更新。",
-      color: "success",
-    });
+    actionSuccess.value =
+      operation === "delete"
+        ? "分类治理已执行；相关标识和已确认依赖已删除。"
+        : "分类治理已执行；目录 revision 已更新。";
   } catch (cause) {
     actionError.value =
       cause instanceof Error ? cause.message : "治理执行失败，请重新预览";
@@ -275,6 +272,7 @@ async function reviewTagProposal(
 ) {
   reviewingProposal.value = item.id;
   actionError.value = "";
+  actionSuccess.value = "";
   try {
     await call(
       `/api/v1/gallery/admin/classification/tag-proposals/${encodeURIComponent(item.id)}/review`,
@@ -287,10 +285,8 @@ async function reviewTagProposal(
       },
     );
     await Promise.all([refresh(), refreshTags(), refreshProposals()]);
-    toast.add({
-      title: decision === "approve" ? "Tag 提案已批准" : "Tag 提案已拒绝",
-      color: "success",
-    });
+    actionSuccess.value =
+      decision === "approve" ? "Tag 提案已批准" : "Tag 提案已拒绝";
   } catch (cause) {
     actionError.value =
       cause instanceof Error ? cause.message : "Tag 提案处理失败";
@@ -331,6 +327,14 @@ async function reviewTagProposal(
       variant="subtle"
       title="操作失败"
       :description="actionError"
+    />
+    <UAlert
+      v-else-if="actionSuccess"
+      class="mb-5"
+      color="success"
+      variant="subtle"
+      title="操作完成"
+      :description="actionSuccess"
     />
     <SkeletonList v-if="!hydrated || pending" :rows="6" />
     <UAlert

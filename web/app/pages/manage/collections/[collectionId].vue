@@ -16,6 +16,8 @@ const hydrated = useClientHydrated();
 const collectionId = computed(() => String(route.params.collectionId));
 const saving = ref(false);
 const ordering = ref(false);
+const metadataSaved = ref(false);
+const orderSaved = ref(false);
 const pickerOpen = ref(false);
 const pickerPending = ref(false);
 const imageSearch = ref("");
@@ -69,6 +71,14 @@ watch(
   { immediate: true },
 );
 
+watch(
+  form,
+  () => {
+    if (!saving.value) metadataSaved.value = false;
+  },
+  { deep: true },
+);
+
 useSeoMeta({ title: () => `${collection.value?.name || "专题"} · 图库管理` });
 
 function message(reason: any): string {
@@ -78,6 +88,7 @@ function message(reason: any): string {
 async function saveMetadata(): Promise<void> {
   if (!collection.value || saving.value) return;
   saving.value = true;
+  metadataSaved.value = false;
   try {
     await call<{ collection: GalleryCollection }>(
       `/api/v1/gallery/admin/collections/${encodeURIComponent(collection.value.id)}`,
@@ -87,7 +98,7 @@ async function saveMetadata(): Promise<void> {
       },
     );
     await refresh();
-    toast.add({ title: "专题设置已保存", color: "success" });
+    metadataSaved.value = true;
   } catch (reason) {
     toast.add({
       title: "专题设置没有保存",
@@ -150,6 +161,7 @@ function moveMember(index: number, direction: -1 | 1): void {
   const next = [...orderedIds.value];
   [next[index], next[target]] = [next[target]!, next[index]!];
   orderedIds.value = next;
+  orderSaved.value = false;
 }
 
 function selectCover(imageId: string): void {
@@ -163,6 +175,7 @@ function clearCover(): void {
 async function saveOrder(): Promise<void> {
   if (!collection.value || !canReorder.value || ordering.value) return;
   ordering.value = true;
+  orderSaved.value = false;
   try {
     await call(
       `/api/v1/gallery/admin/collections/${encodeURIComponent(collection.value.id)}/order`,
@@ -172,7 +185,7 @@ async function saveOrder(): Promise<void> {
       },
     );
     await refresh();
-    toast.add({ title: "图片顺序已保存", color: "success" });
+    orderSaved.value = true;
   } catch (reason) {
     toast.add({
       title: "图片顺序没有保存",
@@ -291,6 +304,9 @@ async function openPicker(): Promise<void> {
           :loading="saving"
           @click="saveMetadata"
         />
+        <p v-if="metadataSaved" class="text-sm text-success" role="status">
+          专题设置已保存
+        </p>
       </section>
 
       <section class="gallery-manage-panel">
@@ -318,6 +334,9 @@ async function openPicker(): Promise<void> {
             />
           </div>
         </div>
+        <p v-if="orderSaved" class="mt-3 text-sm text-success" role="status">
+          图片顺序已保存
+        </p>
         <UAlert
           v-if="!canReorder"
           class="mt-4"

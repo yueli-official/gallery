@@ -253,6 +253,7 @@ async function saveEdit() {
       },
     );
     editing.value = undefined;
+    // feedback-contract: Quick Edit closes after save, so its form cannot retain inline confirmation.
     toast.add({ title: "图片信息已保存", color: "success" });
     await refresh();
   } catch (reason: any) {

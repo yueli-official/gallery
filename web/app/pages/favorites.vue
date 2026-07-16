@@ -60,6 +60,7 @@ async function removeFavorite(imageId: string) {
       method: "DELETE",
       query: { version: collection.value.version },
     });
+    // feedback-contract: the removed card immediately leaves the list, so its inline surface no longer exists.
     toast.add({ title: "已取消收藏", color: "success" });
     if (images.value.length === 1 && page.value > 1)
       updateQuery({ page: page.value - 1 });
