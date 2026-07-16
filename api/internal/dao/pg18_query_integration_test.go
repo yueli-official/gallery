@@ -182,6 +182,69 @@ INSERT INTO gallery_image_facet_assignments (image_id, facet_value_id) VALUES
 	}
 }
 
+func TestPostgreSQL18EditorialCollectionUpdateCoverAndManualOrder(t *testing.T) {
+	fixture := newGalleryPG18Fixture(t)
+	if _, err := fixture.SQL.Exec(`
+INSERT INTO gallery_images (id, asset_id, title, alt_text, width, height, processing_state, review_state, publication_state, safety_state, public_rendition_ready, published_at) VALUES
+('01990000-0000-7000-8400-000000000001', '01990000-0000-7000-8500-000000000001', '第一张', '第一张', 1600, 900, 'ready', 'approved', 'published', 'safe', TRUE, NOW()),
+('01990000-0000-7000-8400-000000000002', '01990000-0000-7000-8500-000000000002', '第二张', '第二张', 1600, 900, 'ready', 'approved', 'published', 'safe', TRUE, NOW());
+INSERT INTO gallery_collections (id, kind, resource_kind, owner_kind, owner_id, visibility, name, description)
+VALUES ('01990000-0000-7000-8700-000000000001', 'gallery.editorial', 'gallery.image', 'site', 'gallery', 'private', '旧专题', '旧说明');
+INSERT INTO gallery_collection_editorial (collection_id, slug)
+VALUES ('01990000-0000-7000-8700-000000000001', 'old-slug');
+INSERT INTO gallery_collection_members (collection_id, image_id, manual_position) VALUES
+('01990000-0000-7000-8700-000000000001', '01990000-0000-7000-8400-000000000001', 1),
+('01990000-0000-7000-8700-000000000001', '01990000-0000-7000-8400-000000000002', 0);`); err != nil {
+		t.Fatal(err)
+	}
+
+	updated, err := fixture.Store.UpdateEditorialCollection(context.Background(), "01990000-0000-7000-8700-000000000001", model.EditorialCollectionUpdateInput{
+		Version: 1, Name: "夜色", Description: "蓝调影像", Slug: "night-colors", Visibility: "public",
+		CoverImageID: "01990000-0000-7000-8400-000000000002", SEOTitle: "夜色专题", SEODescription: "夜色图片精选",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Version != 2 || updated.CoverImageID != "01990000-0000-7000-8400-000000000002" || updated.SEOTitle != "夜色专题" {
+		t.Fatalf("unexpected updated collection: %#v", updated)
+	}
+	reordered, err := fixture.Store.ReorderEditorialMembers(context.Background(), updated.ID, updated.Version, []string{
+		"01990000-0000-7000-8400-000000000001", "01990000-0000-7000-8400-000000000002",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reordered.Version != 3 {
+		t.Fatalf("reorder must bump version: %#v", reordered)
+	}
+	if _, err := fixture.Store.UpdateEditorialCollection(context.Background(), reordered.ID, model.EditorialCollectionUpdateInput{
+		Version: 2, Name: "过期写入", Slug: "stale-write", Visibility: "public",
+	}); err == nil {
+		t.Fatal("stale expectedVersion must be rejected")
+	}
+	detail, err := fixture.Store.CollectionDetail(context.Background(), reordered.ID, 1, 12)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(detail.Images) != 2 || detail.Images[0].ID != "01990000-0000-7000-8400-000000000001" {
+		t.Fatalf("manual order was not persisted: %#v", detail.Images)
+	}
+	if _, err := fixture.SQL.Exec(`
+INSERT INTO gallery_images (id, asset_id, title, alt_text, width, height, processing_state, review_state, publication_state, safety_state, public_rendition_ready) VALUES
+('01990000-0000-7000-8400-000000000003', '01990000-0000-7000-8500-000000000003', '隐藏成员', '隐藏成员', 1600, 900, 'ready', 'approved', 'hidden', 'safe', TRUE);
+INSERT INTO gallery_collection_members (collection_id, image_id, manual_position)
+VALUES ('01990000-0000-7000-8700-000000000001', '01990000-0000-7000-8400-000000000003', 2);`); err != nil {
+		t.Fatal(err)
+	}
+	publicDetail, err := fixture.Store.PublicCollection(context.Background(), "night-colors", 1, 12)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if publicDetail.ItemCount != 2 || len(publicDetail.Images) != 2 {
+		t.Fatalf("hidden members must not affect the public collection: %#v", publicDetail)
+	}
+}
+
 func TestPostgreSQL18TagKeysetCursorBreaksCaseInsensitiveNameTiesWithoutGaps(t *testing.T) {
 	fixture := newGalleryPG18Fixture(t)
 	if _, err := fixture.SQL.Exec(`

@@ -25,6 +25,9 @@ type fakeStore struct {
 	image                  *model.ImageDetail
 	relatedImages          []model.RelatedImage
 	relatedLimitSeen       int
+	collectionDetail       *model.CollectionDetail
+	collectionUpdateSeen   model.EditorialCollectionUpdateInput
+	collectionOrderSeen    []string
 	tombstone              bool
 	submission             *model.Submission
 	reviewSeen             string
@@ -124,6 +127,14 @@ func (f *fakeStore) PublicCollection(context.Context, string, int, int) (*model.
 func (f *fakeStore) CreateEditorialCollection(context.Context, string, model.EditorialCollectionInput) (*model.Collection, error) {
 	return &model.Collection{ID: "019817c8-0000-7000-8000-000000000030"}, nil
 }
+func (f *fakeStore) UpdateEditorialCollection(_ context.Context, _ string, input model.EditorialCollectionUpdateInput) (*model.Collection, error) {
+	f.collectionUpdateSeen = input
+	return &model.Collection{ID: "019817c8-0000-7000-8000-000000000030"}, nil
+}
+func (f *fakeStore) ReorderEditorialMembers(_ context.Context, _ string, _ int64, ids []string) (*model.Collection, error) {
+	f.collectionOrderSeen = append([]string(nil), ids...)
+	return &model.Collection{ID: "019817c8-0000-7000-8000-000000000030"}, nil
+}
 func (f *fakeStore) Ranking(context.Context, string, string, int) (*model.Ranking, error) {
 	return nil, nil
 }
@@ -140,7 +151,7 @@ func (f *fakeStore) WithdrawSubmission(context.Context, model.Subject, string) (
 }
 func (f *fakeStore) FailSubmission(context.Context, string, string) error { return nil }
 func (f *fakeStore) CollectionDetail(context.Context, string, int, int) (*model.CollectionDetail, error) {
-	return nil, nil
+	return f.collectionDetail, nil
 }
 func (f *fakeStore) CreateCase(context.Context, model.Subject, string, model.CaseInput) (*model.Case, error) {
 	return nil, nil
@@ -253,6 +264,53 @@ func TestRelatedImagesBoundsLimitAndNormalizesCards(t *testing.T) {
 	if values[0].Reasons == nil {
 		t.Fatal("related image reasons must serialize as an empty array")
 	}
+}
+
+func TestAdminCollectionNormalizesPaginationAndPublicIDs(t *testing.T) {
+	store := &fakeStore{collectionDetail: &model.CollectionDetail{
+		Collection: model.Collection{
+			ID: testCategoryID, Kind: "gallery.editorial", OwnerID: "gallery",
+			CoverImageID: testFacetID, ItemCount: 25,
+		},
+		Images: []model.ImageCard{{ID: testValueID}},
+	}}
+	value, err := New(store).AdminCollection(context.Background(), PublicID(testCategoryID), 1, 12)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value.ID != PublicID(testCategoryID) || value.CoverImageID != PublicID(testFacetID) || value.Images[0].ID != PublicID(testValueID) {
+		t.Fatalf("collection ids were not normalized: %#v", value)
+	}
+	if value.Page != 1 || value.PageSize != 12 || value.TotalPages != 3 {
+		t.Fatalf("unexpected collection pagination: %#v", value)
+	}
+}
+
+func TestEditorialCollectionUpdateAndOrderNormalizeInputs(t *testing.T) {
+	store := &fakeStore{}
+	service := New(store)
+	_, err := service.UpdateEditorialCollection(context.Background(), PublicID(testCategoryID), model.EditorialCollectionUpdateInput{
+		Version: 4, Name: "  夜色  ", Slug: " Night-Colors ", Visibility: "public", CoverImageID: PublicID(testFacetID),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if store.collectionUpdateSeen.Name != "夜色" || store.collectionUpdateSeen.Slug != "night-colors" || store.collectionUpdateSeen.CoverImageID != testFacetID {
+		t.Fatalf("collection update was not normalized: %#v", store.collectionUpdateSeen)
+	}
+	_, err = service.ReorderEditorialMembers(context.Background(), PublicID(testCategoryID), model.EditorialCollectionOrderInput{
+		Version: 5, ImageIDs: []string{PublicID(testFacetID), PublicID(testValueID)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(store.collectionOrderSeen, []string{testFacetID, testValueID}) {
+		t.Fatalf("collection order ids were not normalized: %#v", store.collectionOrderSeen)
+	}
+	_, err = service.ReorderEditorialMembers(context.Background(), PublicID(testCategoryID), model.EditorialCollectionOrderInput{
+		Version: 5, ImageIDs: []string{PublicID(testFacetID), PublicID(testFacetID)},
+	})
+	assertCode(t, err, "common.validation_failed")
 }
 
 func TestVerifiedUserSkipsManualReviewButGuestDoesNot(t *testing.T) {

@@ -52,8 +52,7 @@ async function createCollection() {
   <div>
     <ManageHeader title="专题集合"
       ><template #subtitle
-        >Gallery-local Collection v0；每个集合只包含
-        gallery.image，删除成员或集合都不会删除图片。</template
+        >组织公开专题、封面、SEO 与图片顺序；移出专题不会删除图片。</template
       ><template #actions
         ><UButton
           icon="i-tabler-plus"
@@ -63,14 +62,6 @@ async function createCollection() {
             void 0;
           " /></template
     ></ManageHeader>
-    <UAlert
-      class="mb-5"
-      color="info"
-      variant="subtle"
-      icon="i-tabler-code"
-      title="干净的 Collection kernel"
-      description="slug、封面和 SEO 留在 Gallery extension；membership 以 expectedVersion 原子增删。重排使用独立操作，不把动态排序塞进核心表。"
-    />
     <SkeletonList v-if="!hydrated || pending" :rows="5" />
     <UAlert
       v-else-if="error"
@@ -104,14 +95,23 @@ async function createCollection() {
             {{ item.itemCount }} 张 · version {{ item.version }}
           </p>
         </div>
-        <UButton
-          :to="`/collections/${item.slug}`"
-          target="_blank"
-          color="neutral"
-          variant="ghost"
-          icon="i-tabler-external-link"
-          label="公开页"
-        />
+        <div class="flex items-center gap-2">
+          <UButton
+            :to="`/manage/collections/${encodeURIComponent(item.id)}`"
+            color="neutral"
+            variant="outline"
+            icon="i-tabler-settings"
+            label="编辑"
+          />
+          <UButton
+            :to="`/collections/${item.slug}`"
+            target="_blank"
+            color="neutral"
+            variant="ghost"
+            icon="i-tabler-external-link"
+            label="公开页"
+          />
+        </div>
       </article>
     </div>
     <ManageEmpty

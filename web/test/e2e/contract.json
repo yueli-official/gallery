@@ -39,6 +39,25 @@
         "viewports": ["mobile", "desktop"]
       },
       {
+        "key": "collections",
+        "path": "/collections",
+        "readySelector": "text=还没有公开专题",
+        "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "rankings",
+        "path": "/rankings",
+        "readySelector": "text=还没有形成排行",
+        "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "manage-collections",
+        "path": "/manage/collections",
+        "readySelector": "text=还没有专题",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"]
+      },
+      {
         "key": "classification",
         "path": "/manage/classification",
         "readySelector": "text=壁纸",

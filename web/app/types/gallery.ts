@@ -208,6 +208,13 @@ export interface GalleryCollection {
   version: number;
   slug?: string;
   coverImageId?: string;
+  coverAssetId?: string;
+  coverAltText?: string;
+  coverWidth?: number;
+  coverHeight?: number;
+  coverColor?: string;
+  seoTitle?: string;
+  seoDescription?: string;
   itemCount: number;
   createdAt?: string;
   updatedAt?: string;
@@ -215,6 +222,9 @@ export interface GalleryCollection {
 
 export interface GalleryCollectionDetail extends GalleryCollection {
   images: GalleryImageCard[];
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 export interface GallerySubmission {

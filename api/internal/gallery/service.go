@@ -42,6 +42,8 @@ type Store interface {
 	EditorialCollections(context.Context) ([]model.Collection, error)
 	PublicCollection(context.Context, string, int, int) (*model.CollectionDetail, error)
 	CreateEditorialCollection(context.Context, string, model.EditorialCollectionInput) (*model.Collection, error)
+	UpdateEditorialCollection(context.Context, string, model.EditorialCollectionUpdateInput) (*model.Collection, error)
+	ReorderEditorialMembers(context.Context, string, int64, []string) (*model.Collection, error)
 	Ranking(context.Context, string, string, int) (*model.Ranking, error)
 	CreateSubmission(context.Context, model.Subject, model.SubmissionInput, string) (*model.Submission, error)
 	MySubmissions(context.Context, model.Subject, int, int) ([]model.Submission, int, error)
@@ -318,8 +320,7 @@ func (s *Service) Collections(ctx context.Context) ([]model.Collection, error) {
 		values = []model.Collection{}
 	}
 	for index := range values {
-		values[index].ID = PublicID(values[index].ID)
-		values[index].CoverImageID = PublicID(values[index].CoverImageID)
+		normalizeCollection(&values[index])
 	}
 	return values, err
 }
@@ -330,8 +331,7 @@ func (s *Service) AdminCollections(ctx context.Context) ([]model.Collection, err
 		values = []model.Collection{}
 	}
 	for index := range values {
-		values[index].ID = PublicID(values[index].ID)
-		values[index].CoverImageID = PublicID(values[index].CoverImageID)
+		normalizeCollection(&values[index])
 	}
 	return values, err
 }
@@ -344,9 +344,36 @@ func (s *Service) Collection(ctx context.Context, slug string, page, size int) (
 	if value == nil {
 		return nil, galleryerr.NotFound("collection", strings.TrimSpace(slug))
 	}
-	value.ID = PublicID(value.ID)
-	value.CoverImageID = PublicID(value.CoverImageID)
+	normalizeCollection(&value.Collection)
 	normalizeCards(value.Images)
+	value.Page = bounded(page, 1, 100000, 1)
+	value.PageSize = bounded(size, 12, 60, 24)
+	if value.ItemCount > 0 {
+		value.TotalPages = int(math.Ceil(float64(value.ItemCount) / float64(value.PageSize)))
+	}
+	return value, nil
+}
+
+func (s *Service) AdminCollection(ctx context.Context, rawID string, page, size int) (*model.CollectionDetail, error) {
+	id, err := DatabaseID(rawID)
+	if err != nil {
+		return nil, galleryerr.NotFound("collection", strings.TrimSpace(rawID))
+	}
+	page = bounded(page, 1, 100000, 1)
+	size = bounded(size, 12, 60, 24)
+	value, err := s.store.CollectionDetail(ctx, id, page, size)
+	if err != nil {
+		return nil, err
+	}
+	if value == nil || value.Kind != collection.KindEditorial || value.OwnerID != "gallery" {
+		return nil, galleryerr.NotFound("collection", rawID)
+	}
+	normalizeCollection(&value.Collection)
+	normalizeCards(value.Images)
+	value.Page, value.PageSize = page, size
+	if value.ItemCount > 0 {
+		value.TotalPages = int(math.Ceil(float64(value.ItemCount) / float64(size)))
+	}
 	return value, nil
 }
 
@@ -367,6 +394,60 @@ func (s *Service) CreateEditorialCollection(ctx context.Context, operator string
 	value, err := s.store.CreateEditorialCollection(ctx, strings.TrimSpace(operator), input)
 	if value != nil {
 		value.ID = PublicID(value.ID)
+	}
+	return value, err
+}
+
+func (s *Service) UpdateEditorialCollection(ctx context.Context, rawID string, input model.EditorialCollectionUpdateInput) (*model.Collection, error) {
+	id, err := DatabaseID(rawID)
+	if err != nil {
+		return nil, galleryerr.NotFound("collection", rawID)
+	}
+	input.Name = strings.TrimSpace(input.Name)
+	input.Description = strings.TrimSpace(input.Description)
+	input.Slug = strings.ToLower(strings.TrimSpace(input.Slug))
+	input.Visibility = strings.TrimSpace(input.Visibility)
+	input.SEOTitle = strings.TrimSpace(input.SEOTitle)
+	input.SEODescription = strings.TrimSpace(input.SEODescription)
+	if input.Name == "" || input.Slug == "" || strings.ContainsAny(input.Slug, " /?#") {
+		return nil, galleryerr.Validation("collection", "name and a URL-safe slug are required")
+	}
+	if !oneOf(input.Visibility, "private", "public") {
+		return nil, galleryerr.Validation("visibility", "visibility must be private or public")
+	}
+	if input.CoverImageID != "" {
+		input.CoverImageID, err = DatabaseID(input.CoverImageID)
+		if err != nil {
+			return nil, galleryerr.Validation("coverImageId", "cover image ID must be a UUID or compact UUID")
+		}
+	}
+	value, err := s.store.UpdateEditorialCollection(ctx, id, input)
+	if value != nil {
+		normalizeCollection(value)
+	}
+	return value, err
+}
+
+func (s *Service) ReorderEditorialMembers(ctx context.Context, rawID string, input model.EditorialCollectionOrderInput) (*model.Collection, error) {
+	id, err := DatabaseID(rawID)
+	if err != nil {
+		return nil, galleryerr.NotFound("collection", rawID)
+	}
+	seen := make(map[string]struct{}, len(input.ImageIDs))
+	for index, rawImageID := range input.ImageIDs {
+		imageID, parseErr := DatabaseID(rawImageID)
+		if parseErr != nil {
+			return nil, galleryerr.Validation("imageIds", "image IDs must be UUIDs or compact UUIDs")
+		}
+		if _, exists := seen[imageID]; exists {
+			return nil, galleryerr.Validation("imageIds", "image IDs must be unique")
+		}
+		seen[imageID] = struct{}{}
+		input.ImageIDs[index] = imageID
+	}
+	value, err := s.store.ReorderEditorialMembers(ctx, id, input.Version, input.ImageIDs)
+	if value != nil {
+		normalizeCollection(value)
 	}
 	return value, err
 }
@@ -1216,6 +1297,14 @@ func normalizeDetail(value *model.ImageDetail) {
 	if value.Facets == nil {
 		value.Facets = []model.FacetValueAssignment{}
 	}
+}
+
+func normalizeCollection(value *model.Collection) {
+	if value == nil {
+		return
+	}
+	value.ID = PublicID(value.ID)
+	value.CoverImageID = PublicID(value.CoverImageID)
 }
 
 func normalizeSubmission(value *model.Submission) {

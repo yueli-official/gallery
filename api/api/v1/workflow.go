@@ -179,11 +179,39 @@ type ListEditorialCollectionsRes struct {
 	Collections []model.Collection `json:"collections"`
 }
 
+type GetEditorialCollectionReq struct {
+	g.Meta       `path:"/api/v1/gallery/admin/collections/{collectionId}" method:"GET" tags:"Gallery admin" summary:"Get one editorial collection with ordered members"`
+	CollectionID string `p:"collectionId" v:"required"`
+	Page         int    `p:"page" d:"1"`
+	Size         int    `p:"size" d:"60"`
+}
+type GetEditorialCollectionRes struct {
+	Collection model.CollectionDetail `json:"collection"`
+}
+
+type UpdateEditorialCollectionReq struct {
+	g.Meta       `path:"/api/v1/gallery/admin/collections/{collectionId}" method:"PATCH" tags:"Gallery admin" summary:"Update editorial metadata, SEO, cover and visibility"`
+	CollectionID string `p:"collectionId" v:"required"`
+	model.EditorialCollectionUpdateInput
+}
+type UpdateEditorialCollectionRes struct {
+	Collection model.Collection `json:"collection"`
+}
+
 type MutateEditorialMembersReq struct {
 	g.Meta       `path:"/api/v1/gallery/admin/collections/{collectionId}/members" method:"POST" tags:"Gallery admin" summary:"Atomically add and remove editorial collection images"`
 	CollectionID string `p:"collectionId" v:"required"`
 	model.MemberMutationInput
 }
 type MutateEditorialMembersRes struct {
+	Collection model.Collection `json:"collection"`
+}
+
+type ReorderEditorialMembersReq struct {
+	g.Meta       `path:"/api/v1/gallery/admin/collections/{collectionId}/order" method:"PUT" tags:"Gallery admin" summary:"Replace the manual order for all editorial collection members"`
+	CollectionID string `p:"collectionId" v:"required"`
+	model.EditorialCollectionOrderInput
+}
+type ReorderEditorialMembersRes struct {
 	Collection model.Collection `json:"collection"`
 }

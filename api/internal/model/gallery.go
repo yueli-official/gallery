@@ -114,25 +114,35 @@ type ClassificationFacet struct {
 }
 
 type Collection struct {
-	ID           string      `json:"id" orm:"id"`
-	Kind         string      `json:"kind" orm:"kind"`
-	ResourceKind string      `json:"resourceKind" orm:"resource_kind"`
-	OwnerKind    string      `json:"ownerKind" orm:"owner_kind"`
-	OwnerID      string      `json:"-" orm:"owner_id"`
-	Visibility   string      `json:"visibility" orm:"visibility"`
-	Name         string      `json:"name" orm:"name"`
-	Description  string      `json:"description" orm:"description"`
-	Version      int64       `json:"version" orm:"version"`
-	Slug         string      `json:"slug,omitempty" orm:"slug"`
-	CoverImageID string      `json:"coverImageId,omitempty" orm:"cover_image_id"`
-	ItemCount    int         `json:"itemCount" orm:"item_count"`
-	CreatedAt    *gtime.Time `json:"createdAt" orm:"created_at"`
-	UpdatedAt    *gtime.Time `json:"updatedAt" orm:"updated_at"`
+	ID             string      `json:"id" orm:"id"`
+	Kind           string      `json:"kind" orm:"kind"`
+	ResourceKind   string      `json:"resourceKind" orm:"resource_kind"`
+	OwnerKind      string      `json:"ownerKind" orm:"owner_kind"`
+	OwnerID        string      `json:"-" orm:"owner_id"`
+	Visibility     string      `json:"visibility" orm:"visibility"`
+	Name           string      `json:"name" orm:"name"`
+	Description    string      `json:"description" orm:"description"`
+	Version        int64       `json:"version" orm:"version"`
+	Slug           string      `json:"slug,omitempty" orm:"slug"`
+	CoverImageID   string      `json:"coverImageId,omitempty" orm:"cover_image_id"`
+	CoverAssetID   string      `json:"coverAssetId,omitempty" orm:"cover_asset_id"`
+	CoverAltText   string      `json:"coverAltText,omitempty" orm:"cover_alt_text"`
+	CoverWidth     int         `json:"coverWidth,omitempty" orm:"cover_width"`
+	CoverHeight    int         `json:"coverHeight,omitempty" orm:"cover_height"`
+	CoverColor     string      `json:"coverColor,omitempty" orm:"cover_color"`
+	SEOTitle       string      `json:"seoTitle,omitempty" orm:"seo_title"`
+	SEODescription string      `json:"seoDescription,omitempty" orm:"seo_description"`
+	ItemCount      int         `json:"itemCount" orm:"item_count"`
+	CreatedAt      *gtime.Time `json:"createdAt" orm:"created_at"`
+	UpdatedAt      *gtime.Time `json:"updatedAt" orm:"updated_at"`
 }
 
 type CollectionDetail struct {
 	Collection
-	Images []ImageCard `json:"images"`
+	Images     []ImageCard `json:"images"`
+	Page       int         `json:"page"`
+	PageSize   int         `json:"pageSize"`
+	TotalPages int         `json:"totalPages"`
 }
 
 type EditorialCollectionInput struct {
@@ -140,6 +150,22 @@ type EditorialCollectionInput struct {
 	Description string `json:"description"`
 	Slug        string `json:"slug"`
 	Visibility  string `json:"visibility"`
+}
+
+type EditorialCollectionUpdateInput struct {
+	Version        int64  `json:"version"`
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	Slug           string `json:"slug"`
+	Visibility     string `json:"visibility"`
+	CoverImageID   string `json:"coverImageId"`
+	SEOTitle       string `json:"seoTitle"`
+	SEODescription string `json:"seoDescription"`
+}
+
+type EditorialCollectionOrderInput struct {
+	Version  int64    `json:"version"`
+	ImageIDs []string `json:"imageIds"`
 }
 
 type MemberMutationInput struct {

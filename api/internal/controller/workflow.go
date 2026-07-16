@@ -232,6 +232,28 @@ func (c *Admin) ListEditorialCollections(ctx context.Context, _ *v1.ListEditoria
 	return &v1.ListEditorialCollectionsRes{Collections: values}, err
 }
 
+func (c *Admin) GetEditorialCollection(ctx context.Context, req *v1.GetEditorialCollectionReq) (*v1.GetEditorialCollectionRes, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	value, err := c.service.AdminCollection(ctx, req.CollectionID, req.Page, req.Size)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.GetEditorialCollectionRes{Collection: *value}, nil
+}
+
+func (c *Admin) UpdateEditorialCollection(ctx context.Context, req *v1.UpdateEditorialCollectionReq) (*v1.UpdateEditorialCollectionRes, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	value, err := c.service.UpdateEditorialCollection(ctx, req.CollectionID, req.EditorialCollectionUpdateInput)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.UpdateEditorialCollectionRes{Collection: *value}, nil
+}
+
 func (c *Admin) MutateEditorialMembers(ctx context.Context, req *v1.MutateEditorialMembersReq) (*v1.MutateEditorialMembersRes, error) {
 	if _, err := requireAdmin(ctx); err != nil {
 		return nil, err
@@ -241,6 +263,17 @@ func (c *Admin) MutateEditorialMembers(ctx context.Context, req *v1.MutateEditor
 		return nil, err
 	}
 	return &v1.MutateEditorialMembersRes{Collection: *value}, nil
+}
+
+func (c *Admin) ReorderEditorialMembers(ctx context.Context, req *v1.ReorderEditorialMembersReq) (*v1.ReorderEditorialMembersRes, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	value, err := c.service.ReorderEditorialMembers(ctx, req.CollectionID, req.EditorialCollectionOrderInput)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.ReorderEditorialMembersRes{Collection: *value}, nil
 }
 
 func claimBool(value any) bool {

@@ -513,16 +513,23 @@ func (p *PG) HasTombstone(ctx context.Context, id string) (bool, error) {
 }
 
 func (p *PG) PublicCollections(ctx context.Context) ([]model.Collection, error) {
-	const query = `
+	query := `
 SELECT c.id::text AS id, c.kind, c.resource_kind, c.owner_kind, c.visibility, c.name, c.description,
-       c.version, c.created_at, c.updated_at, e.slug, COALESCE(e.cover_image_id::text, '') AS cover_image_id,
+       c.version, c.created_at, c.updated_at, e.slug, e.seo_title, e.seo_description,
+       COALESCE(e.cover_image_id::text, '') AS cover_image_id,
+       COALESCE(cover_image.asset_id::text, '') AS cover_asset_id,
+       COALESCE(cover_image.alt_text, '') AS cover_alt_text,
+       COALESCE(cover_image.width, 0) AS cover_width, COALESCE(cover_image.height, 0) AS cover_height,
+       COALESCE(cover_image.dominant_color, '') AS cover_color,
        COUNT(i.id)::int AS item_count
 FROM gallery_collections c
 JOIN gallery_collection_editorial e ON e.collection_id = c.id
+LEFT JOIN gallery_images cover_image ON cover_image.id = e.cover_image_id AND ` + strings.ReplaceAll(eligibleImage, "i.", "cover_image.") + `
 LEFT JOIN gallery_collection_members member ON member.collection_id = c.id
 LEFT JOIN gallery_images i ON i.id = member.image_id AND ` + eligibleImage + `
 WHERE c.kind = 'gallery.editorial' AND c.visibility = 'public'
-GROUP BY c.id, e.slug, e.cover_image_id
+GROUP BY c.id, e.slug, e.cover_image_id, e.seo_title, e.seo_description,
+         cover_image.asset_id, cover_image.alt_text, cover_image.width, cover_image.height, cover_image.dominant_color
 ORDER BY c.updated_at DESC, c.id DESC`
 	var values []model.Collection
 	if err := p.db.Ctx(ctx).Raw(query).Scan(&values); err != nil {
@@ -534,13 +541,20 @@ ORDER BY c.updated_at DESC, c.id DESC`
 func (p *PG) EditorialCollections(ctx context.Context) ([]model.Collection, error) {
 	const query = `
 SELECT c.id::text AS id, c.kind, c.resource_kind, c.owner_kind, c.visibility, c.name, c.description,
-       c.version, c.created_at, c.updated_at, e.slug, COALESCE(e.cover_image_id::text, '') AS cover_image_id,
+       c.version, c.created_at, c.updated_at, e.slug, e.seo_title, e.seo_description,
+       COALESCE(e.cover_image_id::text, '') AS cover_image_id,
+       COALESCE(cover_image.asset_id::text, '') AS cover_asset_id,
+       COALESCE(cover_image.alt_text, '') AS cover_alt_text,
+       COALESCE(cover_image.width, 0) AS cover_width, COALESCE(cover_image.height, 0) AS cover_height,
+       COALESCE(cover_image.dominant_color, '') AS cover_color,
        COUNT(member.image_id)::int AS item_count
 FROM gallery_collections c
 JOIN gallery_collection_editorial e ON e.collection_id = c.id
+LEFT JOIN gallery_images cover_image ON cover_image.id = e.cover_image_id
 LEFT JOIN gallery_collection_members member ON member.collection_id = c.id
 WHERE c.kind = 'gallery.editorial'
-GROUP BY c.id, e.slug, e.cover_image_id
+GROUP BY c.id, e.slug, e.cover_image_id, e.seo_title, e.seo_description,
+         cover_image.asset_id, cover_image.alt_text, cover_image.width, cover_image.height, cover_image.dominant_color
 ORDER BY c.updated_at DESC, c.id DESC`
 	var values []model.Collection
 	if err := p.db.Ctx(ctx).Raw(query).Scan(&values); err != nil {
@@ -550,12 +564,20 @@ ORDER BY c.updated_at DESC, c.id DESC`
 }
 
 func (p *PG) PublicCollection(ctx context.Context, slug string, page, size int) (*model.CollectionDetail, error) {
-	const query = `
+	query := `
 SELECT c.id::text AS id, c.kind, c.resource_kind, c.owner_kind, c.visibility, c.name, c.description,
-       c.version, c.created_at, c.updated_at, e.slug, COALESCE(e.cover_image_id::text, '') AS cover_image_id,
-       (SELECT COUNT(*) FROM gallery_collection_members count_member WHERE count_member.collection_id = c.id)::int AS item_count
+       c.version, c.created_at, c.updated_at, e.slug, e.seo_title, e.seo_description,
+       COALESCE(e.cover_image_id::text, '') AS cover_image_id,
+       COALESCE(cover_image.asset_id::text, '') AS cover_asset_id,
+       COALESCE(cover_image.alt_text, '') AS cover_alt_text,
+       COALESCE(cover_image.width, 0) AS cover_width, COALESCE(cover_image.height, 0) AS cover_height,
+       COALESCE(cover_image.dominant_color, '') AS cover_color,
+       (SELECT COUNT(*) FROM gallery_collection_members count_member
+        JOIN gallery_images count_image ON count_image.id = count_member.image_id
+        WHERE count_member.collection_id = c.id AND ` + strings.ReplaceAll(eligibleImage, "i.", "count_image.") + `)::int AS item_count
 FROM gallery_collections c
 JOIN gallery_collection_editorial e ON e.collection_id = c.id
+LEFT JOIN gallery_images cover_image ON cover_image.id = e.cover_image_id AND ` + strings.ReplaceAll(eligibleImage, "i.", "cover_image.") + `
 WHERE e.slug = ? AND c.visibility = 'public'`
 	var value *model.Collection
 	if err := p.db.Ctx(ctx).Raw(query, slug).Scan(&value); err != nil {
@@ -598,6 +620,118 @@ RETURNING id::text AS id, kind, resource_kind, owner_kind, owner_id, visibility,
 		return nil
 	})
 	return value, err
+}
+
+func (p *PG) UpdateEditorialCollection(ctx context.Context, id string, input model.EditorialCollectionUpdateInput) (*model.Collection, error) {
+	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		tx = tx.Ctx(ctx)
+		locked, err := tx.GetOne(`
+SELECT c.version
+FROM gallery_collections c
+JOIN gallery_collection_editorial editorial ON editorial.collection_id = c.id
+WHERE c.id = ?::uuid AND c.kind = 'gallery.editorial' AND c.owner_id = 'gallery'
+FOR UPDATE OF c`, id)
+		if err != nil {
+			return gerror.Wrap(err, "lock editorial collection")
+		}
+		if len(locked) == 0 {
+			return galleryerr.NotFound("collection", id)
+		}
+		if locked["version"].Int64() != input.Version {
+			return galleryerr.Conflict("collection_version")
+		}
+		if input.CoverImageID != "" {
+			cover, err := tx.GetValue(`
+SELECT EXISTS (
+    SELECT 1 FROM gallery_collection_members member
+    JOIN gallery_images i ON i.id = member.image_id
+    WHERE member.collection_id = ?::uuid AND member.image_id = ?::uuid AND `+eligibleImage+`
+)`, id, input.CoverImageID)
+			if err != nil {
+				return gerror.Wrap(err, "validate editorial collection cover")
+			}
+			if !cover.Bool() {
+				return galleryerr.Validation("coverImageId", "cover image must be an eligible collection member")
+			}
+		}
+		if _, err := tx.Exec(`
+UPDATE gallery_collections
+SET name = ?, description = ?, visibility = ?, version = version + 1, updated_at = NOW()
+WHERE id = ?::uuid`, input.Name, input.Description, input.Visibility, id); err != nil {
+			return gerror.Wrap(err, "update editorial collection")
+		}
+		coverID := any(nil)
+		if input.CoverImageID != "" {
+			coverID = input.CoverImageID
+		}
+		if _, err := tx.Exec(`
+UPDATE gallery_collection_editorial
+SET slug = ?, cover_image_id = ?::uuid, seo_title = ?, seo_description = ?
+WHERE collection_id = ?::uuid`, input.Slug, coverID, input.SEOTitle, input.SEODescription, id); err != nil {
+			var postgresError *pq.Error
+			if errors.As(err, &postgresError) && postgresError.Code == "23505" {
+				return galleryerr.Conflict("collection_slug")
+			}
+			return gerror.Wrap(err, "update editorial collection extension")
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return p.collection(ctx, `c.id = ?::uuid AND c.owner_id = 'gallery'`, id)
+}
+
+func (p *PG) ReorderEditorialMembers(ctx context.Context, id string, expectedVersion int64, imageIDs []string) (*model.Collection, error) {
+	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		tx = tx.Ctx(ctx)
+		locked, err := tx.GetOne(`
+SELECT c.version
+FROM gallery_collections c
+JOIN gallery_collection_editorial editorial ON editorial.collection_id = c.id
+WHERE c.id = ?::uuid AND c.kind = 'gallery.editorial' AND c.owner_id = 'gallery'
+FOR UPDATE OF c`, id)
+		if err != nil {
+			return gerror.Wrap(err, "lock editorial collection order")
+		}
+		if len(locked) == 0 {
+			return galleryerr.NotFound("collection", id)
+		}
+		if locked["version"].Int64() != expectedVersion {
+			return galleryerr.Conflict("collection_version")
+		}
+		var members []struct {
+			ID string `orm:"id"`
+		}
+		if err := tx.Raw(`SELECT image_id::text AS id FROM gallery_collection_members WHERE collection_id = ?::uuid`, id).Scan(&members); err != nil {
+			return gerror.Wrap(err, "query editorial collection members for reorder")
+		}
+		if len(members) != len(imageIDs) {
+			return galleryerr.Conflict("collection_members")
+		}
+		requested := make(map[string]struct{}, len(imageIDs))
+		for _, imageID := range imageIDs {
+			requested[imageID] = struct{}{}
+		}
+		for _, member := range members {
+			if _, exists := requested[member.ID]; !exists {
+				return galleryerr.Conflict("collection_members")
+			}
+		}
+		for position, imageID := range imageIDs {
+			if _, err := tx.Exec(`UPDATE gallery_collection_members SET manual_position = ? WHERE collection_id = ?::uuid AND image_id = ?::uuid`, position, id, imageID); err != nil {
+				return gerror.Wrap(err, "reorder editorial collection member")
+			}
+		}
+		if _, err := tx.Exec(`UPDATE gallery_collections SET version = version + 1, updated_at = NOW() WHERE id = ?::uuid`, id); err != nil {
+			return gerror.Wrap(err, "bump editorial collection order version")
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return p.collection(ctx, `c.id = ?::uuid AND c.owner_id = 'gallery'`, id)
 }
 
 func (p *PG) Ranking(ctx context.Context, kind, window string, limit int) (*model.Ranking, error) {
@@ -1135,9 +1269,15 @@ func (p *PG) collection(ctx context.Context, where string, args ...any) (*model.
 SELECT c.id::text AS id, c.kind, c.resource_kind, c.owner_kind, c.owner_id, c.visibility,
        c.name, c.description, c.version, c.created_at, c.updated_at,
        COALESCE(e.slug, '') AS slug, COALESCE(e.cover_image_id::text, '') AS cover_image_id,
+       COALESCE(e.seo_title, '') AS seo_title, COALESCE(e.seo_description, '') AS seo_description,
+       COALESCE(cover_image.asset_id::text, '') AS cover_asset_id,
+       COALESCE(cover_image.alt_text, '') AS cover_alt_text,
+       COALESCE(cover_image.width, 0) AS cover_width, COALESCE(cover_image.height, 0) AS cover_height,
+       COALESCE(cover_image.dominant_color, '') AS cover_color,
        (SELECT COUNT(*) FROM gallery_collection_members member WHERE member.collection_id = c.id)::int AS item_count
 FROM gallery_collections c
 LEFT JOIN gallery_collection_editorial e ON e.collection_id = c.id
+LEFT JOIN gallery_images cover_image ON cover_image.id = e.cover_image_id
 WHERE ` + where
 	var value *model.Collection
 	if err := p.db.Ctx(ctx).Raw(query, args...).Scan(&value); err != nil {

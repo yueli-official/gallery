@@ -38,8 +38,19 @@ useSeoMeta({ title: "专题集合", description: "由运营方整理的公开图
         :to="`/collections/${collection.slug}`"
         class="gallery-collection-card group focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
       >
-        <div class="gallery-collection-cover">
+        <div
+          class="gallery-collection-cover"
+          :style="{ backgroundColor: collection.coverColor || undefined }"
+        >
+          <img
+            v-if="collection.coverAssetId"
+            v-bind="galleryImageSources(collection.coverAssetId, 'grid', false)"
+            :alt="collection.coverAltText || collection.name"
+            :width="collection.coverWidth"
+            :height="collection.coverHeight"
+          />
           <UIcon
+            v-else
             name="i-tabler-folders"
             class="size-10 text-primary transition-transform duration-300 group-hover:-rotate-3 group-hover:scale-105"
           />
