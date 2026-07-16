@@ -11,6 +11,7 @@ import (
 
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/gogf/gf/v2/errors/gerror"
+	"github.com/gogf/gf/v2/os/gtime"
 	"github.com/lib/pq"
 
 	"platform/gokit/classification"
@@ -768,26 +769,138 @@ func (p *PG) Ranking(ctx context.Context, kind, window string, limit int) (*mode
 	case "30d":
 		cutoff = now.AddDate(0, 0, -30)
 	}
-	order := map[string]string{
-		"trending":       "(window_metric.view_count + window_metric.favorite_count * 4) DESC",
-		"most_viewed":    "window_metric.view_count DESC",
-		"most_favorited": "window_metric.favorite_count DESC",
-	}[kind]
-	query := imageCardSelect + `
-LEFT JOIN LATERAL (
-    SELECT COALESCE(SUM(m.qualified_views), 0)::bigint AS view_count,
-           COALESCE(SUM(m.favorites), 0)::bigint AS favorite_count
-    FROM gallery_image_metrics_daily m
-    WHERE m.image_id = i.id AND m.metric_date >= ?::date
-) window_metric ON TRUE
-WHERE ` + eligibleImage + `
-ORDER BY ` + order + `, i.published_at DESC, i.id DESC
-LIMIT ?`
-	values, err := p.cards(ctx, query, cutoff, limit)
+	snapshot, err := p.currentRankingSnapshot(ctx, kind, window)
 	if err != nil {
 		return nil, err
 	}
-	return &model.Ranking{Kind: kind, Window: window, Images: values}, nil
+	if snapshot == nil {
+		snapshot, err = p.refreshRankingSnapshot(ctx, kind, window, cutoff, max(limit, 60))
+		if err != nil {
+			// A snapshot refresh is an optimization boundary. If the writer is
+			// temporarily unavailable, serve the latest materialized result instead
+			// of turning the public ranking page into a hard failure.
+			stale, staleErr := p.latestRankingSnapshot(ctx, kind, window)
+			if staleErr != nil || stale == nil {
+				return nil, err
+			}
+			snapshot = stale
+		}
+	}
+	query := imageCardSelect + `
+JOIN gallery_ranking_entries ranking_entry ON ranking_entry.image_id = i.id
+WHERE ranking_entry.snapshot_id = ?::uuid AND ` + eligibleImage + `
+ORDER BY ranking_entry.rank
+LIMIT ?`
+	values, err := p.cards(ctx, query, snapshot.ID, limit)
+	if err != nil {
+		return nil, err
+	}
+	return &model.Ranking{Kind: kind, Window: window, Generated: gtime.NewFromTime(snapshot.GeneratedAt), Images: values}, nil
+}
+
+func (p *PG) latestRankingSnapshot(ctx context.Context, kind, window string) (*rankingSnapshot, error) {
+	var rows []rankingSnapshot
+	if err := p.db.Ctx(ctx).Raw(`
+SELECT id::text AS id, generated_at
+FROM gallery_ranking_snapshots
+WHERE ranking_kind = ? AND window_key = ?
+ORDER BY generated_at DESC
+LIMIT 1`, kind, window).Scan(&rows); err != nil {
+		return nil, gerror.Wrap(err, "query latest gallery ranking snapshot")
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return &rows[0], nil
+}
+
+type rankingSnapshot struct {
+	ID          string    `orm:"id"`
+	GeneratedAt time.Time `orm:"generated_at"`
+}
+
+func (p *PG) currentRankingSnapshot(ctx context.Context, kind, window string) (*rankingSnapshot, error) {
+	var rows []rankingSnapshot
+	if err := p.db.Ctx(ctx).Raw(`
+SELECT id::text AS id, generated_at
+FROM gallery_ranking_snapshots
+WHERE ranking_kind = ? AND window_key = ? AND expires_at > NOW()
+ORDER BY generated_at DESC
+LIMIT 1`, kind, window).Scan(&rows); err != nil {
+		return nil, gerror.Wrap(err, "query current gallery ranking snapshot")
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return &rows[0], nil
+}
+
+func (p *PG) refreshRankingSnapshot(ctx context.Context, kind, window string, cutoff time.Time, limit int) (*rankingSnapshot, error) {
+	score := map[string]string{
+		"trending":       "COALESCE(SUM(metric.qualified_views), 0) + COALESCE(SUM(metric.favorites), 0) * 4",
+		"most_viewed":    "COALESCE(SUM(metric.qualified_views), 0)",
+		"most_favorited": "COALESCE(SUM(metric.favorites), 0)",
+	}[kind]
+	var snapshot *rankingSnapshot
+	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		tx = tx.Ctx(ctx)
+		if _, err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?::text, 0))`, "gallery-ranking:"+kind+":"+window); err != nil {
+			return gerror.Wrap(err, "lock gallery ranking refresh")
+		}
+		var existing []rankingSnapshot
+		if err := tx.Raw(`
+SELECT id::text AS id, generated_at
+FROM gallery_ranking_snapshots
+WHERE ranking_kind = ? AND window_key = ? AND expires_at > NOW()
+ORDER BY generated_at DESC
+LIMIT 1`, kind, window).Scan(&existing); err != nil {
+			return gerror.Wrap(err, "recheck gallery ranking snapshot")
+		}
+		if len(existing) != 0 {
+			snapshot = &existing[0]
+			return nil
+		}
+		var created []rankingSnapshot
+		if err := tx.Raw(`
+INSERT INTO gallery_ranking_snapshots (ranking_kind, window_key, generated_at, expires_at)
+VALUES (?, ?, NOW(), NOW() + INTERVAL '5 minutes')
+RETURNING id::text AS id, generated_at`, kind, window).Scan(&created); err != nil {
+			return gerror.Wrap(err, "create gallery ranking snapshot")
+		}
+		if len(created) != 1 {
+			return errors.New("gallery ranking snapshot insert returned no row")
+		}
+		snapshot = &created[0]
+		query := `
+WITH scores AS (
+    SELECT i.id, i.published_at,
+           (` + score + `)::double precision AS score
+    FROM gallery_images i
+    LEFT JOIN gallery_image_metrics_daily metric
+      ON metric.image_id = i.id AND metric.metric_date >= ?::date
+    WHERE ` + eligibleImage + `
+    GROUP BY i.id, i.published_at
+), ranked AS (
+    SELECT id, score,
+           ROW_NUMBER() OVER (ORDER BY score DESC, published_at DESC, id DESC) AS rank
+    FROM scores
+)
+INSERT INTO gallery_ranking_entries (snapshot_id, image_id, rank, score)
+SELECT ?::uuid, id, rank, score
+FROM ranked
+WHERE rank <= ?`
+		if _, err := tx.Exec(query, cutoff, snapshot.ID, limit); err != nil {
+			return gerror.Wrap(err, "populate gallery ranking snapshot")
+		}
+		if _, err := tx.Exec(`DELETE FROM gallery_ranking_snapshots WHERE expires_at < NOW() - INTERVAL '1 day'`); err != nil {
+			return gerror.Wrap(err, "prune gallery ranking snapshots")
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return snapshot, nil
 }
 
 func (p *PG) CreateSubmission(ctx context.Context, subject model.Subject, input model.SubmissionInput, review string) (*model.Submission, error) {
@@ -1299,21 +1412,81 @@ RETURNING id::text AS id, COALESCE(image_id::text, '') AS image_id,
 }
 
 func (p *PG) RecordEvent(ctx context.Context, subject model.Subject, imageID string, input model.EventInput) error {
-	result, err := p.db.Exec(ctx, `
+	now := time.Now().UTC()
+	metricDate := now.Format(time.DateOnly)
+	dayStart, dayEnd := now.Truncate(24*time.Hour), now.Truncate(24*time.Hour).Add(24*time.Hour)
+	subjectKey := strings.TrimSpace(subject.ID)
+	if kind := strings.TrimSpace(subject.Kind); kind != "" {
+		subjectKey = kind + ":" + subjectKey
+	}
+	identity := subjectKey
+	if input.SessionKey != "" {
+		identity = "session:" + input.SessionKey
+	}
+	return p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		tx = tx.Ctx(ctx)
+		uniqueVisitor := int64(0)
+		if input.Type == "qualified_view" && identity != "" {
+			if _, err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?::text, 0))`, "gallery-visitor:"+metricDate+":"+imageID+":"+identity); err != nil {
+				return gerror.Wrap(err, "lock gallery daily visitor")
+			}
+			seen, err := tx.GetValue(`
+SELECT EXISTS (
+    SELECT 1
+    FROM gallery_image_events
+    WHERE image_id = ?::uuid
+      AND event_type = 'qualified_view'
+      AND occurred_at >= ?::timestamptz
+      AND occurred_at < ?::timestamptz
+      AND subject_key = ?
+      AND session_key = ?
+)`, imageID, dayStart, dayEnd, subjectKey, input.SessionKey)
+			if err != nil {
+				return gerror.Wrap(err, "query gallery daily visitor")
+			}
+			if !seen.Bool() {
+				uniqueVisitor = 1
+			}
+		}
+		result, err := tx.Exec(`
 INSERT INTO gallery_image_events (image_id, subject_key, session_key, event_type)
 SELECT i.id, ?, ?, ? FROM gallery_images i WHERE i.id = ?::uuid AND `+eligibleImage,
-		subject.ID, input.SessionKey, input.Type, imageID)
-	if err != nil {
-		return gerror.Wrap(err, "record gallery image event")
-	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return gerror.Wrap(err, "read gallery event result")
-	}
-	if rows == 0 {
-		return galleryerr.NotFound("image", imageID)
-	}
-	return nil
+			subjectKey, input.SessionKey, input.Type, imageID)
+		if err != nil {
+			return gerror.Wrap(err, "record gallery image event")
+		}
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return gerror.Wrap(err, "read gallery event result")
+		}
+		if rows == 0 {
+			return galleryerr.NotFound("image", imageID)
+		}
+		delta := map[string][6]int64{
+			"grid_exposure":  {1, 0, 0, 0, 0, 0},
+			"qualified_view": {0, 1, uniqueVisitor, 0, 0, 0},
+			"favorite":       {0, 0, 0, 1, 0, 0},
+			"unfavorite":     {0, 0, 0, -1, 0, 0},
+			"share":          {0, 0, 0, 0, 1, 0},
+			"report":         {0, 0, 0, 0, 0, 1},
+		}[input.Type]
+		if _, err := tx.Exec(`
+INSERT INTO gallery_image_metrics_daily (
+    image_id, metric_date, exposures, qualified_views, unique_visitors, favorites, shares, reports
+)
+VALUES (?::uuid, ?::date, ?, ?, ?, ?, ?, ?)
+ON CONFLICT (image_id, metric_date) DO UPDATE SET
+    exposures = gallery_image_metrics_daily.exposures + EXCLUDED.exposures,
+    qualified_views = gallery_image_metrics_daily.qualified_views + EXCLUDED.qualified_views,
+    unique_visitors = gallery_image_metrics_daily.unique_visitors + EXCLUDED.unique_visitors,
+    favorites = GREATEST(0, gallery_image_metrics_daily.favorites + EXCLUDED.favorites),
+    shares = gallery_image_metrics_daily.shares + EXCLUDED.shares,
+    reports = gallery_image_metrics_daily.reports + EXCLUDED.reports`,
+			imageID, metricDate, delta[0], delta[1], delta[2], delta[3], delta[4], delta[5]); err != nil {
+			return gerror.Wrap(err, "aggregate gallery daily metric")
+		}
+		return nil
+	})
 }
 
 func (p *PG) FindSingleton(ctx context.Context, kind, ownerID string) (*model.Collection, error) {

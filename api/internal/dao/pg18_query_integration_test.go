@@ -5,8 +5,12 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
+	"regexp"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -62,12 +66,18 @@ func newGalleryPG18Fixture(t *testing.T) galleryPG18Fixture {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	up, err := os.ReadFile("../../manifest/sql/migrations/0001_init.up.sql")
+	migrations, err := filepath.Glob("../../manifest/sql/migrations/*.up.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := sqlDB.Exec(string(up)); err != nil {
-		t.Fatalf("apply Gallery migration: %v", err)
+	for _, migration := range migrations {
+		up, readErr := os.ReadFile(migration)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		if _, execErr := sqlDB.Exec(string(up)); execErr != nil {
+			t.Fatalf("apply Gallery migration %s: %v", filepath.Base(migration), execErr)
+		}
 	}
 	databaseHandle, err := gdb.New(gdb.ConfigNode{Type: "pgsql", Host: host, Port: port, User: user, Pass: password, Name: database})
 	if err != nil {
@@ -593,5 +603,258 @@ ORDER BY candidate.value_id`, payload, "01990000-0000-7000-8200-000000000001", "
 	}
 	if !strings.Contains(plan, "gallery_image_category_filter_idx") && !strings.Contains(plan, "gallery_image_category_assignments_pkey") {
 		t.Fatalf("contextual count plan does not use an index-backed Category join:\n%s", plan)
+	}
+}
+
+func TestPostgreSQL18EventsAggregateDailyAndRankingSnapshotsRefreshOnce(t *testing.T) {
+	fixture := newGalleryPG18Fixture(t)
+	if _, err := fixture.SQL.Exec(`
+INSERT INTO gallery_images (id, asset_id, title, alt_text, width, height, processing_state, review_state, publication_state, safety_state, public_rendition_ready, published_at) VALUES
+('01990000-0000-7000-8400-000000000001', '01990000-0000-7000-8500-000000000001', '第一张', '第一张', 1600, 900, 'ready', 'approved', 'published', 'safe', TRUE, NOW() - INTERVAL '1 hour'),
+('01990000-0000-7000-8400-000000000002', '01990000-0000-7000-8500-000000000002', '第二张', '第二张', 1600, 900, 'ready', 'approved', 'published', 'safe', TRUE, NOW());`); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	subject := model.Subject{Kind: "guest", ID: "guest-1"}
+	for _, event := range []model.EventInput{
+		{Type: "qualified_view", SessionKey: "session-1"},
+		{Type: "qualified_view", SessionKey: "session-1"},
+		{Type: "favorite"},
+		{Type: "unfavorite"},
+		{Type: "share"},
+	} {
+		if err := fixture.Store.RecordEvent(ctx, subject, "01990000-0000-7000-8400-000000000001", event); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var views, visitors, favorites, shares int64
+	if err := fixture.SQL.QueryRow(`
+SELECT qualified_views, unique_visitors, favorites, shares
+FROM gallery_image_metrics_daily
+WHERE image_id = '01990000-0000-7000-8400-000000000001'
+ORDER BY metric_date DESC LIMIT 1`).Scan(&views, &visitors, &favorites, &shares); err != nil {
+		t.Fatal(err)
+	}
+	if views != 2 || visitors != 1 || favorites != 0 || shares != 1 {
+		t.Fatalf("aggregated metrics = views %d visitors %d favorites %d shares %d", views, visitors, favorites, shares)
+	}
+
+	if _, err := fixture.SQL.Exec(`DELETE FROM gallery_ranking_snapshots`); err != nil {
+		t.Fatal(err)
+	}
+	var wait sync.WaitGroup
+	errorsSeen := make(chan error, 8)
+	for range 8 {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			_, rankingErr := fixture.Store.Ranking(ctx, "trending", "7d", 60)
+			errorsSeen <- rankingErr
+		}()
+	}
+	wait.Wait()
+	close(errorsSeen)
+	for rankingErr := range errorsSeen {
+		if rankingErr != nil {
+			t.Fatal(rankingErr)
+		}
+	}
+	var snapshotCount int
+	if err := fixture.SQL.QueryRow(`SELECT COUNT(*) FROM gallery_ranking_snapshots`).Scan(&snapshotCount); err != nil {
+		t.Fatal(err)
+	}
+	if snapshotCount != 1 {
+		t.Fatalf("concurrent cache miss created %d snapshots, want 1", snapshotCount)
+	}
+	first, err := fixture.Store.Ranking(ctx, "trending", "7d", 60)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Generated == nil || len(first.Images) != 2 || first.Images[0].ID != "01990000-0000-7000-8400-000000000001" {
+		t.Fatalf("first ranking = %#v", first)
+	}
+	if _, err := fixture.SQL.Exec(`
+INSERT INTO gallery_image_metrics_daily (image_id, metric_date, qualified_views)
+VALUES ('01990000-0000-7000-8400-000000000002', CURRENT_DATE, 100)
+ON CONFLICT (image_id, metric_date) DO UPDATE SET qualified_views = 100`); err != nil {
+		t.Fatal(err)
+	}
+	cached, err := fixture.Store.Ranking(ctx, "trending", "7d", 60)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cached.Images[0].ID != first.Images[0].ID || !cached.Generated.Equal(first.Generated) {
+		t.Fatalf("fresh snapshot was not reused: first %#v cached %#v", first, cached)
+	}
+	if _, err := fixture.SQL.Exec(`UPDATE gallery_ranking_snapshots SET expires_at = NOW() - INTERVAL '1 second'`); err != nil {
+		t.Fatal(err)
+	}
+	refreshed, err := fixture.Store.Ranking(ctx, "trending", "7d", 60)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(refreshed.Images) != 2 || refreshed.Images[0].ID != "01990000-0000-7000-8400-000000000002" {
+		t.Fatalf("expired snapshot did not refresh: %#v", refreshed)
+	}
+	if _, err := fixture.SQL.Exec(`UPDATE gallery_images SET publication_state = 'hidden', published_at = NULL WHERE id = '01990000-0000-7000-8400-000000000002'`); err != nil {
+		t.Fatal(err)
+	}
+	withoutHidden, err := fixture.Store.Ranking(ctx, "trending", "7d", 60)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(withoutHidden.Images) != 1 || withoutHidden.Images[0].ID != "01990000-0000-7000-8400-000000000001" {
+		t.Fatalf("cached snapshot exposed an ineligible image: %#v", withoutHidden)
+	}
+	if _, err := fixture.SQL.Exec(`
+UPDATE gallery_images SET publication_state = 'published', published_at = NOW() WHERE id = '01990000-0000-7000-8400-000000000002';
+UPDATE gallery_ranking_snapshots SET expires_at = NOW() - INTERVAL '1 second';
+CREATE FUNCTION reject_gallery_snapshot_refresh() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'simulated snapshot writer outage';
+END $$;
+CREATE TRIGGER reject_gallery_snapshot_refresh
+BEFORE INSERT ON gallery_ranking_snapshots
+FOR EACH STATEMENT EXECUTE FUNCTION reject_gallery_snapshot_refresh();`); err != nil {
+		t.Fatal(err)
+	}
+	fallback, err := fixture.Store.Ranking(ctx, "trending", "7d", 60)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fallback.Generated == nil || !fallback.Generated.Equal(refreshed.Generated) || len(fallback.Images) != 2 || fallback.Images[0].ID != "01990000-0000-7000-8400-000000000002" {
+		t.Fatalf("ranking did not degrade to the latest expired snapshot: %#v", fallback)
+	}
+}
+
+func TestPostgreSQL18CatalogScalePlansStayWithinBudgetAndOrderFromIndexes(t *testing.T) {
+	fixture := newGalleryPG18Fixture(t)
+	if _, err := fixture.SQL.Exec(`
+INSERT INTO gallery_images (
+    asset_id, title, description, alt_text, width, height,
+    processing_state, review_state, publication_state, safety_state,
+    public_rendition_ready, published_at, updated_at
+)
+SELECT uuidv7(),
+       CASE WHEN value % 997 = 0 THEN 'Needle city ' || value ELSE 'Catalog image ' || value END,
+       CASE WHEN value % 991 = 0 THEN 'rare needle description' ELSE 'curated visual' END,
+       'Catalog image ' || value,
+       1600, 900, 'ready', 'approved', 'published', 'safe', TRUE,
+       NOW() - value * INTERVAL '1 second', NOW() - value * INTERVAL '1 second'
+FROM generate_series(1, 12000) value;
+ANALYZE gallery_images;`); err != nil {
+		t.Fatal(err)
+	}
+
+	searchPlan := explainText(t, fixture.SQL, `
+SELECT i.id
+FROM gallery_images i
+WHERE i.processing_state = 'ready'
+  AND i.review_state IN ('not_required', 'approved')
+  AND i.publication_state = 'published'
+  AND i.safety_state = 'safe'
+  AND i.public_rendition_ready
+  AND (i.title ILIKE '%needle%' OR i.description ILIKE '%needle%')
+ORDER BY i.published_at DESC, i.id DESC
+LIMIT 40`)
+	usesBothTrigramIndexes := strings.Contains(searchPlan, "gallery_images_public_title_search_idx") &&
+		strings.Contains(searchPlan, "gallery_images_public_description_search_idx")
+	if !usesBothTrigramIndexes && !strings.Contains(searchPlan, "Seq Scan on gallery_images") {
+		t.Fatalf("public search uses neither the expected trigram indexes nor the measured small-catalog sequential baseline:\n%s", searchPlan)
+	}
+	// At 12k rows PostgreSQL may correctly prefer a ~300-buffer sequential scan
+	// over two bitmap indexes. Keep that crossover explicit and tightly budgeted;
+	// larger catalogs are expected to choose the trigram BitmapOr path.
+	assertExecutionBudget(t, "public search", searchPlan, 100)
+
+	titlePlan := explainText(t, fixture.SQL, `
+SELECT i.id
+FROM gallery_images i
+WHERE i.processing_state = 'ready'
+  AND i.review_state IN ('not_required', 'approved')
+  AND i.publication_state = 'published'
+  AND i.safety_state = 'safe'
+  AND i.public_rendition_ready
+ORDER BY LOWER(i.title), i.id
+LIMIT 40`)
+	if !strings.Contains(titlePlan, "gallery_images_public_title_idx") {
+		t.Fatalf("public title sort is not index backed:\n%s", titlePlan)
+	}
+	assertExecutionBudget(t, "public title sort", titlePlan, 500)
+
+	adminPlan := explainText(t, fixture.SQL, `
+SELECT i.id
+FROM gallery_images i
+WHERE i.publication_state = 'published'
+  AND i.processing_state = 'ready'
+  AND i.review_state = 'approved'
+  AND i.safety_state = 'safe'
+ORDER BY i.updated_at DESC, i.id DESC
+LIMIT 60`)
+	if !strings.Contains(adminPlan, "gallery_images_admin_lifecycle_idx") {
+		t.Fatalf("admin lifecycle query is not index backed:\n%s", adminPlan)
+	}
+	assertExecutionBudget(t, "admin lifecycle", adminPlan, 500)
+
+	if _, err := fixture.SQL.Exec(`
+INSERT INTO gallery_ranking_snapshots (id, ranking_kind, window_key, generated_at, expires_at)
+VALUES ('01990000-0000-7000-8e00-000000000001', 'trending', '7d', NOW(), NOW() + INTERVAL '5 minutes');
+INSERT INTO gallery_ranking_entries (snapshot_id, image_id, rank, score)
+SELECT '01990000-0000-7000-8e00-000000000001', id,
+       ROW_NUMBER() OVER (ORDER BY published_at DESC, id DESC),
+       1
+FROM gallery_images;
+ANALYZE gallery_ranking_entries;`); err != nil {
+		t.Fatal(err)
+	}
+	rankingPlan := explainText(t, fixture.SQL, `
+SELECT image_id
+FROM gallery_ranking_entries
+WHERE snapshot_id = '01990000-0000-7000-8e00-000000000001'
+ORDER BY rank
+LIMIT 60`)
+	if !strings.Contains(rankingPlan, "gallery_ranking_entries_snapshot_id_rank_key") {
+		t.Fatalf("ranking cache read is not index backed:\n%s", rankingPlan)
+	}
+	assertExecutionBudget(t, "ranking snapshot", rankingPlan, 500)
+}
+
+func explainText(t *testing.T, db *sql.DB, query string) string {
+	t.Helper()
+	rows, err := db.Query("EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) " + query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var lines []string
+	for rows.Next() {
+		var line string
+		if err := rows.Scan(&line); err != nil {
+			t.Fatal(err)
+		}
+		lines = append(lines, line)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	plan := strings.Join(lines, "\n")
+	t.Log(plan)
+	return plan
+}
+
+var executionTimePattern = regexp.MustCompile(`Execution Time: ([0-9.]+) ms`)
+
+func assertExecutionBudget(t *testing.T, name, plan string, milliseconds float64) {
+	t.Helper()
+	match := executionTimePattern.FindStringSubmatch(plan)
+	if len(match) != 2 {
+		t.Fatalf("%s plan has no execution timing:\n%s", name, plan)
+	}
+	value, err := strconv.ParseFloat(match[1], 64)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value > milliseconds {
+		t.Fatalf("%s execution %.3fms exceeds %.0fms budget:\n%s", name, value, milliseconds, plan)
 	}
 }
