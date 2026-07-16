@@ -2,7 +2,7 @@
 import { ManageAssetSettings } from "@platform/asset/components";
 
 definePageMeta({ layout: "manage", middleware: "auth" });
-useSeoMeta({ title: "资源与设置 · 图库管理" });
+useSeoMeta({ title: "资源设置 · 图库管理" });
 
 const { slug, brand } = useSiteRuntime();
 const { isAdmin } = useAuth();
@@ -13,8 +13,8 @@ const { isAdmin } = useAuth();
     :site-key="slug"
     :site-name="brand"
     :can-manage="isAdmin"
-    permission-description="资源配置仅对 Catalog 声明的当前图库运营者开放。"
-    description="配置投稿私有 master 与 Gallery 衍生版本。当前 Asset 只支持单格式惰性衍生；多格式预处理、公开 rendition 撤销和 Worker 状态必须在 Asset 升级后启用。"
+    permission-description="只有具备图库资源管理权限的运营者可以修改这些规则。"
+    description="管理投稿原图的私有存储、公开图片衍生版本与上传限制。日常审核不需要进入这里，只有存储策略变化或上传异常时才调整。"
     :profile-order="['gallery-submission']"
     :exclude-profiles="['gallery-artwork', 'gallery-creator-cover']"
   />

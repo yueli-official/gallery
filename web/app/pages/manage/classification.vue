@@ -148,10 +148,34 @@ const visibleProposals = computed(() =>
   ),
 );
 const tabs = computed(() => [
-  { key: "categories", label: "分类", count: catalog.value.categories.length },
-  { key: "facets", label: "维度", count: catalog.value.facets.length },
-  { key: "tags", label: "标签", count: tagData.value.page.items.length },
-  { key: "proposals", label: "待审提案", count: proposalData.value.total },
+  {
+    key: "categories",
+    label: "分类树",
+    description: "维护公开浏览的主路径",
+    icon: "i-tabler-sitemap",
+    count: catalog.value.categories.length,
+  },
+  {
+    key: "facets",
+    label: "筛选维度",
+    description: "维护结构化筛选轴和值",
+    icon: "i-tabler-adjustments-horizontal",
+    count: catalog.value.facets.length,
+  },
+  {
+    key: "tags",
+    label: "规范标签",
+    description: "治理长尾词与同义关系",
+    icon: "i-tabler-tags",
+    count: tagData.value.page.items.length,
+  },
+  {
+    key: "proposals",
+    label: "待审词",
+    description: "决定新词创建或归并",
+    icon: "i-tabler-tag-starred",
+    count: proposalData.value.total,
+  },
 ]);
 const searchPlaceholder = computed(
   () =>
@@ -388,94 +412,127 @@ async function reviewTagProposal(
   <div>
     <ManageHeader title="分类与维度">
       <template #subtitle>
-        一次专注一种目录任务；高风险变更会先展示影响，再由你确认执行。
+        维护公开目录的路径、筛选轴和检索词；高风险变更先预演影响。
       </template>
     </ManageHeader>
 
-    <ManageTabs v-model="section" :items="tabs" class="mb-4" />
-    <ManageCollectionToolbar
-      v-model:search="searchInput"
-      :search-placeholder="searchPlaceholder"
-      compact-filters
-      class="mb-4"
-    >
-      <template #actions>
-        <details class="relative">
+    <ManageTabs v-model="section" :items="tabs" class="mb-4 lg:hidden" />
+    <div class="grid gap-6 lg:grid-cols-[13.5rem_minmax(0,1fr)] lg:items-start">
+      <aside class="hidden lg:block lg:sticky lg:top-20">
+        <nav class="space-y-1" aria-label="目录治理任务">
+          <button
+            v-for="item in tabs"
+            :key="item.key"
+            type="button"
+            class="group grid w-full grid-cols-[2rem_minmax(0,1fr)_auto] gap-2 rounded-lg px-2.5 py-3 text-left transition"
+            :class="
+              section === item.key
+                ? 'bg-elevated text-highlighted ring-1 ring-default'
+                : 'text-muted hover:bg-elevated/55 hover:text-default'
+            "
+            @click="section = item.key"
+          >
+            <UIcon :name="item.icon" class="mt-0.5 size-4.5 text-primary" />
+            <span class="min-w-0">
+              <span class="block text-sm font-semibold">{{ item.label }}</span>
+              <span class="mt-0.5 block text-xs leading-4 text-muted">{{
+                item.description
+              }}</span>
+            </span>
+            <span class="text-xs tabular-nums text-dimmed">{{
+              item.count
+            }}</span>
+          </button>
+        </nav>
+        <details
+          class="group mt-5 border-t border-default pt-3 text-xs text-muted"
+        >
           <summary
-            class="cursor-pointer list-none rounded-md px-2 py-1.5 text-xs text-muted hover:bg-elevated hover:text-default"
+            class="flex cursor-pointer list-none items-center justify-between py-2"
           >
-            技术信息
+            目录协议
+            <UIcon
+              name="i-tabler-chevron-down"
+              class="size-4 transition group-open:rotate-180"
+            />
           </summary>
-          <div
-            class="absolute right-0 z-20 mt-2 w-72 rounded-lg border border-default bg-default p-3 text-xs text-muted shadow-lg"
-          >
-            <p>目录版本 {{ catalog.revision }}</p>
-            <p class="mt-2">
-              停用会保留历史关系；合并会迁移归属；有关联的删除必须再次确认。
-            </p>
-          </div>
+          <p class="mt-2 leading-5">
+            revision
+            {{
+              catalog.revision
+            }}。停用保留历史关系，合并迁移归属，关联删除必须二次确认。
+          </p>
         </details>
-      </template>
-    </ManageCollectionToolbar>
-    <UAlert
-      v-if="actionError && !previewOpen"
-      class="mb-5"
-      color="error"
-      variant="subtle"
-      title="操作失败"
-      :description="actionError"
-    />
-    <UAlert
-      v-else-if="actionSuccess"
-      class="mb-5"
-      color="success"
-      variant="subtle"
-      title="操作完成"
-      :description="actionSuccess"
-    />
-    <SkeletonList v-if="!hydrated || pending" :rows="6" />
-    <UAlert
-      v-else-if="error"
-      color="error"
-      variant="subtle"
-      title="分类目录加载失败"
-    >
-      <template #actions>
-        <UButton class="min-h-11" label="重试" @click="refresh()" />
-      </template>
-    </UAlert>
+      </aside>
 
-    <div v-else>
-      <ClassificationCategoryPanel
-        v-if="section === 'categories'"
-        :items="visibleCategories"
-        @action="handleIdentityAction"
-      />
-      <ClassificationFacetPanel
-        v-else-if="section === 'facets'"
-        :facets="visibleFacets"
-        @action="handleIdentityAction"
-      />
-      <ClassificationProposalPanel
-        v-else-if="section === 'proposals'"
-        :proposals="visibleProposals"
-        :total="proposalData.total"
-        :tags="tagData.page.items"
-        :pending="proposalsPending"
-        :hydrated="hydrated"
-        :reviewing-id="reviewingProposal"
-        @review="reviewTagProposal"
-      />
-      <ClassificationTagPanel
-        v-else
-        :tags="visibleTags"
-        :pending="tagsPending"
-        :hydrated="hydrated"
-        :next-cursor="tagData.page.nextCursor"
-        :loading-more="loadingMoreTags"
-        @action="handleIdentityAction"
-        @load-more="loadMoreTags"
-      />
+      <div class="min-w-0">
+        <ManageCollectionToolbar
+          v-model:search="searchInput"
+          :search-placeholder="searchPlaceholder"
+          compact-filters
+          class="mb-4"
+        />
+        <UAlert
+          v-if="actionError && !previewOpen"
+          class="mb-5"
+          color="error"
+          variant="subtle"
+          title="操作失败"
+          :description="actionError"
+        />
+        <UAlert
+          v-else-if="actionSuccess"
+          class="mb-5"
+          color="success"
+          variant="subtle"
+          title="操作完成"
+          :description="actionSuccess"
+        />
+        <SkeletonList v-if="!hydrated || pending" :rows="6" />
+        <UAlert
+          v-else-if="error"
+          color="error"
+          variant="subtle"
+          title="分类目录加载失败"
+        >
+          <template #actions>
+            <UButton class="min-h-11" label="重试" @click="refresh()" />
+          </template>
+        </UAlert>
+
+        <div v-else>
+          <ClassificationCategoryPanel
+            v-if="section === 'categories'"
+            :items="visibleCategories"
+            @action="handleIdentityAction"
+          />
+          <ClassificationFacetPanel
+            v-else-if="section === 'facets'"
+            :facets="visibleFacets"
+            @action="handleIdentityAction"
+          />
+          <ClassificationProposalPanel
+            v-else-if="section === 'proposals'"
+            :proposals="visibleProposals"
+            :total="proposalData.total"
+            :tags="tagData.page.items"
+            :pending="proposalsPending"
+            :hydrated="hydrated"
+            :reviewing-id="reviewingProposal"
+            @review="reviewTagProposal"
+          />
+          <ClassificationTagPanel
+            v-else
+            :tags="visibleTags"
+            :pending="tagsPending"
+            :hydrated="hydrated"
+            :next-cursor="tagData.page.nextCursor"
+            :loading-more="loadingMoreTags"
+            @action="handleIdentityAction"
+            @load-more="loadMoreTags"
+          />
+        </div>
+      </div>
     </div>
 
     <ClassificationEditorModal

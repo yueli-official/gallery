@@ -34,6 +34,12 @@ function moreItems(item: GalleryClassificationTag) {
       ? []
       : [
           {
+            label: item.status === "active" ? "停用标签" : "启用标签",
+            icon:
+              item.status === "active" ? "i-tabler-eye-off" : "i-tabler-eye",
+            onSelect: () => emit("action", "status", "tag", item),
+          },
+          {
             label: "合并到其他标签",
             icon: "i-tabler-git-merge",
             onSelect: () => emit("action", "merge", "tag", item),
@@ -97,15 +103,6 @@ function moreItems(item: GalleryClassificationTag) {
           </details>
         </div>
         <div class="flex flex-wrap gap-2">
-          <UButton
-            v-if="tag.status !== 'replaced'"
-            class="min-h-11"
-            color="primary"
-            variant="soft"
-            size="sm"
-            :label="tag.status === 'active' ? '停用' : '启用'"
-            @click="$emit('action', 'status', 'tag', tag)"
-          />
           <UDropdownMenu :items="moreItems(tag)"
             ><UButton
               class="min-h-11"

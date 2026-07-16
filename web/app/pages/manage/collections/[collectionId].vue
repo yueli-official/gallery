@@ -172,6 +172,27 @@ function clearCover(): void {
   form.coverImageId = "";
 }
 
+function memberMoreItems(item: GalleryImageCard) {
+  return [
+    [
+      {
+        label: form.coverImageId === item.id ? "当前封面" : "设为专题封面",
+        icon: "i-tabler-photo-star",
+        disabled: form.coverImageId === item.id,
+        onSelect: () => selectCover(item.id),
+      },
+    ],
+    [
+      {
+        label: "移出专题",
+        icon: "i-tabler-trash",
+        color: "error" as const,
+        onSelect: () => mutateMembers([], [item.id]),
+      },
+    ],
+  ];
+}
+
 async function saveOrder(): Promise<void> {
   if (!collection.value || !canReorder.value || ordering.value) return;
   ordering.value = true;
@@ -206,11 +227,11 @@ async function openPicker(): Promise<void> {
 <template>
   <div>
     <ManageHeader :title="collection?.name || '专题编辑'">
-      <template #subtitle>编辑公开信息、SEO、封面、成员和人工顺序。</template>
+      <template #subtitle>先组织图片和顺序，再完成封面与公开叙事。</template>
       <template #actions>
         <UButton
           color="neutral"
-          variant="outline"
+          variant="ghost"
           to="/manage/collections"
           icon="i-tabler-arrow-left"
           label="返回列表"
@@ -239,13 +260,20 @@ async function openPicker(): Promise<void> {
 
     <div
       v-else-if="collection"
-      class="grid gap-6 xl:grid-cols-[minmax(0,0.85fr)_minmax(28rem,1.15fr)]"
+      class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_23rem] xl:items-start"
     >
-      <section class="gallery-manage-panel space-y-5">
+      <section
+        class="gallery-manage-panel order-2 space-y-5 xl:sticky xl:top-20"
+      >
         <div>
-          <h2 class="text-lg font-semibold text-highlighted">公开信息</h2>
+          <p
+            class="text-xs font-semibold uppercase tracking-[.14em] text-primary"
+          >
+            Publish
+          </p>
+          <h2 class="mt-2 text-lg font-semibold text-highlighted">专题设置</h2>
           <p class="mt-1 text-sm text-muted">
-            私有专题不会出现在前台，公开前请确认封面和 SEO。
+            私有状态适合编排；公开前确认名称、封面和说明。
           </p>
         </div>
         <UFormField label="名称" required
@@ -267,13 +295,6 @@ async function openPicker(): Promise<void> {
             value-key="value"
           />
         </UFormField>
-        <UFormField label="SEO 标题"
-          ><UInput v-model="form.seoTitle"
-        /></UFormField>
-        <UFormField label="SEO 描述"
-          ><UTextarea v-model="form.seoDescription" :rows="3"
-        /></UFormField>
-
         <div>
           <p class="mb-2 text-sm font-medium text-highlighted">当前封面</p>
           <div
@@ -298,7 +319,27 @@ async function openPicker(): Promise<void> {
             @click="clearCover"
           />
         </div>
+        <details class="group border-t border-default pt-4">
+          <summary
+            class="flex min-h-10 cursor-pointer list-none items-center justify-between text-sm font-medium text-default"
+          >
+            搜索与分享信息
+            <UIcon
+              name="i-tabler-chevron-down"
+              class="size-4 text-muted transition group-open:rotate-180"
+            />
+          </summary>
+          <div class="space-y-4 pt-3">
+            <UFormField label="SEO 标题"
+              ><UInput v-model="form.seoTitle"
+            /></UFormField>
+            <UFormField label="SEO 描述"
+              ><UTextarea v-model="form.seoDescription" :rows="3"
+            /></UFormField>
+          </div>
+        </details>
         <UButton
+          block
           label="保存专题设置"
           icon="i-tabler-device-floppy"
           :loading="saving"
@@ -309,12 +350,19 @@ async function openPicker(): Promise<void> {
         </p>
       </section>
 
-      <section class="gallery-manage-panel">
+      <section class="gallery-manage-panel order-1">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 class="text-lg font-semibold text-highlighted">图片与顺序</h2>
+            <p
+              class="text-xs font-semibold uppercase tracking-[.14em] text-primary"
+            >
+              Editorial sequence
+            </p>
+            <h2 class="mt-2 text-lg font-semibold text-highlighted">
+              图片与顺序
+            </h2>
             <p class="mt-1 text-sm text-muted">
-              {{ collection.itemCount }} 张，version {{ collection.version }}
+              {{ collection.itemCount }} 张。顺序决定公开专题的阅读节奏。
             </p>
           </div>
           <div class="flex gap-2">
@@ -345,7 +393,10 @@ async function openPicker(): Promise<void> {
           title="大型专题暂不支持整组重排"
           description="当前编辑器只载入前 60 张；成员增删仍可用，整组重排将在规模化阶段升级为分段操作。"
         />
-        <div v-if="members.length" class="mt-5 grid gap-3 sm:grid-cols-2">
+        <div
+          v-if="members.length"
+          class="mt-5 grid gap-3 sm:grid-cols-2 2xl:grid-cols-3"
+        >
           <article
             v-for="(item, index) in members"
             :key="item.id"
@@ -380,19 +431,21 @@ async function openPicker(): Promise<void> {
                   @click="moveMember(index, 1)"
                 />
                 <UButton
-                  color="neutral"
-                  :variant="form.coverImageId === item.id ? 'soft' : 'ghost'"
+                  v-if="form.coverImageId === item.id"
+                  color="primary"
+                  variant="soft"
                   icon="i-tabler-photo-star"
-                  :label="form.coverImageId === item.id ? '封面' : '设为封面'"
-                  @click="selectCover(item.id)"
+                  label="封面"
+                  disabled
                 />
-                <UButton
-                  color="error"
-                  variant="ghost"
-                  icon="i-tabler-trash"
-                  aria-label="移出专题"
-                  @click="mutateMembers([], [item.id])"
-                />
+                <UDropdownMenu :items="memberMoreItems(item)">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    icon="i-tabler-dots"
+                    aria-label="更多图片操作"
+                  />
+                </UDropdownMenu>
               </div>
             </div>
           </article>

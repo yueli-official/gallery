@@ -38,6 +38,12 @@ function moreItems(item: GalleryClassificationCatalogNode) {
       ? []
       : [
           {
+            label: item.status === "active" ? "停用分类" : "启用分类",
+            icon:
+              item.status === "active" ? "i-tabler-eye-off" : "i-tabler-eye",
+            onSelect: () => emit("action", "status", "category", item),
+          },
+          {
             label: "移动到其他分类",
             icon: "i-tabler-arrows-move",
             onSelect: () => emit("action", "reparent", "category", item),
@@ -102,15 +108,6 @@ function moreItems(item: GalleryClassificationCatalogNode) {
           </details>
         </div>
         <div class="flex items-center justify-end gap-1">
-          <UButton
-            v-if="item.status !== 'replaced'"
-            class="min-h-11"
-            color="primary"
-            variant="soft"
-            size="sm"
-            :label="item.status === 'active' ? '停用' : '启用'"
-            @click="$emit('action', 'status', 'category', item)"
-          />
           <UDropdownMenu :items="moreItems(item)"
             ><UButton
               class="min-h-11"

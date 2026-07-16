@@ -24,6 +24,13 @@ function facetMore(item: GalleryClassificationCatalogFacet) {
   return [
     [
       {
+        label: item.status === "active" ? "停用维度" : "启用维度",
+        icon: item.status === "active" ? "i-tabler-eye-off" : "i-tabler-eye",
+        onSelect: () => emit("action", "status", "facet", item),
+      },
+    ],
+    [
+      {
         label: "删除维度",
         icon: "i-tabler-trash",
         color: "error" as const,
@@ -37,6 +44,12 @@ function valueMore(item: GalleryClassificationCatalogNode) {
     item.status === "replaced"
       ? []
       : [
+          {
+            label: item.status === "active" ? "停用维度值" : "启用维度值",
+            icon:
+              item.status === "active" ? "i-tabler-eye-off" : "i-tabler-eye",
+            onSelect: () => emit("action", "status", "facet_value", item),
+          },
           {
             label: "移动到其他父级",
             icon: "i-tabler-arrows-move",
@@ -99,15 +112,7 @@ function valueMore(item: GalleryClassificationCatalogNode) {
             </p>
           </div>
           <div class="flex items-center gap-1">
-            <UButton
-              v-if="facet.status !== 'replaced'"
-              class="min-h-11"
-              color="primary"
-              variant="soft"
-              size="sm"
-              :label="facet.status === 'active' ? '停用' : '启用'"
-              @click="$emit('action', 'status', 'facet', facet)"
-            /><UDropdownMenu :items="facetMore(facet)"
+            <UDropdownMenu :items="facetMore(facet)"
               ><UButton
                 class="min-h-11"
                 color="neutral"
@@ -144,15 +149,7 @@ function valueMore(item: GalleryClassificationCatalogNode) {
             </details>
           </div>
           <div class="flex items-center gap-1">
-            <UButton
-              v-if="value.status !== 'replaced'"
-              class="min-h-11"
-              color="neutral"
-              variant="soft"
-              size="xs"
-              :label="value.status === 'active' ? '停用' : '启用'"
-              @click="$emit('action', 'status', 'facet_value', value)"
-            /><UDropdownMenu :items="valueMore(value)"
+            <UDropdownMenu :items="valueMore(value)"
               ><UButton
                 class="min-h-11"
                 color="neutral"
