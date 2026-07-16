@@ -35,7 +35,14 @@
       {
         "key": "submission-options",
         "path": "/submit",
-        "readySelector": "main h1",
+        "readySelector": "text=选择壁纸、插画或摄影",
+        "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "classification",
+        "path": "/manage/classification",
+        "readySelector": "text=壁纸",
+        "authenticated": true,
         "viewports": ["mobile", "desktop"]
       },
       {
