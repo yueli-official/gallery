@@ -166,6 +166,8 @@ type ListAdminImagesReq struct {
 	ReviewState      string `p:"reviewState"`
 	PublicationState string `p:"publicationState"`
 	SafetyState      string `p:"safetyState"`
+	CategoryID       string `p:"categoryId"`
+	FacetValueID     string `p:"facetValueId"`
 }
 type ListAdminImagesRes struct{ model.AdminImagePage }
 
@@ -183,6 +185,14 @@ type BulkHideImagesReq struct {
 	model.BulkImageHideInput
 }
 type BulkHideImagesRes struct {
+	Results []model.BulkImageActionResult `json:"results"`
+}
+
+type BulkImagesReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/images/bulk" method:"POST" tags:"Gallery admin" summary:"Apply a lifecycle or classification action to multiple images with per-item outcomes"`
+	model.BulkImageActionInput
+}
+type BulkImagesRes struct {
 	Results []model.BulkImageActionResult `json:"results"`
 }
 

@@ -79,6 +79,7 @@ type ImagePage struct {
 
 type AdminImage struct {
 	ImageCard
+	PrimaryCategoryID    string      `json:"primaryCategoryId" orm:"primary_category_id"`
 	Description          string      `json:"description" orm:"description"`
 	SourceURL            string      `json:"sourceUrl" orm:"source_url"`
 	ProcessingState      string      `json:"processingState" orm:"processing_state"`
@@ -99,14 +100,17 @@ type AdminImageQuery struct {
 	ReviewState      string
 	PublicationState string
 	SafetyState      string
+	CategoryID       string
+	FacetValueID     string
 }
 
 type AdminImagePage struct {
-	Items      []AdminImage `json:"items"`
-	Page       int          `json:"page"`
-	PageSize   int          `json:"pageSize"`
-	Total      int          `json:"total"`
-	TotalPages int          `json:"totalPages"`
+	Items      []AdminImage   `json:"items"`
+	Page       int            `json:"page"`
+	PageSize   int            `json:"pageSize"`
+	Total      int            `json:"total"`
+	TotalPages int            `json:"totalPages"`
+	Counts     map[string]int `json:"counts"`
 }
 
 type AdminImageUpdateInput struct {
@@ -120,6 +124,13 @@ type AdminImageUpdateInput struct {
 type BulkImageHideInput struct {
 	ImageIDs []string `json:"imageIds"`
 	Reason   string   `json:"reason"`
+}
+
+type BulkImageActionInput struct {
+	ImageIDs          []string `json:"imageIds"`
+	Action            string   `json:"action"`
+	Reason            string   `json:"reason"`
+	PrimaryCategoryID string   `json:"primaryCategoryId"`
 }
 
 type BulkImageActionResult struct {

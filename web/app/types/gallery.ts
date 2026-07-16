@@ -92,6 +92,7 @@ export interface GalleryImagePage {
 }
 
 export interface GalleryAdminImage extends GalleryImageCard {
+  primaryCategoryId: string;
   description: string;
   sourceUrl: string;
   processingState: "queued" | "processing" | "ready" | "failed";
@@ -109,6 +110,7 @@ export interface GalleryAdminImagePage {
   pageSize: number;
   total: number;
   totalPages: number;
+  counts: Record<string, number>;
 }
 
 export interface GallerySearchSuggestion {

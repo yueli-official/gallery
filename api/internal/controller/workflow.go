@@ -215,6 +215,7 @@ func (c *Admin) ListAdminImages(ctx context.Context, req *v1.ListAdminImagesReq)
 		Search: req.Q, Sort: req.Sort, Page: req.Page, PageSize: req.Size,
 		ProcessingState: req.ProcessingState, ReviewState: req.ReviewState,
 		PublicationState: req.PublicationState, SafetyState: req.SafetyState,
+		CategoryID: req.CategoryID, FacetValueID: req.FacetValueID,
 	})
 	if err != nil {
 		return nil, err
@@ -239,6 +240,14 @@ func (c *Admin) BulkHideImages(ctx context.Context, req *v1.BulkHideImagesReq) (
 		return nil, err
 	}
 	return &v1.BulkHideImagesRes{Results: c.service.BulkHideImages(ctx, operator, req.BulkImageHideInput)}, nil
+}
+
+func (c *Admin) BulkImages(ctx context.Context, req *v1.BulkImagesReq) (*v1.BulkImagesRes, error) {
+	operator, err := requireAdmin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.BulkImagesRes{Results: c.service.BulkImages(ctx, operator, req.BulkImageActionInput)}, nil
 }
 
 func (c *Admin) ListCases(ctx context.Context, req *v1.ListCasesReq) (*v1.ListCasesRes, error) {

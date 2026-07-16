@@ -54,7 +54,9 @@ type Store interface {
 	CreateCase(context.Context, model.Subject, string, model.CaseInput) (*model.Case, error)
 	AdminOverview(context.Context) (*model.AdminOverview, error)
 	AdminImages(context.Context, model.AdminImageQuery) ([]model.AdminImage, int, error)
+	AdminImageCounts(context.Context) (map[string]int, error)
 	UpdateAdminImage(context.Context, string, model.AdminImageUpdateInput) (*model.AdminImage, error)
+	SetImagePrimaryCategory(context.Context, string, string) error
 	ReviewQueue(context.Context, model.AdminSubmissionQuery) ([]model.Submission, int, error)
 	ReviewSubmission(context.Context, string, string, model.SubmissionReviewInput) (*model.Submission, error)
 	HideImage(context.Context, string, string, string) error
@@ -1186,13 +1188,26 @@ func (s *Service) AdminImages(ctx context.Context, query model.AdminImageQuery) 
 		query.Sort = "newest"
 	}
 	query.Page, query.PageSize = bounded(query.Page, 1, 100000, 1), bounded(query.PageSize, 12, 60, 24)
-	if !oneOf(query.Sort, "newest", "oldest", "title_asc", "title_desc", "updated") {
+	if !oneOf(query.Sort, "newest", "oldest", "title_asc", "title_desc", "updated", "updated_asc") {
 		return nil, galleryerr.Validation("sort", "unsupported admin image sort")
 	}
 	query.ProcessingState = strings.TrimSpace(query.ProcessingState)
 	query.ReviewState = strings.TrimSpace(query.ReviewState)
 	query.PublicationState = strings.TrimSpace(query.PublicationState)
 	query.SafetyState = strings.TrimSpace(query.SafetyState)
+	var err error
+	if query.CategoryID != "" {
+		query.CategoryID, err = DatabaseID(query.CategoryID)
+		if err != nil {
+			return nil, galleryerr.Validation("categoryId", "category must be a UUID or compact UUID")
+		}
+	}
+	if query.FacetValueID != "" {
+		query.FacetValueID, err = DatabaseID(query.FacetValueID)
+		if err != nil {
+			return nil, galleryerr.Validation("facetValueId", "facet value must be a UUID or compact UUID")
+		}
+	}
 	if query.ProcessingState != "" && !oneOf(query.ProcessingState, "queued", "processing", "ready", "failed") {
 		return nil, galleryerr.Validation("processingState", "unsupported processing state")
 	}
@@ -1214,13 +1229,21 @@ func (s *Service) AdminImages(ctx context.Context, query model.AdminImageQuery) 
 	}
 	for index := range values {
 		values[index].ID = PublicID(values[index].ID)
+		values[index].PrimaryCategoryID = PublicID(values[index].PrimaryCategoryID)
 		values[index].Metrics = model.Metrics{Views: values[index].ViewCount, Favorites: values[index].FavoriteCount}
 	}
 	pages := 0
 	if total > 0 {
 		pages = int(math.Ceil(float64(total) / float64(query.PageSize)))
 	}
-	return &model.AdminImagePage{Items: values, Page: query.Page, PageSize: query.PageSize, Total: total, TotalPages: pages}, nil
+	counts, err := s.store.AdminImageCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if counts == nil {
+		counts = map[string]int{}
+	}
+	return &model.AdminImagePage{Items: values, Page: query.Page, PageSize: query.PageSize, Total: total, TotalPages: pages, Counts: counts}, nil
 }
 
 func (s *Service) UpdateAdminImage(ctx context.Context, rawID string, input model.AdminImageUpdateInput) (*model.AdminImage, error) {
@@ -1270,6 +1293,56 @@ func (s *Service) BulkHideImages(ctx context.Context, operator string, input mod
 			result.Error = "not_hidden"
 		} else {
 			result.Success = true
+		}
+		results = append(results, result)
+	}
+	return results
+}
+
+func (s *Service) BulkImages(ctx context.Context, operator string, input model.BulkImageActionInput) []model.BulkImageActionResult {
+	input.Action = strings.TrimSpace(input.Action)
+	input.Reason = strings.TrimSpace(input.Reason)
+	categoryID := ""
+	categoryInvalid := false
+	if input.Action == "set_primary_category" {
+		var err error
+		categoryID, err = DatabaseID(input.PrimaryCategoryID)
+		categoryInvalid = err != nil
+	}
+	results := make([]model.BulkImageActionResult, 0, min(len(input.ImageIDs), 60))
+	seen := map[string]struct{}{}
+	for _, rawID := range input.ImageIDs {
+		if len(results) >= 60 {
+			break
+		}
+		publicID := strings.TrimSpace(rawID)
+		if _, duplicate := seen[publicID]; duplicate {
+			continue
+		}
+		seen[publicID] = struct{}{}
+		result := model.BulkImageActionResult{ImageID: publicID}
+		switch {
+		case input.Action == "hide" && input.Reason == "":
+			result.Error = "reason_required"
+		case input.Action == "hide":
+			if err := s.HideImage(ctx, operator, publicID, input.Reason); err != nil {
+				result.Error = "not_hidden"
+			} else {
+				result.Success = true
+			}
+		case input.Action == "set_primary_category" && categoryInvalid:
+			result.Error = "category_required"
+		case input.Action == "set_primary_category":
+			imageID, err := DatabaseID(publicID)
+			if err != nil {
+				result.Error = "image_not_found"
+			} else if err := s.store.SetImagePrimaryCategory(ctx, imageID, categoryID); err != nil {
+				result.Error = "category_not_set"
+			} else {
+				result.Success = true
+			}
+		default:
+			result.Error = "unsupported_action"
 		}
 		results = append(results, result)
 	}

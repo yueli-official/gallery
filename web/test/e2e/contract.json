@@ -74,7 +74,7 @@
       {
         "key": "manage-images",
         "path": "/manage/images",
-        "readySelector": "text=图片资产台",
+        "readySelector": "text=管理图片生命周期、分类和质量异常",
         "authenticated": true,
         "viewports": ["mobile", "desktop"]
       },

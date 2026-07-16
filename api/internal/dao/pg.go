@@ -33,13 +33,14 @@ AND i.public_rendition_ready`
 
 const imageCardSelect = `
 SELECT i.id, i.asset_id, i.title, i.alt_text, i.width, i.height, i.dominant_color, i.published_at,
+       COALESCE(primary_category.id::text, '') AS primary_category_id,
        COALESCE(primary_category.name, '') AS primary_category,
        COALESCE(primary_category.slug, '') AS primary_category_slug,
        COALESCE(metric.view_count, 0)::bigint AS view_count,
        COALESCE(metric.favorite_count, 0)::bigint AS favorite_count
 FROM gallery_images i
 LEFT JOIN LATERAL (
-    SELECT category.name, category.slug
+    SELECT category.id, category.name, category.slug
     FROM gallery_image_primary_categories primary_assignment
     JOIN gallery_categories category ON category.id = primary_assignment.category_id
     WHERE primary_assignment.image_id = i.id
@@ -1109,6 +1110,12 @@ func (p *PG) AdminImages(ctx context.Context, input model.AdminImageQuery) ([]mo
 	if input.SafetyState != "" {
 		where, args = append(where, "i.safety_state = ?"), append(args, input.SafetyState)
 	}
+	if input.CategoryID != "" {
+		where, args = append(where, "EXISTS (SELECT 1 FROM gallery_image_category_assignments category_assignment WHERE category_assignment.image_id = i.id AND category_assignment.category_id = ?::uuid)"), append(args, input.CategoryID)
+	}
+	if input.FacetValueID != "" {
+		where, args = append(where, "EXISTS (SELECT 1 FROM gallery_image_facet_assignments facet_assignment WHERE facet_assignment.image_id = i.id AND facet_assignment.facet_value_id = ?::uuid)"), append(args, input.FacetValueID)
+	}
 	predicate := strings.Join(where, " AND ")
 	count, err := p.db.GetValue(ctx, `SELECT COUNT(*) FROM gallery_images i WHERE `+predicate, args...)
 	if err != nil {
@@ -1116,7 +1123,7 @@ func (p *PG) AdminImages(ctx context.Context, input model.AdminImageQuery) ([]mo
 	}
 	orders := map[string]string{
 		"newest": "i.created_at DESC, i.id DESC", "oldest": "i.created_at ASC, i.id ASC",
-		"updated": "i.updated_at DESC, i.id DESC", "title_asc": "LOWER(i.title) ASC, i.id ASC", "title_desc": "LOWER(i.title) DESC, i.id DESC",
+		"updated": "i.updated_at DESC, i.id DESC", "updated_asc": "i.updated_at ASC, i.id ASC", "title_asc": "LOWER(i.title) ASC, i.id ASC", "title_desc": "LOWER(i.title) DESC, i.id DESC",
 	}
 	query := adminImageSelect + ` WHERE ` + predicate + ` ORDER BY ` + orders[input.Sort] + ` LIMIT ? OFFSET ?`
 	pageArgs := append(append([]any{}, args...), input.PageSize, (input.Page-1)*input.PageSize)
@@ -1125,6 +1132,51 @@ func (p *PG) AdminImages(ctx context.Context, input model.AdminImageQuery) ([]mo
 		return nil, 0, gerror.Wrap(err, "query admin gallery images")
 	}
 	return values, count.Int(), nil
+}
+
+func (p *PG) AdminImageCounts(ctx context.Context) (map[string]int, error) {
+	type row struct {
+		State string `orm:"state"`
+		Count int    `orm:"count"`
+	}
+	var rows []row
+	if err := p.db.Ctx(ctx).Raw(`SELECT publication_state AS state, COUNT(*)::int AS count FROM gallery_images GROUP BY publication_state`).Scan(&rows); err != nil {
+		return nil, gerror.Wrap(err, "count gallery image lifecycle states")
+	}
+	counts := map[string]int{"all": 0, "draft": 0, "published": 0, "hidden": 0, "deleted": 0}
+	for _, item := range rows {
+		counts[item.State] = item.Count
+		counts["all"] += item.Count
+	}
+	return counts, nil
+}
+
+func (p *PG) SetImagePrimaryCategory(ctx context.Context, imageID, categoryID string) error {
+	return p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		tx = tx.Ctx(ctx)
+		image, err := tx.GetOne(`SELECT id FROM gallery_images WHERE id = ?::uuid AND publication_state <> 'deleted' FOR UPDATE`, imageID)
+		if err != nil {
+			return gerror.Wrap(err, "lock gallery image classification")
+		}
+		if len(image) == 0 {
+			return galleryerr.NotFound("image", imageID)
+		}
+		category, err := tx.GetValue(`SELECT EXISTS (SELECT 1 FROM gallery_categories WHERE id = ?::uuid AND status = 'active')`, categoryID)
+		if err != nil {
+			return gerror.Wrap(err, "validate gallery primary category")
+		}
+		if !category.Bool() {
+			return galleryerr.NotFound("category", categoryID)
+		}
+		if _, err := tx.Exec(`INSERT INTO gallery_image_category_assignments (image_id, category_id) VALUES (?::uuid, ?::uuid) ON CONFLICT DO NOTHING`, imageID, categoryID); err != nil {
+			return gerror.Wrap(err, "assign gallery image category")
+		}
+		if _, err := tx.Exec(`INSERT INTO gallery_image_primary_categories (image_id, category_id) VALUES (?::uuid, ?::uuid) ON CONFLICT (image_id) DO UPDATE SET category_id = EXCLUDED.category_id`, imageID, categoryID); err != nil {
+			return gerror.Wrap(err, "set gallery image primary category")
+		}
+		_, err = tx.Exec(`UPDATE gallery_images SET updated_at = NOW() WHERE id = ?::uuid`, imageID)
+		return gerror.Wrap(err, "touch gallery image classification")
+	})
 }
 
 func (p *PG) UpdateAdminImage(ctx context.Context, id string, input model.AdminImageUpdateInput) (*model.AdminImage, error) {

@@ -49,6 +49,8 @@ type fakeStore struct {
 	adminImages            []model.AdminImage
 	adminImageQuerySeen    model.AdminImageQuery
 	adminImageUpdateSeen   model.AdminImageUpdateInput
+	adminImageCounts       map[string]int
+	primaryCategorySeen    string
 	adminSubmissions       []model.Submission
 	adminSubmissionQuery   model.AdminSubmissionQuery
 	adminCases             []model.Case
@@ -204,9 +206,16 @@ func (f *fakeStore) AdminImages(_ context.Context, query model.AdminImageQuery) 
 	f.adminImageQuerySeen = query
 	return f.adminImages, len(f.adminImages), nil
 }
+func (f *fakeStore) AdminImageCounts(context.Context) (map[string]int, error) {
+	return f.adminImageCounts, nil
+}
 func (f *fakeStore) UpdateAdminImage(_ context.Context, _ string, input model.AdminImageUpdateInput) (*model.AdminImage, error) {
 	f.adminImageUpdateSeen = input
 	return &model.AdminImage{ImageCard: model.ImageCard{ID: testCategoryID}}, nil
+}
+func (f *fakeStore) SetImagePrimaryCategory(_ context.Context, _ string, categoryID string) error {
+	f.primaryCategorySeen = categoryID
+	return nil
 }
 func (f *fakeStore) ReviewQueue(_ context.Context, query model.AdminSubmissionQuery) ([]model.Submission, int, error) {
 	f.adminSubmissionQuery = query
@@ -343,22 +352,39 @@ func TestAdminCollectionNormalizesPaginationAndPublicIDs(t *testing.T) {
 
 func TestAdminImagesNormalizesLifecycleQueryAndMetrics(t *testing.T) {
 	store := validSubmissionStore()
-	store.adminImages = []model.AdminImage{{ImageCard: model.ImageCard{ID: testCategoryID, ViewCount: 42, FavoriteCount: 7}}}
+	store.adminImages = []model.AdminImage{{ImageCard: model.ImageCard{ID: testCategoryID, ViewCount: 42, FavoriteCount: 7}, PrimaryCategoryID: testFacetID}}
+	store.adminImageCounts = map[string]int{"all": 8, "published": 5, "draft": 3}
 	page, err := New(store).AdminImages(context.Background(), model.AdminImageQuery{
 		Search: "  rain  ", Sort: "updated", Page: -1, PageSize: 99,
 		ProcessingState: "ready", ReviewState: "approved", PublicationState: "hidden", SafetyState: "safe",
+		CategoryID: PublicID(testCategoryID), FacetValueID: PublicID(testValueID),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if store.adminImageQuerySeen.Search != "rain" || store.adminImageQuerySeen.Page != 1 || store.adminImageQuerySeen.PageSize != 60 {
+	if store.adminImageQuerySeen.Search != "rain" || store.adminImageQuerySeen.Page != 1 || store.adminImageQuerySeen.PageSize != 60 || store.adminImageQuerySeen.CategoryID != testCategoryID || store.adminImageQuerySeen.FacetValueID != testValueID {
 		t.Fatalf("admin image query = %#v", store.adminImageQuerySeen)
 	}
-	if page.Items[0].ID != PublicID(testCategoryID) || page.Items[0].Metrics.Views != 42 || page.Total != 1 || page.TotalPages != 1 {
+	if page.Items[0].ID != PublicID(testCategoryID) || page.Items[0].PrimaryCategoryID != PublicID(testFacetID) || page.Items[0].Metrics.Views != 42 || page.Total != 1 || page.TotalPages != 1 || page.Counts["published"] != 5 {
 		t.Fatalf("admin image page = %#v", page)
 	}
 	_, err = New(store).AdminImages(context.Background(), model.AdminImageQuery{SafetyState: "trusted"})
 	assertCode(t, err, "common.validation_failed")
+}
+
+func TestBulkImagesSupportsPrimaryCategoryAndPerItemFailure(t *testing.T) {
+	store := validSubmissionStore()
+	results := New(store).BulkImages(context.Background(), "operator-1", model.BulkImageActionInput{
+		ImageIDs: []string{PublicID(testCategoryID), "not-an-id", PublicID(testCategoryID)},
+		Action:   "set_primary_category", PrimaryCategoryID: PublicID(testFacetID),
+	})
+	if len(results) != 2 || !results[0].Success || results[1].Success || results[1].Error != "image_not_found" || store.primaryCategorySeen != testFacetID {
+		t.Fatalf("bulk primary category results = %#v seen = %q", results, store.primaryCategorySeen)
+	}
+	unsupported := New(store).BulkImages(context.Background(), "operator-1", model.BulkImageActionInput{ImageIDs: []string{PublicID(testCategoryID)}, Action: "delete"})
+	if len(unsupported) != 1 || unsupported[0].Error != "unsupported_action" {
+		t.Fatalf("unsupported bulk action = %#v", unsupported)
+	}
 }
 
 func TestUpdateAdminImageValidatesAndNormalizesMetadata(t *testing.T) {
