@@ -10,6 +10,10 @@ import {
   galleryUploadAnimationError,
   galleryUploadFileError,
 } from "~/utils/galleryUpload";
+import {
+  applyGallerySubmissionDefaults,
+  gallerySubmissionMetadataValid,
+} from "~/utils/gallerySubmissionBatch";
 
 type QueueStatus =
   "ready" | "uploading" | "submitting" | "completed" | "failed";
@@ -18,6 +22,12 @@ interface QueueItem {
   file: File;
   previewUrl: string;
   title: string;
+  description: string;
+  sourceUrl: string;
+  primaryCategoryId: string;
+  sceneValueIds: string[];
+  tags: string;
+  customized: boolean;
   status: QueueStatus;
   progress: number;
   error: string;
@@ -38,9 +48,9 @@ const sourceUrl = ref("");
 const primaryCategoryId = ref("");
 const sceneValueIds = ref<string[]>([]);
 const tags = ref("");
-const sharedTitleEnabled = ref(false);
 const sharedTitle = ref("");
 const running = ref(false);
+const editingId = ref("");
 
 const categoryItems = computed(() =>
   (submissionOptions.value?.categories || []).map((item) => ({
@@ -67,13 +77,9 @@ const readyCount = computed(
   () => queue.value.filter((item) => item.status === "ready").length,
 );
 const validMetadata = computed(() =>
-  Boolean(
-    primaryCategoryId.value &&
-    sceneValueIds.value.length &&
-    (sharedTitleEnabled.value
-      ? sharedTitle.value.trim()
-      : queue.value.every((item) => item.title.trim())),
-  ),
+  queue.value
+    .filter((item) => item.status !== "completed")
+    .every(gallerySubmissionMetadataValid),
 );
 const accepted =
   ".jpg,.jpeg,.png,.webp,.avif,.heic,.heif,image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif";
@@ -114,13 +120,50 @@ async function chooseFiles(event: Event) {
       id: crypto.randomUUID(),
       file,
       previewUrl: URL.createObjectURL(file),
-      title: file.name.replace(/\.[^.]+$/, ""),
+      title: sharedTitle.value.trim() || file.name.replace(/\.[^.]+$/, ""),
+      description: description.value,
+      sourceUrl: sourceUrl.value,
+      primaryCategoryId: primaryCategoryId.value,
+      sceneValueIds: [...sceneValueIds.value],
+      tags: tags.value,
+      customized: false,
       status: "ready",
       progress: 0,
       error: "",
       assetId: "",
     });
   }
+}
+
+function applyDefaultsToItem(item: QueueItem, preserveTitle = false) {
+  applyGallerySubmissionDefaults(
+    item,
+    {
+      title: sharedTitle.value,
+      description: description.value,
+      sourceUrl: sourceUrl.value,
+      primaryCategoryId: primaryCategoryId.value,
+      sceneValueIds: sceneValueIds.value,
+      tags: tags.value,
+    },
+    preserveTitle,
+  );
+}
+
+function applyDefaults() {
+  queue.value.forEach((item) => applyDefaultsToItem(item));
+}
+
+function restoreDefaults(item: QueueItem) {
+  applyDefaultsToItem(item);
+}
+
+function markCustomized(item: QueueItem) {
+  if (item.status !== "completed") item.customized = true;
+}
+
+function toggleItemEditor(item: QueueItem) {
+  editingId.value = editingId.value === item.id ? "" : item.id;
 }
 
 function removeItem(id: string) {
@@ -131,23 +174,21 @@ function removeItem(id: string) {
 }
 
 function submissionBody(item: QueueItem) {
-  const resolvedTitle = sharedTitleEnabled.value
-    ? sharedTitle.value.trim()
-    : item.title.trim();
+  const resolvedTitle = item.title.trim();
   return {
     assetId: item.assetId,
     title: resolvedTitle,
-    description: description.value.trim(),
-    sourceUrl: sourceUrl.value.trim(),
+    description: item.description.trim(),
+    sourceUrl: item.sourceUrl.trim(),
     altText: resolvedTitle,
-    categoryIds: [primaryCategoryId.value],
-    primaryCategoryId: primaryCategoryId.value,
-    tags: tags.value
+    categoryIds: [item.primaryCategoryId],
+    primaryCategoryId: item.primaryCategoryId,
+    tags: item.tags
       .split(/[,，]/)
       .map((value) => value.trim())
       .filter(Boolean),
     facets: sceneFacet.value
-      ? [{ facetId: sceneFacet.value.id, valueIds: sceneValueIds.value }]
+      ? [{ facetId: sceneFacet.value.id, valueIds: item.sceneValueIds }]
       : [],
   };
 }
@@ -212,11 +253,12 @@ onBeforeUnmount(() =>
 
 <template>
   <div class="gallery-page max-w-7xl">
-    <header class="gallery-page-header max-w-4xl">
+    <header class="mb-8 max-w-3xl">
       <div>
-        <p class="gallery-eyebrow">批量投稿</p>
-        <h1 class="gallery-page-title mt-3">把一组好图放进图库</h1>
-        <p class="gallery-page-copy">
+        <h1 class="text-3xl font-bold tracking-tight text-highlighted">
+          批量投稿图片
+        </h1>
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-muted">
           一次最多 20
           张。每张图片独立上传和处理，部分失败不会影响已经完成的项目。
         </p>
@@ -299,7 +341,7 @@ onBeforeUnmount(() =>
           </span>
         </label>
 
-        <div v-else class="grid gap-3 sm:grid-cols-2">
+        <div v-else class="grid gap-3 xl:grid-cols-2">
           <article
             v-for="item in queue"
             :key="item.id"
@@ -346,18 +388,100 @@ onBeforeUnmount(() =>
             </div>
             <div class="space-y-2 p-3">
               <UInput
-                v-if="sharedTitleEnabled"
-                :model-value="sharedTitle"
-                aria-label="统一图片标题"
-                disabled
-              />
-              <UInput
-                v-else
                 v-model="item.title"
                 maxlength="160"
                 aria-label="图片标题"
                 :disabled="item.status === 'completed'"
+                @update:model-value="markCustomized(item)"
               />
+              <div class="flex items-center justify-between gap-2">
+                <UBadge
+                  v-if="item.customized"
+                  color="primary"
+                  variant="subtle"
+                  label="已单独修改"
+                />
+                <span v-else class="text-xs text-dimmed">使用批量默认值</span>
+                <UButton
+                  v-if="item.status !== 'completed'"
+                  type="button"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  :label="editingId === item.id ? '收起' : '单独编辑'"
+                  :trailing-icon="
+                    editingId === item.id
+                      ? 'i-tabler-chevron-up'
+                      : 'i-tabler-chevron-down'
+                  "
+                  @click="toggleItemEditor(item)"
+                />
+              </div>
+              <div
+                v-if="editingId === item.id"
+                class="space-y-3 border-t border-default pt-3"
+              >
+                <UFormField label="主分类" required
+                  ><USelect
+                    v-model="item.primaryCategoryId"
+                    :items="categoryItems"
+                    value-key="value"
+                    placeholder="选择分类"
+                    class="w-full"
+                    @update:model-value="markCustomized(item)"
+                /></UFormField>
+                <UFormField label="场景" required
+                  ><USelect
+                    v-model="item.sceneValueIds"
+                    :items="sceneItems"
+                    value-key="value"
+                    multiple
+                    placeholder="选择场景"
+                    class="w-full"
+                    @update:model-value="markCustomized(item)"
+                /></UFormField>
+                <details class="rounded-lg border border-default p-3">
+                  <summary
+                    class="cursor-pointer text-sm font-medium text-default"
+                  >
+                    更多信息
+                  </summary>
+                  <div class="mt-3 space-y-3">
+                    <UFormField label="说明"
+                      ><UTextarea
+                        v-model="item.description"
+                        :rows="3"
+                        class="w-full"
+                        @update:model-value="markCustomized(item)"
+                    /></UFormField>
+                    <UFormField label="来源地址"
+                      ><UInput
+                        v-model="item.sourceUrl"
+                        type="url"
+                        placeholder="https://"
+                        class="w-full"
+                        @update:model-value="markCustomized(item)"
+                    /></UFormField>
+                    <UFormField label="标签"
+                      ><UInput
+                        v-model="item.tags"
+                        placeholder="夜景, 蓝色, 雨"
+                        class="w-full"
+                        @update:model-value="markCustomized(item)"
+                    /></UFormField>
+                  </div>
+                </details>
+                <UButton
+                  v-if="item.customized"
+                  type="button"
+                  color="neutral"
+                  variant="outline"
+                  size="sm"
+                  icon="i-tabler-restore"
+                  label="恢复批量默认值"
+                  @click="restoreDefaults(item)"
+                />
+              </div>
               <UProgress
                 v-if="item.status === 'uploading'"
                 size="xs"
@@ -377,19 +501,12 @@ onBeforeUnmount(() =>
 
       <aside class="gallery-submit-form space-y-5 lg:sticky lg:top-24">
         <div>
-          <h2 class="text-lg font-semibold text-highlighted">
-            这一批的共同信息
-          </h2>
+          <h2 class="text-lg font-semibold text-highlighted">批量默认值</h2>
           <p class="mt-1 text-xs leading-5 text-muted">
-            分类、场景和说明会用于队列中的每一张图片，标题可以逐张修改。
+            设置后点击“应用到队列”；之后仍可逐张覆盖，已完成项目不会被改动。
           </p>
         </div>
-        <UCheckbox
-          v-model="sharedTitleEnabled"
-          label="这一批使用统一标题"
-          description="关闭时可在左侧逐张修改标题"
-        />
-        <UFormField v-if="sharedTitleEnabled" label="统一标题" required>
+        <UFormField label="统一标题" hint="可选；留空时保留各文件标题">
           <UInput
             v-model="sharedTitle"
             maxlength="160"
@@ -411,46 +528,65 @@ onBeforeUnmount(() =>
             multiple
             placeholder="选择场景"
         /></UFormField>
-        <UFormField label="说明" hint="可选"
-          ><UTextarea
-            v-model="description"
-            :rows="4"
-            placeholder="补充画面、背景或整理说明"
-        /></UFormField>
-        <UFormField label="来源地址" hint="可选，不知道可以留空"
-          ><UInput v-model="sourceUrl" type="url" placeholder="https://"
-        /></UFormField>
-        <UFormField label="标签" hint="可选，用逗号分隔"
-          ><UInput v-model="tags" placeholder="夜景, 蓝色, 雨"
-        /></UFormField>
+        <details class="rounded-lg border border-default p-3">
+          <summary class="cursor-pointer text-sm font-medium text-default">
+            更多共同信息
+          </summary>
+          <div class="mt-4 space-y-4">
+            <UFormField label="说明" hint="可选"
+              ><UTextarea
+                v-model="description"
+                :rows="4"
+                placeholder="补充画面、背景或整理说明"
+            /></UFormField>
+            <UFormField label="来源地址" hint="可选，不知道可以留空"
+              ><UInput v-model="sourceUrl" type="url" placeholder="https://"
+            /></UFormField>
+            <UFormField label="标签" hint="可选，用逗号分隔"
+              ><UInput v-model="tags" placeholder="夜景, 蓝色, 雨"
+            /></UFormField>
+          </div>
+        </details>
         <UButton
-          type="submit"
-          block
-          size="lg"
-          icon="i-tabler-send"
-          :label="readyCount > 1 ? `投稿 ${readyCount} 张图片` : '开始投稿'"
-          :loading="running"
-          :disabled="!loggedIn || !readyCount || !validMetadata"
-        />
-        <UButton
-          v-if="failedCount"
           type="button"
           block
-          color="error"
+          color="primary"
           variant="soft"
-          icon="i-tabler-refresh"
-          :label="`重试失败的 ${failedCount} 张`"
-          :disabled="running || !validMetadata"
-          @click="retryFailed"
+          icon="i-tabler-copy-check"
+          :label="`应用到队列中的 ${queue.filter((item) => item.status !== 'completed').length} 张`"
+          :disabled="!queue.some((item) => item.status !== 'completed')"
+          @click="applyDefaults"
         />
-        <UButton
-          v-if="completedCount && !readyCount && !failedCount"
-          to="/submissions"
-          block
-          color="neutral"
-          variant="outline"
-          label="查看投稿记录"
-        />
+        <div class="border-t border-default pt-5">
+          <UButton
+            type="submit"
+            block
+            size="lg"
+            icon="i-tabler-send"
+            :label="readyCount > 1 ? `投稿 ${readyCount} 张图片` : '开始投稿'"
+            :loading="running"
+            :disabled="!loggedIn || !readyCount || !validMetadata"
+          />
+          <UButton
+            v-if="failedCount"
+            type="button"
+            block
+            color="error"
+            variant="soft"
+            icon="i-tabler-refresh"
+            :label="`重试失败的 ${failedCount} 张`"
+            :disabled="running || !validMetadata"
+            @click="retryFailed"
+          />
+          <UButton
+            v-if="completedCount && !readyCount && !failedCount"
+            to="/submissions"
+            block
+            color="neutral"
+            variant="outline"
+            label="查看投稿记录"
+          />
+        </div>
         <p class="text-xs leading-5 text-muted">
           投稿者不会显示在公开页面。已发布图片不能替换文件，如需更换请重新投稿。
         </p>
