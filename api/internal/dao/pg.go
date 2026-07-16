@@ -539,7 +539,7 @@ ORDER BY c.updated_at DESC, c.id DESC`
 }
 
 func (p *PG) EditorialCollections(ctx context.Context) ([]model.Collection, error) {
-	const query = `
+	query := `
 SELECT c.id::text AS id, c.kind, c.resource_kind, c.owner_kind, c.visibility, c.name, c.description,
        c.version, c.created_at, c.updated_at, e.slug, e.seo_title, e.seo_description,
        COALESCE(e.cover_image_id::text, '') AS cover_image_id,
@@ -851,12 +851,24 @@ VALUES (?::uuid, ?, ?)`, value.ID, proposal.DisplayValue, proposal.LookupKey); e
 	return value, nil
 }
 
-func (p *PG) MySubmissions(ctx context.Context, subject model.Subject, page, size int) ([]model.Submission, int, error) {
-	count, err := p.db.GetValue(ctx, `SELECT COUNT(*) FROM gallery_submissions WHERE subject_kind = ? AND subject_id = ?`, subject.Kind, subject.ID)
+func (p *PG) MySubmissions(ctx context.Context, subject model.Subject, input model.MySubmissionQuery) ([]model.Submission, int, error) {
+	where := []string{"submission.subject_kind = ?", "submission.subject_id = ?"}
+	args := []any{subject.Kind, subject.ID}
+	if input.Outcome != "" {
+		where, args = append(where, "submission.outcome = ?"), append(args, input.Outcome)
+	}
+	if input.ProcessingState != "" {
+		where, args = append(where, "submission.processing_state = ?"), append(args, input.ProcessingState)
+	}
+	if input.ReviewState != "" {
+		where, args = append(where, "submission.review_state = ?"), append(args, input.ReviewState)
+	}
+	predicate := strings.Join(where, " AND ")
+	count, err := p.db.GetValue(ctx, `SELECT COUNT(*) FROM gallery_submissions submission WHERE `+predicate, args...)
 	if err != nil {
 		return nil, 0, gerror.Wrap(err, "count owned gallery submissions")
 	}
-	const query = `
+	query := `
 SELECT submission.id::text AS id, submission.subject_kind, submission.subject_id, submission.asset_id::text AS asset_id,
        COALESCE(submission.image_id::text, '') AS image_id, submission.title, submission.description,
        COALESCE(submission.source_url, '') AS source_url, submission.alt_text,
@@ -865,10 +877,11 @@ SELECT submission.id::text AS id, submission.subject_kind, submission.subject_id
        submission.outcome, submission.failure_code, submission.review_note, submission.created_at, submission.updated_at
 FROM gallery_submissions submission
 LEFT JOIN gallery_submission_primary_categories primary_category ON primary_category.submission_id = submission.id
-WHERE submission.subject_kind = ? AND submission.subject_id = ?
+WHERE ` + predicate + `
 ORDER BY submission.created_at DESC, submission.id DESC LIMIT ? OFFSET ?`
 	var values []model.Submission
-	if err := p.db.Ctx(ctx).Raw(query, subject.Kind, subject.ID, size, (page-1)*size).Scan(&values); err != nil {
+	pageArgs := append(append([]any{}, args...), input.PageSize, (input.Page-1)*input.PageSize)
+	if err := p.db.Ctx(ctx).Raw(query, pageArgs...).Scan(&values); err != nil {
 		return nil, 0, gerror.Wrap(err, "query owned gallery submissions")
 	}
 	return values, count.Int(), nil
@@ -1261,6 +1274,34 @@ func (p *PG) CollectionDetail(ctx context.Context, id string, page, size int) (*
 	if err != nil {
 		return nil, err
 	}
+	return &model.CollectionDetail{Collection: *value, Images: images}, nil
+}
+
+func (p *PG) FavoritesDetail(ctx context.Context, id string, page, size int, order string) (*model.CollectionDetail, error) {
+	value, err := p.collection(ctx, `c.id = ?::uuid`, id)
+	if err != nil || value == nil {
+		return nil, err
+	}
+	count, err := p.db.GetValue(ctx, `
+SELECT COUNT(*) FROM gallery_collection_members member
+JOIN gallery_images i ON i.id = member.image_id
+WHERE member.collection_id = ?::uuid AND `+eligibleImage, id)
+	if err != nil {
+		return nil, gerror.Wrap(err, "count eligible favorite images")
+	}
+	orders := map[string]string{
+		"newest": "member.added_at DESC, i.id DESC", "oldest": "member.added_at ASC, i.id ASC",
+		"title_asc": "LOWER(i.title) ASC, i.id ASC", "title_desc": "LOWER(i.title) DESC, i.id DESC",
+	}
+	query := imageCardSelect + `
+JOIN gallery_collection_members member ON member.image_id = i.id
+WHERE member.collection_id = ?::uuid AND ` + eligibleImage + `
+ORDER BY ` + orders[order] + ` LIMIT ? OFFSET ?`
+	images, err := p.cards(ctx, query, id, size, (page-1)*size)
+	if err != nil {
+		return nil, err
+	}
+	value.ItemCount = count.Int()
 	return &model.CollectionDetail{Collection: *value, Images: images}, nil
 }
 

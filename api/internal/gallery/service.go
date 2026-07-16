@@ -46,10 +46,11 @@ type Store interface {
 	ReorderEditorialMembers(context.Context, string, int64, []string) (*model.Collection, error)
 	Ranking(context.Context, string, string, int) (*model.Ranking, error)
 	CreateSubmission(context.Context, model.Subject, model.SubmissionInput, string) (*model.Submission, error)
-	MySubmissions(context.Context, model.Subject, int, int) ([]model.Submission, int, error)
+	MySubmissions(context.Context, model.Subject, model.MySubmissionQuery) ([]model.Submission, int, error)
 	WithdrawSubmission(context.Context, model.Subject, string) (*model.Submission, error)
 	FailSubmission(context.Context, string, string) error
 	CollectionDetail(context.Context, string, int, int) (*model.CollectionDetail, error)
+	FavoritesDetail(context.Context, string, int, int, string) (*model.CollectionDetail, error)
 	CreateCase(context.Context, model.Subject, string, model.CaseInput) (*model.Case, error)
 	AdminOverview(context.Context) (*model.AdminOverview, error)
 	ReviewQueue(context.Context, int, int) ([]model.Submission, int, error)
@@ -1017,11 +1018,28 @@ func facetCandidates(values []classification.CandidateFacet) []model.Classificat
 	return result
 }
 
-func (s *Service) MySubmissions(ctx context.Context, subject model.Subject, page, size int) ([]model.Submission, int, error) {
+func MySubmissionQuery(page, size int, outcome, processingState, reviewState string) model.MySubmissionQuery {
+	return model.MySubmissionQuery{
+		Page: bounded(page, 1, 100000, 1), PageSize: bounded(size, 10, 60, 20),
+		Outcome: strings.TrimSpace(outcome), ProcessingState: strings.TrimSpace(processingState), ReviewState: strings.TrimSpace(reviewState),
+	}
+}
+
+func (s *Service) MySubmissions(ctx context.Context, subject model.Subject, query model.MySubmissionQuery) ([]model.Submission, int, error) {
 	if err := normalizeSubject(&subject); err != nil {
 		return nil, 0, err
 	}
-	values, total, err := s.store.MySubmissions(ctx, subject, bounded(page, 1, 100000, 1), bounded(size, 10, 60, 20))
+	query = MySubmissionQuery(query.Page, query.PageSize, query.Outcome, query.ProcessingState, query.ReviewState)
+	if query.Outcome != "" && !oneOf(query.Outcome, "pending", "published", "duplicate", "rejected", "withdrawn", "failed") {
+		return nil, 0, galleryerr.Validation("outcome", "unsupported submission outcome")
+	}
+	if query.ProcessingState != "" && !oneOf(query.ProcessingState, "queued", "processing", "ready", "failed") {
+		return nil, 0, galleryerr.Validation("processingState", "unsupported processing state")
+	}
+	if query.ReviewState != "" && !oneOf(query.ReviewState, "not_required", "pending", "approved", "rejected") {
+		return nil, 0, galleryerr.Validation("reviewState", "unsupported review state")
+	}
+	values, total, err := s.store.MySubmissions(ctx, subject, query)
 	if values == nil {
 		values = []model.Submission{}
 	}
@@ -1053,7 +1071,7 @@ func (s *Service) Withdraw(ctx context.Context, subject model.Subject, rawID str
 	return value, nil
 }
 
-func (s *Service) Favorites(ctx context.Context, userID string) (*model.CollectionDetail, error) {
+func (s *Service) Favorites(ctx context.Context, userID string, page, size int, order string) (*model.CollectionDetail, error) {
 	if s.collections == nil {
 		return nil, galleryerr.NotInitialized("collection")
 	}
@@ -1061,12 +1079,23 @@ func (s *Service) Favorites(ctx context.Context, userID string) (*model.Collecti
 	if err != nil {
 		return nil, err
 	}
-	detail, err := s.store.CollectionDetail(ctx, value.ID, 1, 60)
+	page, size, order = bounded(page, 1, 100000, 1), bounded(size, 12, 60, 24), strings.TrimSpace(order)
+	if order == "" {
+		order = "newest"
+	}
+	if !oneOf(order, "newest", "oldest", "title_asc", "title_desc") {
+		return nil, galleryerr.Validation("sort", "unsupported favorites sort")
+	}
+	detail, err := s.store.FavoritesDetail(ctx, value.ID, page, size, order)
 	if err != nil {
 		return nil, err
 	}
 	if detail == nil {
 		detail = &model.CollectionDetail{Collection: *value, Images: []model.ImageCard{}}
+	}
+	detail.Page, detail.PageSize = page, size
+	if detail.ItemCount > 0 {
+		detail.TotalPages = int(math.Ceil(float64(detail.ItemCount) / float64(size)))
 	}
 	detail.ID = PublicID(detail.ID)
 	normalizeCards(detail.Images)

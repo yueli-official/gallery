@@ -194,6 +194,14 @@ type SubmissionInput struct {
 	Classification    ClassificationWrite `json:"-"`
 }
 
+type MySubmissionQuery struct {
+	Page            int
+	PageSize        int
+	Outcome         string
+	ProcessingState string
+	ReviewState     string
+}
+
 type FacetSelection struct {
 	FacetID  string   `json:"facetId"`
 	ValueIDs []string `json:"valueIds"`

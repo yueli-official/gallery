@@ -15,13 +15,19 @@ type CreateSubmissionRes struct {
 }
 
 type ListMySubmissionsReq struct {
-	g.Meta `path:"/api/v1/gallery/me/submissions" method:"GET" tags:"Gallery submissions" summary:"List submissions owned by the current user or guest"`
-	Page   int `p:"page" d:"1"`
-	Size   int `p:"size" d:"20"`
+	g.Meta          `path:"/api/v1/gallery/me/submissions" method:"GET" tags:"Gallery submissions" summary:"List submissions owned by the current user or guest"`
+	Page            int    `p:"page" d:"1"`
+	Size            int    `p:"size" d:"20"`
+	Outcome         string `p:"outcome"`
+	ProcessingState string `p:"processingState"`
+	ReviewState     string `p:"reviewState"`
 }
 type ListMySubmissionsRes struct {
 	Submissions []model.Submission `json:"submissions"`
 	Total       int                `json:"total"`
+	Page        int                `json:"page"`
+	PageSize    int                `json:"pageSize"`
+	TotalPages  int                `json:"totalPages"`
 }
 
 type WithdrawSubmissionReq struct {
@@ -34,6 +40,9 @@ type WithdrawSubmissionRes struct {
 
 type GetFavoritesReq struct {
 	g.Meta `path:"/api/v1/gallery/me/favorites" method:"GET" tags:"Gallery favorites" summary:"Get the current user's private singleton favorites collection"`
+	Page   int    `p:"page" d:"1"`
+	Size   int    `p:"size" d:"24"`
+	Sort   string `p:"sort" d:"newest"`
 }
 type GetFavoritesRes struct {
 	Collection model.CollectionDetail `json:"collection"`

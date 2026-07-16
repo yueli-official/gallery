@@ -245,6 +245,52 @@ VALUES ('01990000-0000-7000-8700-000000000001', '01990000-0000-7000-8400-0000000
 	}
 }
 
+func TestPostgreSQL18PersonalWorkspaceFiltersAndPaginates(t *testing.T) {
+	fixture := newGalleryPG18Fixture(t)
+	if _, err := fixture.SQL.Exec(`
+INSERT INTO gallery_submissions (id, subject_kind, subject_id, asset_id, title, alt_text, processing_state, review_state, safety_state, outcome, created_at) VALUES
+('01990000-0000-7000-8800-000000000001', 'user', 'user-1', '01990000-0000-7000-8900-000000000001', '等待项', '等待项', 'queued', 'pending', 'pending', 'pending', NOW() - INTERVAL '2 hours'),
+('01990000-0000-7000-8800-000000000002', 'user', 'user-1', '01990000-0000-7000-8900-000000000002', '已发布项', '已发布项', 'ready', 'approved', 'safe', 'published', NOW() - INTERVAL '1 hour'),
+('01990000-0000-7000-8800-000000000003', 'user', 'other-user', '01990000-0000-7000-8900-000000000003', '他人的投稿', '他人的投稿', 'ready', 'approved', 'safe', 'published', NOW());
+INSERT INTO gallery_images (id, asset_id, title, alt_text, width, height, processing_state, review_state, publication_state, safety_state, public_rendition_ready, published_at) VALUES
+('01990000-0000-7000-8a00-000000000001', '01990000-0000-7000-8b00-000000000001', 'Beta', 'Beta', 1600, 900, 'ready', 'approved', 'published', 'safe', TRUE, NOW()),
+('01990000-0000-7000-8a00-000000000002', '01990000-0000-7000-8b00-000000000002', 'Alpha', 'Alpha', 1600, 900, 'ready', 'approved', 'published', 'safe', TRUE, NOW()),
+('01990000-0000-7000-8a00-000000000003', '01990000-0000-7000-8b00-000000000003', 'Hidden', 'Hidden', 1600, 900, 'ready', 'approved', 'hidden', 'safe', TRUE, NULL);
+INSERT INTO gallery_collections (id, kind, resource_kind, owner_kind, owner_id, visibility, name)
+VALUES ('01990000-0000-7000-8c00-000000000001', 'gallery.favorites', 'gallery.image', 'user', 'user-1', 'private', '我的收藏');
+INSERT INTO gallery_collection_members (collection_id, image_id, added_at) VALUES
+('01990000-0000-7000-8c00-000000000001', '01990000-0000-7000-8a00-000000000001', NOW() - INTERVAL '2 hours'),
+('01990000-0000-7000-8c00-000000000001', '01990000-0000-7000-8a00-000000000002', NOW() - INTERVAL '1 hour'),
+('01990000-0000-7000-8c00-000000000001', '01990000-0000-7000-8a00-000000000003', NOW());`); err != nil {
+		t.Fatal(err)
+	}
+
+	submissions, total, err := fixture.Store.MySubmissions(context.Background(), model.Subject{Kind: "user", ID: "user-1"}, model.MySubmissionQuery{
+		Page: 1, PageSize: 20, Outcome: "published", ProcessingState: "ready", ReviewState: "approved",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 1 || len(submissions) != 1 || submissions[0].Title != "已发布项" {
+		t.Fatalf("filtered submissions = total %d values %#v", total, submissions)
+	}
+
+	favorites, err := fixture.Store.FavoritesDetail(context.Background(), "01990000-0000-7000-8c00-000000000001", 1, 1, "title_asc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if favorites.ItemCount != 2 || len(favorites.Images) != 1 || favorites.Images[0].Title != "Alpha" {
+		t.Fatalf("favorite page = %#v", favorites)
+	}
+	second, err := fixture.Store.FavoritesDetail(context.Background(), "01990000-0000-7000-8c00-000000000001", 2, 1, "title_asc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(second.Images) != 1 || second.Images[0].Title != "Beta" {
+		t.Fatalf("second favorite page = %#v", second)
+	}
+}
+
 func TestPostgreSQL18TagKeysetCursorBreaksCaseInsensitiveNameTiesWithoutGaps(t *testing.T) {
 	fixture := newGalleryPG18Fixture(t)
 	if _, err := fixture.SQL.Exec(`

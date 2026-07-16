@@ -10,6 +10,7 @@ import (
 
 	"platform/gokit/classification"
 	"platform/gokit/errs"
+	"platform/products/gallery/api/internal/collection"
 	"platform/products/gallery/api/internal/model"
 )
 
@@ -44,6 +45,7 @@ type fakeStore struct {
 	classificationTags     []model.ClassificationTag
 	tagProposals           []model.ClassificationTagProposal
 	tagProposalReviewSeen  model.ClassificationTagProposalReviewInput
+	mySubmissionsQuerySeen model.MySubmissionQuery
 }
 
 func (f *fakeStore) SiteSettings(context.Context) (*model.SiteSettings, error) {
@@ -143,7 +145,8 @@ func (f *fakeStore) CreateSubmission(_ context.Context, _ model.Subject, input m
 	f.submitSeen = input
 	return f.submission, nil
 }
-func (f *fakeStore) MySubmissions(context.Context, model.Subject, int, int) ([]model.Submission, int, error) {
+func (f *fakeStore) MySubmissions(_ context.Context, _ model.Subject, query model.MySubmissionQuery) ([]model.Submission, int, error) {
+	f.mySubmissionsQuerySeen = query
 	return nil, 0, nil
 }
 func (f *fakeStore) WithdrawSubmission(context.Context, model.Subject, string) (*model.Submission, error) {
@@ -151,6 +154,36 @@ func (f *fakeStore) WithdrawSubmission(context.Context, model.Subject, string) (
 }
 func (f *fakeStore) FailSubmission(context.Context, string, string) error { return nil }
 func (f *fakeStore) CollectionDetail(context.Context, string, int, int) (*model.CollectionDetail, error) {
+	return f.collectionDetail, nil
+}
+func (f *fakeStore) FavoritesDetail(context.Context, string, int, int, string) (*model.CollectionDetail, error) {
+	return f.collectionDetail, nil
+}
+
+type fakeCollectionStore struct {
+	*fakeStore
+	favoritePageSeen int
+	favoriteSizeSeen int
+	favoriteSortSeen string
+}
+
+func (f *fakeCollectionStore) FindSingleton(context.Context, string, string) (*model.Collection, error) {
+	return &model.Collection{ID: testCategoryID, Kind: collection.KindFavorites, OwnerKind: "user", OwnerID: "user-1", Version: 3}, nil
+}
+func (f *fakeCollectionStore) CreateCollection(context.Context, collection.CreateInput) (*model.Collection, error) {
+	return nil, nil
+}
+func (f *fakeCollectionStore) OwnedCollection(context.Context, string, string) (*model.Collection, error) {
+	return nil, nil
+}
+func (f *fakeCollectionStore) MutateMembers(context.Context, string, int64, []string, []string) (*model.Collection, error) {
+	return nil, nil
+}
+func (f *fakeCollectionStore) Collectable(context.Context, []string) (map[string]bool, error) {
+	return map[string]bool{}, nil
+}
+func (f *fakeCollectionStore) FavoritesDetail(_ context.Context, _ string, page, size int, sort string) (*model.CollectionDetail, error) {
+	f.favoritePageSeen, f.favoriteSizeSeen, f.favoriteSortSeen = page, size, sort
 	return f.collectionDetail, nil
 }
 func (f *fakeStore) CreateCase(context.Context, model.Subject, string, model.CaseInput) (*model.Case, error) {
@@ -284,6 +317,41 @@ func TestAdminCollectionNormalizesPaginationAndPublicIDs(t *testing.T) {
 	if value.Page != 1 || value.PageSize != 12 || value.TotalPages != 3 {
 		t.Fatalf("unexpected collection pagination: %#v", value)
 	}
+}
+
+func TestMySubmissionsNormalizesAndValidatesFilters(t *testing.T) {
+	store := validSubmissionStore()
+	_, _, err := New(store).MySubmissions(context.Background(), model.Subject{Kind: "user", ID: "user-1"}, model.MySubmissionQuery{
+		Page: -2, PageSize: 999, Outcome: " published ", ProcessingState: "ready", ReviewState: "approved",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if store.mySubmissionsQuerySeen.Page != 1 || store.mySubmissionsQuerySeen.PageSize != 60 || store.mySubmissionsQuerySeen.Outcome != "published" {
+		t.Fatalf("submission query was not normalized: %#v", store.mySubmissionsQuerySeen)
+	}
+	_, _, err = New(store).MySubmissions(context.Background(), model.Subject{Kind: "user", ID: "user-1"}, model.MySubmissionQuery{Outcome: "unknown"})
+	assertCode(t, err, "common.validation_failed")
+}
+
+func TestFavoritesPaginatesSortsAndNormalizesPublicIDs(t *testing.T) {
+	store := &fakeCollectionStore{fakeStore: validSubmissionStore()}
+	store.collectionDetail = &model.CollectionDetail{
+		Collection: model.Collection{ID: testCategoryID, ItemCount: 61},
+		Images:     []model.ImageCard{{ID: testFacetID}},
+	}
+	value, err := New(store).Favorites(context.Background(), "user-1", 2, 24, "title_asc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if store.favoritePageSeen != 2 || store.favoriteSizeSeen != 24 || store.favoriteSortSeen != "title_asc" {
+		t.Fatalf("favorites query = page %d size %d sort %q", store.favoritePageSeen, store.favoriteSizeSeen, store.favoriteSortSeen)
+	}
+	if value.Page != 2 || value.PageSize != 24 || value.TotalPages != 3 || value.Images[0].ID != PublicID(testFacetID) {
+		t.Fatalf("favorites page = %#v", value)
+	}
+	_, err = New(store).Favorites(context.Background(), "user-1", 1, 24, "random")
+	assertCode(t, err, "common.validation_failed")
 }
 
 func TestEditorialCollectionUpdateAndOrderNormalizeInputs(t *testing.T) {

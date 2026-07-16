@@ -241,7 +241,7 @@ useSeoMeta({
       </p>
     </header>
 
-    <div class="gallery-mobile-search xl:hidden">
+    <div class="gallery-mobile-search lg:hidden">
       <UInput
         v-model="searchDraft"
         class="min-w-0 flex-1"
@@ -258,14 +258,23 @@ useSeoMeta({
       />
     </div>
     <GallerySearchSuggestions
-      class="-mt-3 mb-5 xl:hidden"
+      class="-mt-3 mb-5 lg:hidden"
       :items="searchSuggestions"
       @select="selectSuggestion"
     />
 
-    <div class="grid gap-7 xl:grid-cols-[16.5rem_minmax(0,1fr)] xl:gap-10">
-      <aside class="hidden xl:block">
+    <div class="grid gap-7 lg:grid-cols-[16.5rem_minmax(0,1fr)] lg:gap-10">
+      <aside class="hidden lg:block" aria-label="图片过滤器">
         <div class="gallery-filter-panel sticky top-24 space-y-7">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="font-semibold text-highlighted">筛选图片</h2>
+            <UBadge
+              v-if="activeRefinements.length"
+              color="primary"
+              variant="soft"
+              :label="`${activeRefinements.length} 项`"
+            />
+          </div>
           <UInput
             v-model="searchDraft"
             icon="i-tabler-search"

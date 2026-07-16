@@ -39,6 +39,20 @@
         "viewports": ["mobile", "desktop"]
       },
       {
+        "key": "my-favorites",
+        "path": "/favorites",
+        "readySelector": "text=还没有收藏图片",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "my-submissions",
+        "path": "/submissions",
+        "readySelector": "text=还没有投稿记录",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"]
+      },
+      {
         "key": "collections",
         "path": "/collections",
         "readySelector": "text=还没有公开专题",

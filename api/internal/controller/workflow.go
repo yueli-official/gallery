@@ -29,8 +29,15 @@ func (c *Workflow) ListMySubmissions(ctx context.Context, req *v1.ListMySubmissi
 	if err != nil {
 		return nil, err
 	}
-	values, total, err := c.service.MySubmissions(ctx, subject, req.Page, req.Size)
-	return &v1.ListMySubmissionsRes{Submissions: values, Total: total}, err
+	query := galleryservice.MySubmissionQuery(req.Page, req.Size, req.Outcome, req.ProcessingState, req.ReviewState)
+	values, total, err := c.service.MySubmissions(ctx, subject, query)
+	pages := 0
+	if total > 0 {
+		pages = (total + query.PageSize - 1) / query.PageSize
+	}
+	return &v1.ListMySubmissionsRes{
+		Submissions: values, Total: total, Page: query.Page, PageSize: query.PageSize, TotalPages: pages,
+	}, err
 }
 
 func (c *Workflow) WithdrawSubmission(ctx context.Context, req *v1.WithdrawSubmissionReq) (*v1.WithdrawSubmissionRes, error) {
@@ -45,12 +52,12 @@ func (c *Workflow) WithdrawSubmission(ctx context.Context, req *v1.WithdrawSubmi
 	return &v1.WithdrawSubmissionRes{Submission: *value}, nil
 }
 
-func (c *Workflow) GetFavorites(ctx context.Context, _ *v1.GetFavoritesReq) (*v1.GetFavoritesRes, error) {
+func (c *Workflow) GetFavorites(ctx context.Context, req *v1.GetFavoritesReq) (*v1.GetFavoritesRes, error) {
 	subject, err := requiredUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	value, err := c.service.Favorites(ctx, subject.ID)
+	value, err := c.service.Favorites(ctx, subject.ID, req.Page, req.Size, req.Sort)
 	if err != nil {
 		return nil, err
 	}

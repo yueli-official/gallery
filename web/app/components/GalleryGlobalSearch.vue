@@ -29,6 +29,8 @@ async function submit(): Promise<void> {
     <UInput
       v-model="query"
       class="min-w-0 flex-1"
+      variant="none"
+      size="sm"
       icon="i-tabler-search"
       placeholder="搜索图片、主题或标签"
       aria-label="搜索图库"
@@ -37,6 +39,7 @@ async function submit(): Promise<void> {
       type="submit"
       color="neutral"
       variant="ghost"
+      size="sm"
       icon="i-tabler-arrow-right"
       aria-label="提交搜索"
     />
