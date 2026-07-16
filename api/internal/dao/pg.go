@@ -1154,27 +1154,27 @@ func (p *PG) AdminImageCounts(ctx context.Context) (map[string]int, error) {
 func (p *PG) SetImagePrimaryCategory(ctx context.Context, imageID, categoryID string) error {
 	return p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		tx = tx.Ctx(ctx)
-		image, err := tx.GetOne(`SELECT id FROM gallery_images WHERE id = ?::uuid AND publication_state <> 'deleted' FOR UPDATE`, imageID)
+		image, err := tx.Ctx(ctx).GetOne(`SELECT id FROM gallery_images WHERE id = ?::uuid AND publication_state <> 'deleted' FOR UPDATE`, imageID)
 		if err != nil {
 			return gerror.Wrap(err, "lock gallery image classification")
 		}
 		if len(image) == 0 {
 			return galleryerr.NotFound("image", imageID)
 		}
-		category, err := tx.GetValue(`SELECT EXISTS (SELECT 1 FROM gallery_categories WHERE id = ?::uuid AND status = 'active')`, categoryID)
+		category, err := tx.Ctx(ctx).GetValue(`SELECT EXISTS (SELECT 1 FROM gallery_categories WHERE id = ?::uuid AND status = 'active')`, categoryID)
 		if err != nil {
 			return gerror.Wrap(err, "validate gallery primary category")
 		}
 		if !category.Bool() {
 			return galleryerr.NotFound("category", categoryID)
 		}
-		if _, err := tx.Exec(`INSERT INTO gallery_image_category_assignments (image_id, category_id) VALUES (?::uuid, ?::uuid) ON CONFLICT DO NOTHING`, imageID, categoryID); err != nil {
+		if _, err := tx.Ctx(ctx).Exec(`INSERT INTO gallery_image_category_assignments (image_id, category_id) VALUES (?::uuid, ?::uuid) ON CONFLICT DO NOTHING`, imageID, categoryID); err != nil {
 			return gerror.Wrap(err, "assign gallery image category")
 		}
-		if _, err := tx.Exec(`INSERT INTO gallery_image_primary_categories (image_id, category_id) VALUES (?::uuid, ?::uuid) ON CONFLICT (image_id) DO UPDATE SET category_id = EXCLUDED.category_id`, imageID, categoryID); err != nil {
+		if _, err := tx.Ctx(ctx).Exec(`INSERT INTO gallery_image_primary_categories (image_id, category_id) VALUES (?::uuid, ?::uuid) ON CONFLICT (image_id) DO UPDATE SET category_id = EXCLUDED.category_id`, imageID, categoryID); err != nil {
 			return gerror.Wrap(err, "set gallery image primary category")
 		}
-		_, err = tx.Exec(`UPDATE gallery_images SET updated_at = NOW() WHERE id = ?::uuid`, imageID)
+		_, err = tx.Ctx(ctx).Exec(`UPDATE gallery_images SET updated_at = NOW() WHERE id = ?::uuid`, imageID)
 		return gerror.Wrap(err, "touch gallery image classification")
 	})
 }

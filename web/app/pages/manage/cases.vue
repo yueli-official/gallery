@@ -104,6 +104,14 @@ function formatDate(value?: string) {
   }).format(new Date(value));
 }
 
+function closeResolution() {
+  resolvingId.value = "";
+}
+
+function toggleResolution(itemId: string) {
+  resolvingId.value = resolvingId.value === itemId ? "" : itemId;
+}
+
 function setQuery(values: Record<string, string | number | undefined>) {
   const resetsPage = !("page" in values);
   const query = Object.fromEntries(
@@ -327,7 +335,7 @@ async function resolve(
                 color="neutral"
                 variant="ghost"
                 label="取消"
-                @click="resolvingId = ''"
+                @click="closeResolution"
               />
               <UButton
                 color="error"
@@ -359,7 +367,7 @@ async function resolve(
           <UButton
             v-else-if="item.status === 'reviewing'"
             label="完成处理"
-            @click="resolvingId = resolvingId === item.id ? '' : item.id"
+            @click="toggleResolution(item.id)"
           />
           <UButton
             v-if="item.imageId"
