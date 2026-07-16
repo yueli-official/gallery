@@ -4,7 +4,9 @@ import { galleryRendition, imageAspect } from "../app/utils/image";
 
 describe("gallery image projection", () => {
   it("keeps rendition policy behind one helper", () => {
-    expect(galleryRendition("asset id", "grid-lg")).toContain("asset%20id/image/@960x720");
+    expect(galleryRendition("asset id", "grid-lg")).toContain(
+      "asset%20id/image/@960x720",
+    );
   });
 
   it("preserves source aspect ratios for masonry", () => {

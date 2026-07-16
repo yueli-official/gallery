@@ -1,0 +1,64 @@
+{
+  "$schema": "../../../../../tests/e2e/contract.schema.json",
+  "version": 1,
+  "public": { "path": "/", "readySelector": "main h1" },
+  "manage": {
+    "path": "/manage",
+    "heading": "控制台",
+    "readySelector": "main h1",
+    "views": []
+  },
+  "empty": {
+    "path": "/images?q=__platform_e2e_missing__",
+    "text": "没有符合条件的图片"
+  },
+  "error": {
+    "path": "/images/00000000-0000-7000-8000-000000000000",
+    "status": 404,
+    "text": "这张图片无法显示"
+  },
+  "visual": {
+    "managePath": "/manage",
+    "scenarios": [
+      {
+        "key": "catalog",
+        "path": "/images",
+        "readySelector": "main h1"
+      },
+      {
+        "key": "mobile-filter",
+        "path": "/images",
+        "readySelector": "[role=dialog]",
+        "viewports": ["mobile"],
+        "actions": [{ "role": "button", "name": "筛选" }]
+      },
+      {
+        "key": "submission-options",
+        "path": "/submit",
+        "readySelector": "main h1",
+        "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "review-queue",
+        "path": "/manage/submissions",
+        "readySelector": "text=没有待审投稿",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "empty",
+        "path": "/images?q=__platform_e2e_missing__",
+        "readySelector": "text=没有符合条件的图片",
+        "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "error",
+        "path": "/images/00000000-0000-7000-8000-000000000000",
+        "readySelector": "text=这张图片无法显示",
+        "status": 404,
+        "viewports": ["mobile", "desktop"]
+      }
+    ]
+  },
+  "features": { "assetSettings": true }
+}
