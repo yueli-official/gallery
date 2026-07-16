@@ -46,6 +46,15 @@ type GetImageRes struct {
 	Image model.ImageDetail `json:"image"`
 }
 
+type ListRelatedImagesReq struct {
+	g.Meta  `path:"/api/v1/gallery/images/{imageId}/related" method:"GET" tags:"Gallery images" summary:"List explainable related public images"`
+	ImageID string `p:"imageId" v:"required"`
+	Size    int    `p:"size" d:"8"`
+}
+type ListRelatedImagesRes struct {
+	Items []model.RelatedImage `json:"items"`
+}
+
 type ListCollectionsReq struct {
 	g.Meta `path:"/api/v1/gallery/collections" method:"GET" tags:"Gallery collections" summary:"List public editorial collections"`
 }

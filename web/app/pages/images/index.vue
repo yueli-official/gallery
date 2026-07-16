@@ -185,6 +185,9 @@ function openPreview(imageId: string, trigger: HTMLElement | null) {
 function closePreview() {
   void setPreview("");
 }
+function navigatePreview(imageId: string) {
+  void setPreview(imageId);
+}
 function removeRefinement(item: (typeof activeRefinements.value)[number]) {
   if (item.kind === "search") void removeSearch();
   if (item.kind === "category") void removeCategory(item.value);
@@ -572,6 +575,11 @@ useSeoMeta({
       </template>
     </USlideover>
 
-    <GalleryQuickView :image-id="preview" @close="closePreview" />
+    <GalleryQuickView
+      :image-id="preview"
+      :items="pageData?.items || []"
+      @close="closePreview"
+      @navigate="navigatePreview"
+    />
   </div>
 </template>

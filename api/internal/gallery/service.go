@@ -36,6 +36,7 @@ type Store interface {
 	RandomCandidates(context.Context, int) ([]model.ImageCard, error)
 	ListImages(context.Context, model.ImageQuery, classification.FilterPlan) ([]model.ImageCard, int, error)
 	Image(context.Context, string, string) (*model.ImageDetail, error)
+	RelatedImages(context.Context, string, int) ([]model.RelatedImage, error)
 	HasTombstone(context.Context, string) (bool, error)
 	PublicCollections(context.Context) ([]model.Collection, error)
 	EditorialCollections(context.Context) ([]model.Collection, error)
@@ -281,6 +282,34 @@ func (s *Service) Image(ctx context.Context, rawID, userID string) (*model.Image
 	}
 	normalizeDetail(value)
 	return value, nil
+}
+
+func (s *Service) RelatedImages(ctx context.Context, rawID string, limit int) ([]model.RelatedImage, error) {
+	id, err := DatabaseID(rawID)
+	if err != nil {
+		return nil, galleryerr.NotFound("image", strings.TrimSpace(rawID))
+	}
+	_, err = s.Image(ctx, rawID, "")
+	if err != nil {
+		return nil, err
+	}
+	values, err := s.store.RelatedImages(ctx, id, bounded(limit, 1, 24, 8))
+	if err != nil {
+		return nil, err
+	}
+	if values == nil {
+		values = []model.RelatedImage{}
+	}
+	for index := range values {
+		values[index].ID = PublicID(values[index].ID)
+		values[index].Metrics = model.Metrics{
+			Views: values[index].ViewCount, Favorites: values[index].FavoriteCount,
+		}
+		if values[index].Reasons == nil {
+			values[index].Reasons = []model.RelatedImageReason{}
+		}
+	}
+	return values, nil
 }
 
 func (s *Service) Collections(ctx context.Context) ([]model.Collection, error) {

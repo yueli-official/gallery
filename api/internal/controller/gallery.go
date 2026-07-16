@@ -52,6 +52,14 @@ func (c *Public) GetImage(ctx context.Context, req *v1.GetImageReq) (*v1.GetImag
 	return &v1.GetImageRes{Image: *value}, nil
 }
 
+func (c *Public) ListRelatedImages(ctx context.Context, req *v1.ListRelatedImagesReq) (*v1.ListRelatedImagesRes, error) {
+	values, err := c.service.RelatedImages(ctx, req.ImageID, req.Size)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.ListRelatedImagesRes{Items: values}, nil
+}
+
 func (c *Public) ListCollections(ctx context.Context, _ *v1.ListCollectionsReq) (*v1.ListCollectionsRes, error) {
 	values, err := c.service.Collections(ctx)
 	return &v1.ListCollectionsRes{Collections: values}, err

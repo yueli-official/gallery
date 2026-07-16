@@ -9,7 +9,7 @@ export type GalleryRendition =
   | "og";
 
 export type GalleryImageSlot =
-  "grid" | "masonry" | "preview" | "display" | "og";
+  "thumbnail" | "grid" | "masonry" | "preview" | "display" | "og";
 
 export interface GalleryImageSourcePolicy {
   src: string;

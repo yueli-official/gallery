@@ -23,6 +23,8 @@ type fakeStore struct {
 	settings               *model.SiteSettings
 	candidates             []model.ImageCard
 	image                  *model.ImageDetail
+	relatedImages          []model.RelatedImage
+	relatedLimitSeen       int
 	tombstone              bool
 	submission             *model.Submission
 	reviewSeen             string
@@ -104,6 +106,10 @@ func (f *fakeStore) ListImages(_ context.Context, query model.ImageQuery, plan c
 }
 func (f *fakeStore) Image(context.Context, string, string) (*model.ImageDetail, error) {
 	return f.image, nil
+}
+func (f *fakeStore) RelatedImages(_ context.Context, _ string, limit int) ([]model.RelatedImage, error) {
+	f.relatedLimitSeen = limit
+	return append([]model.RelatedImage(nil), f.relatedImages...), nil
 }
 func (f *fakeStore) HasTombstone(context.Context, string) (bool, error) { return f.tombstone, nil }
 func (f *fakeStore) PublicCollections(context.Context) ([]model.Collection, error) {
@@ -220,6 +226,33 @@ func TestImageDistinguishesTombstoneFromHidden(t *testing.T) {
 	store.tombstone = false
 	_, err = New(store).Image(context.Background(), "AZgXyAAAcACAAAAAAAAAAQ", "")
 	assertCode(t, err, "gallery.not_found")
+}
+
+func TestRelatedImagesBoundsLimitAndNormalizesCards(t *testing.T) {
+	store := &fakeStore{
+		image: &model.ImageDetail{ImageCard: model.ImageCard{ID: testCategoryID}},
+		relatedImages: []model.RelatedImage{{
+			ImageCard: model.ImageCard{
+				ID: testFacetID, ViewCount: 1250, FavoriteCount: 23,
+			},
+		}},
+	}
+	values, err := New(store).RelatedImages(context.Background(), PublicID(testCategoryID), 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if store.relatedLimitSeen != 24 {
+		t.Fatalf("related image limit must be bounded to 24, got %d", store.relatedLimitSeen)
+	}
+	if len(values) != 1 || values[0].ID != PublicID(testFacetID) {
+		t.Fatalf("related images must expose public ids: %#v", values)
+	}
+	if values[0].Metrics.Views != 1250 || values[0].Metrics.Favorites != 23 {
+		t.Fatalf("related image metrics were not normalized: %#v", values[0].Metrics)
+	}
+	if values[0].Reasons == nil {
+		t.Fatal("related image reasons must serialize as an empty array")
+	}
 }
 
 func TestVerifiedUserSkipsManualReviewButGuestDoesNot(t *testing.T) {

@@ -42,6 +42,15 @@ export interface GalleryImage extends GalleryImageCard {
   favorited: boolean;
 }
 
+export interface GalleryRelatedImageReason {
+  kind: "primary_category" | "facet" | "tag";
+  label: string;
+}
+
+export interface GalleryRelatedImage extends GalleryImageCard {
+  reasons: GalleryRelatedImageReason[];
+}
+
 export interface GalleryDiscovery {
   site: GallerySite;
   seed: string;

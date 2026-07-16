@@ -135,6 +135,53 @@ INSERT INTO gallery_image_facet_assignments (image_id, facet_value_id) VALUES
 	}
 }
 
+func TestPostgreSQL18RelatedImagesRanksAndExplainsSharedSignals(t *testing.T) {
+	fixture := newGalleryPG18Fixture(t)
+	if _, err := fixture.SQL.Exec(`
+INSERT INTO gallery_classification_catalogs (id, catalog_key) VALUES ('01990000-0000-7000-8000-000000000001', 'gallery');
+INSERT INTO gallery_categories (id, catalog_id, slug, name, status, first_activated_at) VALUES
+('01990000-0000-7000-8100-000000000001', '01990000-0000-7000-8000-000000000001', 'wallpaper', '壁纸', 'active', NOW()),
+('01990000-0000-7000-8100-000000000002', '01990000-0000-7000-8000-000000000001', 'illustration', '插画', 'active', NOW());
+INSERT INTO gallery_facets (id, catalog_id, slug, name, status, first_activated_at)
+VALUES ('01990000-0000-7000-8200-000000000001', '01990000-0000-7000-8000-000000000001', 'scene', '场景', 'active', NOW());
+INSERT INTO gallery_facet_values (id, catalog_id, facet_id, slug, name, status, first_activated_at)
+VALUES ('01990000-0000-7000-8300-000000000001', '01990000-0000-7000-8000-000000000001', '01990000-0000-7000-8200-000000000001', 'nature', '自然', 'active', NOW());
+INSERT INTO gallery_images (id, asset_id, title, alt_text, width, height, processing_state, review_state, publication_state, safety_state, public_rendition_ready, published_at) VALUES
+('01990000-0000-7000-8400-000000000001', '01990000-0000-7000-8500-000000000001', '来源图片', '来源图片', 1600, 900, 'ready', 'approved', 'published', 'safe', TRUE, NOW()),
+('01990000-0000-7000-8400-000000000002', '01990000-0000-7000-8500-000000000002', '同类图片', '同类图片', 1600, 900, 'ready', 'approved', 'published', 'safe', TRUE, NOW()),
+('01990000-0000-7000-8400-000000000003', '01990000-0000-7000-8500-000000000003', '同属性图片', '同属性图片', 1600, 900, 'ready', 'approved', 'published', 'safe', TRUE, NOW()),
+('01990000-0000-7000-8400-000000000004', '01990000-0000-7000-8500-000000000004', '隐藏图片', '隐藏图片', 1600, 900, 'ready', 'approved', 'hidden', 'safe', TRUE, NULL);
+INSERT INTO gallery_image_category_assignments (image_id, category_id) VALUES
+('01990000-0000-7000-8400-000000000001', '01990000-0000-7000-8100-000000000001'),
+('01990000-0000-7000-8400-000000000002', '01990000-0000-7000-8100-000000000001'),
+('01990000-0000-7000-8400-000000000003', '01990000-0000-7000-8100-000000000002'),
+('01990000-0000-7000-8400-000000000004', '01990000-0000-7000-8100-000000000001');
+INSERT INTO gallery_image_primary_categories (image_id, category_id) VALUES
+('01990000-0000-7000-8400-000000000001', '01990000-0000-7000-8100-000000000001'),
+('01990000-0000-7000-8400-000000000002', '01990000-0000-7000-8100-000000000001'),
+('01990000-0000-7000-8400-000000000003', '01990000-0000-7000-8100-000000000002'),
+('01990000-0000-7000-8400-000000000004', '01990000-0000-7000-8100-000000000001');
+INSERT INTO gallery_image_facet_assignments (image_id, facet_value_id) VALUES
+('01990000-0000-7000-8400-000000000001', '01990000-0000-7000-8300-000000000001'),
+('01990000-0000-7000-8400-000000000003', '01990000-0000-7000-8300-000000000001');`); err != nil {
+		t.Fatal(err)
+	}
+
+	values, err := fixture.Store.RelatedImages(context.Background(), "01990000-0000-7000-8400-000000000001", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(values) != 2 || values[0].ID != "01990000-0000-7000-8400-000000000002" || values[1].ID != "01990000-0000-7000-8400-000000000003" {
+		t.Fatalf("unexpected related ranking: %#v", values)
+	}
+	if len(values[0].Reasons) == 0 || values[0].Reasons[0].Kind != "primary_category" {
+		t.Fatalf("same primary category must be explained: %#v", values[0].Reasons)
+	}
+	if len(values[1].Reasons) == 0 || values[1].Reasons[0].Kind != "facet" {
+		t.Fatalf("shared facet must be explained: %#v", values[1].Reasons)
+	}
+}
+
 func TestPostgreSQL18TagKeysetCursorBreaksCaseInsensitiveNameTiesWithoutGaps(t *testing.T) {
 	fixture := newGalleryPG18Fixture(t)
 	if _, err := fixture.SQL.Exec(`

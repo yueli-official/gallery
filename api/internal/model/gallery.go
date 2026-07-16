@@ -46,6 +46,16 @@ type ImageDetail struct {
 	Favorited   bool                   `json:"favorited" orm:"-"`
 }
 
+type RelatedImageReason struct {
+	Kind  string `json:"kind"`
+	Label string `json:"label"`
+}
+
+type RelatedImage struct {
+	ImageCard
+	Reasons []RelatedImageReason `json:"reasons" orm:"-"`
+}
+
 type ImageQuery struct {
 	Search       string
 	Sort         string

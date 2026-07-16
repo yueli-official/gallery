@@ -430,6 +430,83 @@ ORDER BY value.facet_id, assignment.facet_value_id`, id).Scan(&value.Facets); er
 	return value, nil
 }
 
+func (p *PG) RelatedImages(ctx context.Context, id string, limit int) ([]model.RelatedImage, error) {
+	type relatedRow struct {
+		model.ImageCard
+		SamePrimary  bool           `orm:"same_primary"`
+		SharedFacets pq.StringArray `orm:"shared_facets"`
+		SharedTags   pq.StringArray `orm:"shared_tags"`
+	}
+	query := `
+WITH source AS (
+    SELECT source_image.id,
+           (SELECT category_id FROM gallery_image_primary_categories WHERE image_id = source_image.id) AS primary_category_id
+    FROM gallery_images source_image
+    WHERE source_image.id = ?::uuid AND ` + strings.ReplaceAll(eligibleImage, "i.", "source_image.") + `
+), candidate_signals AS (
+    SELECT candidate.id,
+           COALESCE(candidate_primary.category_id = source.primary_category_id, FALSE) AS same_primary,
+           COALESCE((
+               SELECT ARRAY_AGG(DISTINCT facet_value.name ORDER BY facet_value.name)
+               FROM gallery_image_facet_assignments candidate_facet
+               JOIN gallery_image_facet_assignments source_facet
+                 ON source_facet.image_id = source.id
+                AND source_facet.facet_value_id = candidate_facet.facet_value_id
+               JOIN gallery_facet_values facet_value ON facet_value.id = candidate_facet.facet_value_id
+               WHERE candidate_facet.image_id = candidate.id
+           ), ARRAY[]::text[]) AS shared_facets,
+           COALESCE((
+               SELECT ARRAY_AGG(DISTINCT tag.current_name ORDER BY tag.current_name)
+               FROM gallery_image_tag_assignments candidate_tag
+               JOIN gallery_image_tag_assignments source_tag
+                 ON source_tag.image_id = source.id
+                AND source_tag.tag_id = candidate_tag.tag_id
+               JOIN gallery_tags tag ON tag.id = candidate_tag.tag_id
+               WHERE candidate_tag.image_id = candidate.id
+           ), ARRAY[]::text[]) AS shared_tags
+    FROM gallery_images candidate
+    CROSS JOIN source
+    LEFT JOIN gallery_image_primary_categories candidate_primary ON candidate_primary.image_id = candidate.id
+    WHERE candidate.id <> source.id AND ` + strings.ReplaceAll(eligibleImage, "i.", "candidate.") + `
+), ranked AS (
+    SELECT candidate_signals.*,
+           (CASE WHEN same_primary THEN 40 ELSE 0 END)
+             + CARDINALITY(shared_facets) * 12
+             + CARDINALITY(shared_tags) * 6 AS relationship_score
+    FROM candidate_signals
+)
+SELECT card.*, ranked.same_primary, ranked.shared_facets, ranked.shared_tags
+FROM ranked
+JOIN LATERAL (` + imageCardSelect + ` WHERE i.id = ranked.id) card ON TRUE
+ORDER BY ranked.relationship_score DESC, card.published_at DESC, card.id DESC
+LIMIT ?`
+	var rows []relatedRow
+	if err := p.db.Ctx(ctx).Raw(query, id, limit).Scan(&rows); err != nil {
+		return nil, gerror.Wrap(err, "query related gallery images")
+	}
+	values := make([]model.RelatedImage, 0, len(rows))
+	for _, row := range rows {
+		reasons := make([]model.RelatedImageReason, 0, 3)
+		if row.SamePrimary && row.PrimaryCategory != "" {
+			reasons = append(reasons, model.RelatedImageReason{Kind: "primary_category", Label: "同属" + row.PrimaryCategory})
+		}
+		for _, value := range row.SharedFacets {
+			if len(reasons) == 3 {
+				break
+			}
+			reasons = append(reasons, model.RelatedImageReason{Kind: "facet", Label: "共享属性：" + value})
+		}
+		for _, value := range row.SharedTags {
+			if len(reasons) == 3 {
+				break
+			}
+			reasons = append(reasons, model.RelatedImageReason{Kind: "tag", Label: "共享标签：" + value})
+		}
+		values = append(values, model.RelatedImage{ImageCard: row.ImageCard, Reasons: reasons})
+	}
+	return values, nil
+}
+
 func (p *PG) HasTombstone(ctx context.Context, id string) (bool, error) {
 	count, err := p.db.Model("gallery_image_tombstones").Ctx(ctx).Where("image_id", id).Count()
 	return count > 0, err
