@@ -12,5 +12,6 @@ Category, tag and facet filtering consume the shared classification model.
 
 `api/` owns images, submissions, moderation, collections/favorites and metrics;
 `web/` owns the paged grid, random discovery and management experience. Binary
-ingestion/variants belong to Asset, not Gallery. Product-owned E2E and
-multi-resolution screenshots must land below this product when implemented.
+ingestion/variants belong to Asset, not Gallery. The current shared E2E baseline
+is grouped under `tests/e2e/__screenshots__/gallery`; the product workflow will
+migrate its contract and golden screenshots to `web/test/e2e/`.
