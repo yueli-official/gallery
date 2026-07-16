@@ -46,14 +46,11 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
 
 <template>
   <div class="gallery-page max-w-5xl">
-    <header class="mb-7 flex flex-wrap items-end justify-between gap-4">
+    <header class="gallery-page-header">
       <div>
-        <h1 class="text-3xl font-semibold tracking-tight text-highlighted">
-          我的投稿
-        </h1>
-        <p class="mt-1.5 text-sm text-muted">
-          查看处理结果，或撤回自己提交的图片。
-        </p>
+        <p class="gallery-eyebrow mb-3">投稿记录</p>
+        <h1 class="gallery-page-title">我的投稿</h1>
+        <p class="gallery-page-copy">查看处理结果，或撤回自己提交的图片。</p>
       </div>
       <UButton to="/submit" icon="i-tabler-plus" label="继续投稿" />
     </header>
@@ -69,12 +66,12 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
     ></UAlert>
     <div
       v-else-if="data.submissions.length"
-      class="divide-y divide-default border-y border-default"
+      class="overflow-hidden rounded-2xl border border-default bg-default/70 px-5 shadow-sm"
     >
       <article
         v-for="submission in data.submissions"
         :key="submission.id"
-        class="grid gap-3 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+        class="grid gap-3 border-b border-default py-5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
       >
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
@@ -113,12 +110,11 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
         </div>
       </article>
     </div>
-    <div
-      v-else
-      class="grid min-h-72 place-items-center border-y border-dashed border-default text-center"
-    >
+    <div v-else class="gallery-compact-empty grid place-items-center">
       <div>
-        <UIcon name="i-tabler-photo-up" class="mx-auto size-8 text-dimmed" />
+        <span class="gallery-empty-icon">
+          <UIcon name="i-tabler-photo-up" class="size-6" />
+        </span>
         <h2 class="mt-3 font-semibold text-highlighted">还没有投稿记录</h2>
         <UButton to="/submit" class="mt-4" label="投稿一张图片" />
       </div>

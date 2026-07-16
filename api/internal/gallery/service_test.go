@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -92,9 +93,14 @@ func (f *fakeStore) ReviewClassificationTagProposal(_ context.Context, _ string,
 func (f *fakeStore) RandomCandidates(context.Context, int) ([]model.ImageCard, error) {
 	return f.candidates, nil
 }
-func (f *fakeStore) ListImages(_ context.Context, _ model.ImageQuery, plan classification.FilterPlan) ([]model.ImageCard, int, error) {
+func (f *fakeStore) ListImages(_ context.Context, query model.ImageQuery, plan classification.FilterPlan) ([]model.ImageCard, int, error) {
 	f.filterPlanSeen = plan
-	return f.candidates, len(f.candidates), nil
+	start := (query.Page - 1) * query.PageSize
+	if start >= len(f.candidates) {
+		return []model.ImageCard{}, len(f.candidates), nil
+	}
+	end := min(start+query.PageSize, len(f.candidates))
+	return f.candidates[start:end], len(f.candidates), nil
 }
 func (f *fakeStore) Image(context.Context, string, string) (*model.ImageDetail, error) {
 	return f.image, nil
@@ -304,6 +310,22 @@ func TestImagesExecutesCatalogFilterPlanWithDescendants(t *testing.T) {
 		},
 	}) {
 		t.Fatalf("filter plan = %#v", store.filterPlanSeen)
+	}
+}
+
+func TestImagesPaginatesLargeFixture(t *testing.T) {
+	store := validSubmissionStore()
+	store.candidates = make([]model.ImageCard, 101)
+	for index := range store.candidates {
+		store.candidates[index] = model.ImageCard{ID: "fixture-" + strconv.Itoa(index+1)}
+	}
+
+	page, err := New(store).Images(context.Background(), model.ImageQuery{Page: 3, PageSize: 24})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Items) != 24 || page.Total != 101 || page.TotalPages != 5 || page.Page != 3 {
+		t.Fatalf("large fixture page = %#v", page)
 	}
 }
 

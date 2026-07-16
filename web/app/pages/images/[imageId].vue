@@ -1,25 +1,18 @@
 <script setup lang="ts">
-import { createPlatformNotifier } from "@platform/ui/feedback";
 import type { GalleryImage } from "~/types/gallery";
 
 const route = useRoute("/images/[imageId]");
 const router = useRouter();
-const { loggedIn, login } = useAuth();
-const { call } = useApi();
-const toast = createPlatformNotifier(useToast());
 const { data, error, status, refresh } = await useFetch<{
   image: GalleryImage;
 }>(() => `/api/gallery/images/${route.params.imageId}`);
 if (import.meta.server && error.value)
   setResponseStatus(error.value.statusCode === 404 ? 404 : 502);
 const image = computed(() => data.value?.image);
-const favoritePending = ref(false);
+const { favoritePending, toggleFavorite, shareImage, track } =
+  useGalleryImageActions(image);
 const reportOpen = ref(false);
 const reportKind = ref<"report" | "source_correction">("report");
-const reportReason = ref("");
-const reportDescription = ref("");
-const proposedSourceUrl = ref("");
-const reportPending = ref(false);
 let qualifiedViewTimer: ReturnType<typeof setTimeout> | undefined;
 
 useSeoMeta({
@@ -51,99 +44,6 @@ useHead(() =>
     : {},
 );
 
-async function toggleFavorite() {
-  if (!image.value || favoritePending.value) return;
-  if (!loggedIn.value) {
-    await login();
-    return;
-  }
-  favoritePending.value = true;
-  try {
-    const next = !image.value.favorited;
-    await call(
-      `/api/v1/gallery/me/favorites/${encodeURIComponent(image.value.id)}`,
-      {
-        method: next ? "PUT" : "DELETE",
-        body: next ? { version: 0 } : undefined,
-      },
-    );
-    image.value.favorited = next;
-    image.value.metrics.favorites = Math.max(
-      0,
-      image.value.metrics.favorites + (next ? 1 : -1),
-    );
-  } catch (reason: any) {
-    toast.add({
-      title: "收藏没有保存",
-      description: reason?.data?.message || reason?.message || "请稍后重试",
-      color: "error",
-    });
-  } finally {
-    favoritePending.value = false;
-  }
-}
-
-async function shareImage() {
-  const url = window.location.href;
-  if (navigator.share)
-    await navigator.share({ title: image.value?.title, url });
-  else {
-    await navigator.clipboard.writeText(url);
-    // feedback-contract: 剪贴板写入没有可持续显示的行内结果区域。
-    toast.add({ title: "链接已复制", color: "success" });
-  }
-  if (image.value) void track("share");
-}
-
-async function track(type: "qualified_view" | "share") {
-  if (!image.value) return;
-  try {
-    await $fetch(
-      `/api/gallery/images/${encodeURIComponent(image.value.id)}/events`,
-      { method: "POST", body: { type, sessionKey: galleryMetricSession() } },
-    );
-  } catch {
-    /* 指标上报永远不能阻断图片浏览。 */
-  }
-}
-
-async function submitCase() {
-  if (!image.value || reportPending.value) return;
-  reportPending.value = true;
-  try {
-    await $fetch(
-      `/api/gallery/images/${encodeURIComponent(image.value.id)}/cases`,
-      {
-        method: "POST",
-        body: {
-          kind: reportKind.value,
-          reason: reportReason.value,
-          description: reportDescription.value,
-          proposedSourceUrl: proposedSourceUrl.value,
-        },
-      },
-    );
-    reportOpen.value = false;
-    reportReason.value = "";
-    reportDescription.value = "";
-    proposedSourceUrl.value = "";
-    // feedback-contract: 提交成功后弹窗立即关闭，原位反馈区域不再存在。
-    toast.add({
-      title: reportKind.value === "report" ? "举报已提交" : "来源建议已提交",
-      description: "运营人员会独立复核，不会按次数自动下架。",
-      color: "success",
-    });
-  } catch (reason: any) {
-    toast.add({
-      title: "提交失败",
-      description: reason?.data?.message || reason?.message || "请稍后重试",
-      color: "error",
-    });
-  } finally {
-    reportPending.value = false;
-  }
-}
-
 function closeViewer() {
   if (window.history.length > 1) router.back();
   else void router.push("/images");
@@ -161,7 +61,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    class="min-h-[calc(100dvh-4rem)] bg-stone-950 text-white md:grid md:grid-cols-[minmax(0,1fr)_23rem]"
+    class="gallery-viewer min-h-[calc(100dvh-4rem)] text-white md:grid md:grid-cols-[minmax(0,1fr)_24rem]"
   >
     <section
       class="relative grid min-h-[62dvh] place-items-center overflow-hidden md:min-h-[calc(100dvh-4rem)]"
@@ -171,7 +71,7 @@ onBeforeUnmount(() => {
       >
         <UButton
           color="neutral"
-          variant="solid"
+          variant="soft"
           icon="i-tabler-x"
           aria-label="关闭图片查看器"
           @click="closeViewer"
@@ -179,14 +79,14 @@ onBeforeUnmount(() => {
         <div class="flex gap-1">
           <UButton
             color="neutral"
-            variant="solid"
+            variant="soft"
             icon="i-tabler-share-3"
             aria-label="分享图片"
-            @click="shareImage"
+            @click="shareImage()"
           />
           <UButton
             color="neutral"
-            variant="solid"
+            variant="soft"
             :icon="
               image?.favorited ? 'i-tabler-heart-filled' : 'i-tabler-heart'
             "
@@ -218,30 +118,30 @@ onBeforeUnmount(() => {
         :width="image.width"
         :height="image.height"
         fetchpriority="high"
-        class="max-h-[100dvh] max-w-full select-none object-contain p-0 md:p-8"
+        class="gallery-viewer-image max-h-[100dvh] max-w-full select-none object-contain p-0 md:p-8"
       />
     </section>
 
     <aside
       v-if="image"
-      class="relative z-20 -mt-4 rounded-t-2xl bg-default px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-5 text-default md:mt-0 md:overflow-y-auto md:rounded-none md:border-l md:border-default md:px-6 md:py-8"
+      class="gallery-viewer-panel relative z-20 -mt-4 rounded-t-2xl px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-5 md:mt-0 md:overflow-y-auto md:rounded-none md:border-l md:px-7 md:py-9"
     >
       <div
-        class="mx-auto mb-4 h-1 w-10 rounded-full bg-accented md:hidden"
+        class="mx-auto mb-4 h-1 w-10 rounded-full bg-white/20 md:hidden"
         aria-hidden="true"
       />
       <UBadge
         v-if="image.primaryCategory"
-        color="primary"
+        color="neutral"
         variant="soft"
         :label="image.primaryCategory"
       />
-      <h1 class="mt-3 text-2xl font-semibold tracking-tight text-highlighted">
+      <h1 class="mt-3 text-2xl font-semibold tracking-tight text-white">
         {{ image.title }}
       </h1>
       <p
         v-if="image.description"
-        class="mt-4 whitespace-pre-line text-sm leading-7 text-toned"
+        class="mt-4 whitespace-pre-line text-sm leading-7 text-white/68"
       >
         {{ image.description }}
       </p>
@@ -256,23 +156,23 @@ onBeforeUnmount(() => {
         />
       </div>
 
-      <dl class="mt-7 space-y-3 border-t border-default pt-5 text-sm">
+      <dl class="gallery-viewer-facts mt-7 space-y-3 border-t pt-5 text-sm">
         <div class="flex justify-between gap-4">
-          <dt class="text-muted">浏览</dt>
+          <dt class="text-white/52">浏览</dt>
           <dd class="tabular-nums">{{ compactMetric(image.metrics.views) }}</dd>
         </div>
         <div class="flex justify-between gap-4">
-          <dt class="text-muted">收藏</dt>
+          <dt class="text-white/52">收藏</dt>
           <dd class="tabular-nums">
             {{ compactMetric(image.metrics.favorites) }}
           </dd>
         </div>
         <div class="flex justify-between gap-4">
-          <dt class="text-muted">尺寸</dt>
+          <dt class="text-white/52">尺寸</dt>
           <dd class="tabular-nums">{{ image.width }} × {{ image.height }}</dd>
         </div>
         <div class="flex items-start justify-between gap-4">
-          <dt class="text-muted">来源</dt>
+          <dt class="text-white/52">来源</dt>
           <dd class="max-w-[12rem] text-right">
             <a
               v-if="image.sourceUrl"
@@ -283,7 +183,7 @@ onBeforeUnmount(() => {
               class="break-all text-primary hover:underline"
               >打开来源地址</a
             >
-            <span v-else class="text-muted">来源待补充</span>
+            <span v-else class="text-white/52">来源待补充</span>
           </dd>
         </div>
       </dl>
@@ -312,40 +212,11 @@ onBeforeUnmount(() => {
       </div>
     </aside>
 
-    <UModal
+    <GalleryReportDialog
+      v-if="image"
       v-model:open="reportOpen"
-      :title="reportKind === 'report' ? '举报图片' : '建议来源地址'"
-      description="提交后由运营人员独立复核。"
-    >
-      <template #body>
-        <form class="space-y-4" @submit.prevent="submitCase">
-          <UFormField v-if="reportKind === 'report'" label="原因" required
-            ><UInput
-              v-model="reportReason"
-              placeholder="例如内容不适合公开展示"
-          /></UFormField>
-          <UFormField v-else label="来源地址" required
-            ><UInput
-              v-model="proposedSourceUrl"
-              type="url"
-              placeholder="https://"
-          /></UFormField>
-          <UFormField label="补充说明"
-            ><UTextarea v-model="reportDescription" :rows="4"
-          /></UFormField>
-          <div class="flex justify-end gap-2">
-            <UButton
-              color="neutral"
-              variant="ghost"
-              label="取消"
-              @click="
-                reportOpen = false;
-                void 0;
-              "
-            /><UButton type="submit" label="提交" :loading="reportPending" />
-          </div>
-        </form>
-      </template>
-    </UModal>
+      :image-id="image.id"
+      :kind="reportKind"
+    />
   </div>
 </template>

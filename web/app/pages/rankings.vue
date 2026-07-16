@@ -33,13 +33,11 @@ useSeoMeta({
 
 <template>
   <div class="gallery-page">
-    <header class="mb-7 flex flex-wrap items-end justify-between gap-5">
+    <header class="gallery-page-header">
       <div>
-        <h1 class="text-3xl font-semibold tracking-tight text-highlighted">
-          排行榜
-        </h1>
-        <p class="mt-1.5 text-sm text-muted">
-          排行帮助回看，不影响首页的随机发现。
+        <h1 class="gallery-page-title">排行榜</h1>
+        <p class="gallery-page-copy">
+          看看最近被反复浏览和收藏的图片，首页仍然保持随机。
         </p>
       </div>
       <USelect
@@ -50,7 +48,7 @@ useSeoMeta({
         @update:model-value="(value) => setQuery({ window: String(value) })"
       />
     </header>
-    <div class="mb-6 flex gap-1 overflow-x-auto border-b border-default pb-3">
+    <div class="gallery-ranking-tabs">
       <UButton
         v-for="item in kinds"
         :key="item.value"
@@ -79,11 +77,16 @@ useSeoMeta({
       :items="data.ranking.images"
       priority
     />
-    <div
-      v-else
-      class="border-y border-dashed border-default py-16 text-center text-sm text-muted"
-    >
-      当前时间范围还没有足够数据。
+    <div v-else class="gallery-compact-empty">
+      <span class="gallery-empty-icon"
+        ><UIcon name="i-tabler-chart-bar" class="size-6"
+      /></span>
+      <h2 class="mt-4 text-lg font-semibold text-highlighted">
+        还没有形成排行
+      </h2>
+      <p class="mt-2 text-sm text-muted">
+        有更多公开浏览和收藏后，这里会开始更新。
+      </p>
     </div>
   </div>
 </template>

@@ -18,11 +18,11 @@ useSeoMeta({ title: "我的收藏", robots: "noindex,nofollow" });
 
 <template>
   <div class="gallery-page">
-    <header class="mb-7">
-      <h1 class="text-3xl font-semibold tracking-tight text-highlighted">
-        我的收藏
-      </h1>
-      <p class="mt-1.5 text-sm text-muted">只对你可见的单例收藏夹。</p>
+    <header class="gallery-page-header">
+      <div>
+        <h1 class="gallery-page-title">我的收藏</h1>
+        <p class="gallery-page-copy">只对你可见，收藏过的图片都在这里。</p>
+      </div>
     </header>
     <div v-if="!hydrated || pending" class="gallery-grid">
       <USkeleton
@@ -42,13 +42,15 @@ useSeoMeta({ title: "我的收藏", robots: "noindex,nofollow" });
       v-else-if="collection?.images.length"
       :items="collection.images"
     />
-    <div
-      v-else
-      class="grid min-h-72 place-items-center border-y border-dashed border-default text-center"
-    >
+    <div v-else class="gallery-compact-empty">
       <div>
-        <UIcon name="i-tabler-heart" class="mx-auto size-8 text-dimmed" />
-        <h2 class="mt-3 font-semibold text-highlighted">还没有收藏图片</h2>
+        <span class="gallery-empty-icon"
+          ><UIcon name="i-tabler-heart" class="size-6"
+        /></span>
+        <h2 class="mt-4 text-lg font-semibold text-highlighted">
+          还没有收藏图片
+        </h2>
+        <p class="mt-2 text-sm text-muted">遇到想再看的图片时，点一下收藏。</p>
         <UButton
           to="/images"
           class="mt-4"

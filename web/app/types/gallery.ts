@@ -21,8 +21,8 @@ export interface GalleryImageCard {
   width: number;
   height: number;
   dominantColor: string;
-	primaryCategory: string;
-	primaryCategorySlug: string;
+  primaryCategory: string;
+  primaryCategorySlug: string;
   publishedAt?: string;
   metrics: GalleryMetrics;
 }
@@ -46,29 +46,29 @@ export interface GalleryDiscovery {
   site: GallerySite;
   seed: string;
   images: GalleryImageCard[];
-	categories: GalleryClassificationNode[];
-	facets: GalleryFacet[];
+  categories: GalleryClassificationNode[];
+  facets: GalleryFacet[];
 }
 
 export interface GallerySubmissionOptions {
-	categories: GalleryClassificationNode[];
-	facets: GalleryFacet[];
+  categories: GalleryClassificationNode[];
+  facets: GalleryFacet[];
 }
 
 export interface GalleryClassificationNode {
-	id: string;
-	parentId?: string;
-	slug: string;
-	name: string;
-	count: number;
-	selected: boolean;
+  id: string;
+  parentId?: string;
+  slug: string;
+  name: string;
+  count: number;
+  selected: boolean;
 }
 
 export interface GalleryFacet {
-	id: string;
-	slug: string;
-	name: string;
-	values: GalleryClassificationNode[];
+  id: string;
+  slug: string;
+  name: string;
+  values: GalleryClassificationNode[];
 }
 
 export interface GalleryImagePage {
@@ -77,19 +77,26 @@ export interface GalleryImagePage {
   pageSize: number;
   total: number;
   totalPages: number;
-	diagnostics: GalleryClassificationDiagnostic[];
-	categories: GalleryClassificationNode[];
-	facets: GalleryFacet[];
+  diagnostics: GalleryClassificationDiagnostic[];
+  categories: GalleryClassificationNode[];
+  facets: GalleryFacet[];
+}
+
+export interface GallerySearchSuggestion {
+  key: string;
+  label: string;
+  context: string;
 }
 
 export interface GalleryClassificationDiagnostic {
-	code: string;
-	path: string[];
-	reference?: string;
-	params?: Record<string, string>;
+  code: string;
+  path: string[];
+  reference?: string;
+  params?: Record<string, string>;
 }
 
-export type GalleryClassificationStatus = "draft" | "active" | "inactive" | "replaced";
+export type GalleryClassificationStatus =
+  "draft" | "active" | "inactive" | "replaced";
 
 export interface GalleryClassificationCatalogNode {
   id: string;
@@ -209,11 +216,12 @@ export interface GallerySubmission {
   description: string;
   sourceUrl: string;
   altText: string;
-	primaryCategoryId: string;
+  primaryCategoryId: string;
   processingState: "queued" | "processing" | "ready" | "failed";
   reviewState: "not_required" | "pending" | "approved" | "rejected";
   safetyState: "pending" | "safe" | "uncertain" | "blocked" | "unavailable";
-  outcome: "pending" | "published" | "duplicate" | "rejected" | "withdrawn" | "failed";
+  outcome:
+    "pending" | "published" | "duplicate" | "rejected" | "withdrawn" | "failed";
   failureCode: string;
   reviewNote: string;
   createdAt?: string;

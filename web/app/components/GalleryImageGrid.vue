@@ -1,7 +1,37 @@
 <script setup lang="ts">
 import type { GalleryImageCard } from "~/types/gallery";
 
-defineProps<{ items: GalleryImageCard[]; priority?: boolean }>();
+const props = defineProps<{
+  items: GalleryImageCard[];
+  priority?: boolean;
+  quickView?: boolean;
+}>();
+const emit = defineEmits<{
+  preview: [imageId: string, trigger: HTMLElement | null];
+}>();
+
+function sourcePolicy(assetId: string, index: number) {
+  return galleryImageSources(
+    assetId,
+    "grid",
+    Boolean(props.priority && index < 6),
+  );
+}
+
+function openPreview(event: MouseEvent, imageId: string): void {
+  if (
+    !props.quickView ||
+    event.button !== 0 ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  ) {
+    return;
+  }
+  event.preventDefault();
+  emit("preview", imageId, event.currentTarget as HTMLElement | null);
+}
 </script>
 
 <template>
@@ -11,23 +41,40 @@ defineProps<{ items: GalleryImageCard[]; priority?: boolean }>();
       :key="image.id"
       :to="`/images/${encodeURIComponent(image.id)}`"
       class="gallery-tile group"
+      :aria-haspopup="quickView ? 'dialog' : undefined"
+      @click="openPreview($event, image.id)"
     >
-      <div class="gallery-tile-media" :style="{ backgroundColor: image.dominantColor || undefined }">
+      <div
+        class="gallery-tile-media"
+        :style="{ backgroundColor: image.dominantColor || undefined }"
+      >
         <img
-          :src="galleryRendition(image.assetId, index < 8 ? 'grid-lg' : 'grid-sm')"
+          v-bind="sourcePolicy(image.assetId, index)"
           :alt="image.altText || image.title"
           :width="image.width || undefined"
           :height="image.height || undefined"
-          :loading="priority && index < 4 ? 'eager' : 'lazy'"
-          :fetchpriority="priority && index === 0 ? 'high' : 'auto'"
-          class="size-full object-cover transition-transform duration-300 group-hover:scale-[1.015]"
+          class="size-full object-cover transition duration-500 group-hover:scale-[1.025] group-hover:saturate-[1.04]"
         />
-		<span v-if="image.primaryCategory" class="gallery-topic">{{ image.primaryCategory }}</span>
       </div>
-      <div class="mt-2.5 flex min-w-0 items-start justify-between gap-3">
-        <h2 class="truncate text-sm font-medium text-highlighted">{{ image.title }}</h2>
-        <span class="flex shrink-0 items-center gap-1 text-xs text-muted" :aria-label="`${image.metrics.favorites} 次收藏`">
-          <UIcon name="i-tabler-heart" class="size-3.5" />{{ compactMetric(image.metrics.favorites) }}
+      <div class="gallery-tile-copy">
+        <div class="min-w-0">
+          <h2 class="truncate text-sm font-semibold text-highlighted">
+            {{ image.title }}
+          </h2>
+          <p
+            v-if="image.primaryCategory"
+            class="mt-0.5 truncate text-xs text-muted"
+          >
+            {{ image.primaryCategory }}
+          </p>
+        </div>
+        <span
+          class="flex shrink-0 items-center gap-1 text-xs text-muted"
+          :aria-label="`${image.metrics.favorites} 次收藏`"
+        >
+          <UIcon name="i-tabler-heart" class="size-3.5" />{{
+            compactMetric(image.metrics.favorites)
+          }}
         </span>
       </div>
     </NuxtLink>

@@ -14,19 +14,23 @@ useSeoMeta({
 
 <template>
   <div class="gallery-page">
-    <header v-if="collection" class="mb-8 max-w-3xl">
-      <NuxtLink to="/collections" class="text-sm text-muted hover:text-default"
-        >← 全部专题</NuxtLink
-      >
-      <h1
-        class="mt-4 text-3xl font-semibold tracking-tight text-highlighted sm:text-4xl"
-      >
-        {{ collection.name }}
-      </h1>
-      <p v-if="collection.description" class="mt-3 leading-7 text-toned">
-        {{ collection.description }}
+    <header v-if="collection" class="gallery-page-header">
+      <div>
+        <NuxtLink
+          to="/collections"
+          class="mb-4 inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-highlighted"
+        >
+          <UIcon name="i-tabler-arrow-left" class="size-4" />
+          全部专题
+        </NuxtLink>
+        <h1 class="gallery-page-title">{{ collection.name }}</h1>
+        <p v-if="collection.description" class="gallery-page-copy text-base">
+          {{ collection.description }}
+        </p>
+      </div>
+      <p class="gallery-count">
+        <span>{{ collection.itemCount }}</span> 张图片
       </p>
-      <p class="mt-3 text-sm text-muted">{{ collection.itemCount }} 张图片</p>
     </header>
     <div v-if="status === 'pending'" class="gallery-grid">
       <USkeleton
@@ -48,9 +52,15 @@ useSeoMeta({
     />
     <div
       v-else-if="collection"
-      class="border-y border-dashed border-default py-16 text-center text-sm text-muted"
+      class="gallery-compact-empty grid place-items-center"
     >
-      这个专题还没有图片。
+      <div>
+        <span class="gallery-empty-icon">
+          <UIcon name="i-tabler-stack-2" class="size-6" />
+        </span>
+        <h2 class="mt-4 font-semibold text-highlighted">专题正在整理</h2>
+        <p class="mt-2 text-sm text-muted">这个专题还没有图片。</p>
+      </div>
     </div>
   </div>
 </template>
