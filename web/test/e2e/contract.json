@@ -4,7 +4,7 @@
   "public": { "path": "/?seed=visual-contract", "readySelector": "main h1" },
   "manage": {
     "path": "/manage",
-    "heading": "控制台",
+    "heading": "今日运营",
     "readySelector": "main h1",
     "views": []
   },
