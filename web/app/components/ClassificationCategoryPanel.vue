@@ -7,8 +7,8 @@ import type {
 type IdentityKind = GalleryClassificationGovernanceCommand["kind"];
 type Operation = "status" | "reparent" | "merge" | "delete";
 
-defineProps<{ items: GalleryClassificationCatalogNode[] }>();
-defineEmits<{
+const props = defineProps<{ items: GalleryClassificationCatalogNode[] }>();
+const emit = defineEmits<{
   action: [
     operation: Operation,
     kind: IdentityKind,
@@ -16,12 +16,50 @@ defineEmits<{
   ];
 }>();
 
-const statusColor = (status: string) =>
-  (status === "active"
-    ? "success"
-    : status === "replaced"
-      ? "warning"
-      : "neutral") as any;
+const statusLabel: Record<string, string> = {
+  draft: "草稿",
+  inactive: "已停用",
+  replaced: "已合并",
+};
+function depth(item: GalleryClassificationCatalogNode) {
+  let current = item;
+  let value = 0;
+  while (current.parentId && value < 6) {
+    const parent = props.items.find((entry) => entry.id === current.parentId);
+    if (!parent) break;
+    value += 1;
+    current = parent;
+  }
+  return value;
+}
+function moreItems(item: GalleryClassificationCatalogNode) {
+  const regular =
+    item.status === "replaced"
+      ? []
+      : [
+          {
+            label: "移动到其他分类",
+            icon: "i-tabler-arrows-move",
+            onSelect: () => emit("action", "reparent", "category", item),
+          },
+          {
+            label: "合并到其他分类",
+            icon: "i-tabler-git-merge",
+            onSelect: () => emit("action", "merge", "category", item),
+          },
+        ];
+  return [
+    regular,
+    [
+      {
+        label: "删除分类",
+        icon: "i-tabler-trash",
+        color: "error" as const,
+        onSelect: () => emit("action", "delete", "category", item),
+      },
+    ],
+  ].filter((group) => group.length);
+}
 </script>
 
 <template>
@@ -32,11 +70,9 @@ const statusColor = (status: string) =>
           id="classification-category-heading"
           class="font-semibold text-highlighted"
         >
-          Category
+          分类
         </h2>
-        <p class="mt-1 text-sm text-muted">
-          多归属、单父层级；主分类保存在独立 companion 关系中。
-        </p>
+        <p class="mt-1 text-sm text-muted">用树形层级组织主要浏览入口。</p>
       </div>
       <span class="text-xs text-dimmed">{{ items.length }} 项</span>
     </div>
@@ -44,60 +80,47 @@ const statusColor = (status: string) =>
       <article
         v-for="item in items"
         :key="item.id"
-        class="grid gap-3 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+        class="grid gap-3 py-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
       >
-        <div class="min-w-0">
+        <div
+          class="min-w-0"
+          :style="{ paddingLeft: `${depth(item) * 1.25}rem` }"
+        >
           <div class="flex flex-wrap items-center gap-2">
             <h3 class="font-medium text-highlighted">{{ item.name }}</h3>
             <UBadge
-              :color="statusColor(item.status)"
+              v-if="item.status !== 'active'"
+              color="warning"
               variant="soft"
-              :label="item.status"
+              :label="statusLabel[item.status] || item.status"
             />
           </div>
-          <p class="mt-1 truncate text-sm text-muted">
-            {{ item.slug }} · {{ item.id }}
-          </p>
-          <p v-if="item.parentId" class="mt-1 text-xs text-dimmed">
-            父节点 {{ item.parentId }}
-          </p>
+          <p class="mt-1 text-xs text-muted">{{ item.slug }}</p>
+          <details class="mt-1 text-xs text-dimmed">
+            <summary class="cursor-pointer">标识信息</summary>
+            <p class="mt-1 break-all font-mono">{{ item.id }}</p>
+          </details>
         </div>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex items-center justify-end gap-1">
           <UButton
             v-if="item.status !== 'replaced'"
             class="min-h-11"
-            color="neutral"
-            variant="outline"
+            color="primary"
+            variant="soft"
             size="sm"
             :label="item.status === 'active' ? '停用' : '启用'"
             @click="$emit('action', 'status', 'category', item)"
           />
-          <UButton
-            v-if="item.status !== 'replaced'"
-            class="min-h-11"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            label="移动"
-            @click="$emit('action', 'reparent', 'category', item)"
-          />
-          <UButton
-            v-if="item.status !== 'replaced'"
-            class="min-h-11"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            label="合并"
-            @click="$emit('action', 'merge', 'category', item)"
-          />
-          <UButton
-            class="min-h-11"
-            color="error"
-            variant="ghost"
-            size="sm"
-            label="删除"
-            @click="$emit('action', 'delete', 'category', item)"
-          />
+          <UDropdownMenu :items="moreItems(item)"
+            ><UButton
+              class="min-h-11"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              icon="i-tabler-dots"
+              square
+              :aria-label="`更多分类操作：${item.name}`"
+          /></UDropdownMenu>
         </div>
       </article>
     </div>

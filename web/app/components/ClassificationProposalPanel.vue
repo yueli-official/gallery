@@ -39,11 +39,10 @@ const activeTags = computed(() =>
           id="classification-proposal-heading"
           class="font-semibold text-highlighted"
         >
-          Tag Proposal
+          待审标签提案
         </h2>
         <p class="mt-1 text-sm text-muted">
-          批准时重新解析最新 Lookup Registry；创建 canonical
-          Tag，或显式归并为已有 Tag 的 Alias。
+          批准为新标签，或归并为已有标签的同义词。
         </p>
       </div>
       <span class="text-xs text-dimmed">{{ total }} 条待审</span>
@@ -60,9 +59,12 @@ const activeTags = computed(() =>
       >
         <div class="min-w-0">
           <p class="font-medium text-highlighted">{{ item.inputValue }}</p>
-          <p class="mt-1 truncate text-xs text-muted">
-            lookup: {{ item.lookupKey }} · submission {{ item.submissionId }}
-          </p>
+          <details class="mt-1 text-xs text-dimmed">
+            <summary class="cursor-pointer">来源与标识</summary>
+            <p class="mt-1 break-all font-mono">
+              {{ item.lookupKey }} · {{ item.submissionId }}
+            </p>
+          </details>
         </div>
         <UFormField label="批准方式">
           <select
@@ -70,9 +72,9 @@ const activeTags = computed(() =>
             class="h-11 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted"
             :aria-label="`选择 ${item.inputValue} 的 Tag 处理方式`"
           >
-            <option value="">批准并创建新 canonical Tag</option>
+            <option value="">创建新标签</option>
             <option v-for="tag in activeTags" :key="tag.id" :value="tag.id">
-              作为 {{ tag.name }} 的 Alias
+              作为「{{ tag.name }}」的同义词
             </option>
           </select>
         </UFormField>
@@ -97,8 +99,8 @@ const activeTags = computed(() =>
     <ManageEmpty
       v-else
       icon="i-tabler-tag-off"
-      title="没有待审 Tag"
-      description="未知投稿词会进入独立 Proposal，不会提前污染公开目录。"
+      title="没有待审标签"
+      description="投稿中的新词会先进入这里，批准后才加入公开目录。"
     />
   </section>
 </template>

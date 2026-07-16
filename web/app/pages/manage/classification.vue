@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { ManageHeader, SkeletonList } from "@platform/manage/components";
+import {
+  ManageCollectionToolbar,
+  ManageHeader,
+  ManageTabs,
+  SkeletonList,
+} from "@platform/manage/components";
 import type {
   GalleryClassificationCatalog,
   GalleryClassificationCatalogFacet,
@@ -22,7 +27,43 @@ type ManagedIdentity =
 type IdentityOperation = "status" | "reparent" | "merge" | "delete";
 
 const { call } = useApi();
+const route = useRoute();
+const router = useRouter();
 const hydrated = useClientHydrated();
+const sectionKeys = ["categories", "facets", "tags", "proposals"] as const;
+const section = computed({
+  get: () => {
+    const value = String(route.query.section || "categories");
+    return sectionKeys.includes(value as (typeof sectionKeys)[number])
+      ? value
+      : "categories";
+  },
+  set: (value: string) => {
+    void router.replace({
+      query: {
+        ...route.query,
+        section: value === "categories" ? undefined : value,
+        q: undefined,
+      },
+    });
+  },
+});
+const searchInput = ref(String(route.query.q || ""));
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(
+  () => route.query.q,
+  (value) => {
+    searchInput.value = String(value || "");
+  },
+);
+watch(searchInput, (value) => {
+  if (searchTimer) clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    void router.replace({
+      query: { ...route.query, q: value.trim() || undefined },
+    });
+  }, 250);
+});
 const { data, pending, error, refresh } = await useAsyncData(
   "gallery-manage-classification",
   () =>
@@ -74,6 +115,53 @@ const loadingMoreTags = ref(false);
 const reviewingProposal = ref("");
 
 const catalog = computed(() => data.value.catalog);
+const query = computed(() =>
+  String(route.query.q || "")
+    .trim()
+    .toLowerCase(),
+);
+const matches = (name: string, slug: string) =>
+  !query.value || `${name} ${slug}`.toLowerCase().includes(query.value);
+const visibleCategories = computed(() =>
+  catalog.value.categories.filter((item) => matches(item.name, item.slug)),
+);
+const visibleFacets = computed(() =>
+  catalog.value.facets
+    .filter(
+      (facet) =>
+        matches(facet.name, facet.slug) ||
+        facet.values.some((value) => matches(value.name, value.slug)),
+    )
+    .map((facet) => ({
+      ...facet,
+      values: query.value
+        ? facet.values.filter((value) => matches(value.name, value.slug))
+        : facet.values,
+    })),
+);
+const visibleTags = computed(() =>
+  tagData.value.page.items.filter((item) => matches(item.name, item.slug)),
+);
+const visibleProposals = computed(() =>
+  proposalData.value.proposals.filter((item) =>
+    matches(item.inputValue, item.lookupKey),
+  ),
+);
+const tabs = computed(() => [
+  { key: "categories", label: "分类", count: catalog.value.categories.length },
+  { key: "facets", label: "维度", count: catalog.value.facets.length },
+  { key: "tags", label: "标签", count: tagData.value.page.items.length },
+  { key: "proposals", label: "待审提案", count: proposalData.value.total },
+]);
+const searchPlaceholder = computed(
+  () =>
+    ({
+      categories: "搜索分类名称或标识…",
+      facets: "搜索维度或维度值…",
+      tags: "搜索标签…",
+      proposals: "搜索待审词…",
+    })[section.value],
+);
 const destructivePreview = computed(
   () =>
     pendingCommand.value?.operation === "delete" ||
@@ -300,26 +388,35 @@ async function reviewTagProposal(
   <div>
     <ManageHeader title="分类与维度">
       <template #subtitle>
-        Category 是主要浏览树，Facet
-        是结构化筛选轴；所有变更先预览影响，再按同一 revision 原子执行。
-      </template>
-      <template #actions>
-        <UBadge
-          color="neutral"
-          variant="soft"
-          :label="`revision ${catalog.revision}`"
-        />
+        一次专注一种目录任务；高风险变更会先展示影响，再由你确认执行。
       </template>
     </ManageHeader>
 
-    <UAlert
-      class="mb-5"
-      color="info"
-      variant="subtle"
-      icon="i-tabler-shield-check"
-      title="不会静默级联"
-      description="停用保留历史关系；合并会迁移归属并建立直接 replacement；删除有关联时必须再次确认 delete-all-related。"
-    />
+    <ManageTabs v-model="section" :items="tabs" class="mb-4" />
+    <ManageCollectionToolbar
+      v-model:search="searchInput"
+      :search-placeholder="searchPlaceholder"
+      compact-filters
+      class="mb-4"
+    >
+      <template #actions>
+        <details class="relative">
+          <summary
+            class="cursor-pointer list-none rounded-md px-2 py-1.5 text-xs text-muted hover:bg-elevated hover:text-default"
+          >
+            技术信息
+          </summary>
+          <div
+            class="absolute right-0 z-20 mt-2 w-72 rounded-lg border border-default bg-default p-3 text-xs text-muted shadow-lg"
+          >
+            <p>目录版本 {{ catalog.revision }}</p>
+            <p class="mt-2">
+              停用会保留历史关系；合并会迁移归属；有关联的删除必须再次确认。
+            </p>
+          </div>
+        </details>
+      </template>
+    </ManageCollectionToolbar>
     <UAlert
       v-if="actionError && !previewOpen"
       class="mb-5"
@@ -348,17 +445,20 @@ async function reviewTagProposal(
       </template>
     </UAlert>
 
-    <div v-else class="space-y-8">
+    <div v-else>
       <ClassificationCategoryPanel
-        :items="catalog.categories"
+        v-if="section === 'categories'"
+        :items="visibleCategories"
         @action="handleIdentityAction"
       />
       <ClassificationFacetPanel
-        :facets="catalog.facets"
+        v-else-if="section === 'facets'"
+        :facets="visibleFacets"
         @action="handleIdentityAction"
       />
       <ClassificationProposalPanel
-        :proposals="proposalData.proposals"
+        v-else-if="section === 'proposals'"
+        :proposals="visibleProposals"
         :total="proposalData.total"
         :tags="tagData.page.items"
         :pending="proposalsPending"
@@ -367,7 +467,8 @@ async function reviewTagProposal(
         @review="reviewTagProposal"
       />
       <ClassificationTagPanel
-        :tags="tagData.page.items"
+        v-else
+        :tags="visibleTags"
         :pending="tagsPending"
         :hydrated="hydrated"
         :next-cursor="tagData.page.nextCursor"

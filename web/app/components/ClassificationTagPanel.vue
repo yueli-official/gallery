@@ -15,7 +15,7 @@ defineProps<{
   nextCursor: string;
   loadingMore: boolean;
 }>();
-defineEmits<{
+const emit = defineEmits<{
   action: [
     operation: Operation,
     kind: IdentityKind,
@@ -24,12 +24,33 @@ defineEmits<{
   loadMore: [];
 }>();
 
-const statusColor = (status: string) =>
-  (status === "active"
-    ? "success"
-    : status === "replaced"
-      ? "warning"
-      : "neutral") as any;
+const statusLabel: Record<string, string> = {
+  inactive: "已停用",
+  replaced: "已合并",
+};
+function moreItems(item: GalleryClassificationTag) {
+  const regular =
+    item.status === "replaced"
+      ? []
+      : [
+          {
+            label: "合并到其他标签",
+            icon: "i-tabler-git-merge",
+            onSelect: () => emit("action", "merge", "tag", item),
+          },
+        ];
+  return [
+    regular,
+    [
+      {
+        label: "删除标签",
+        icon: "i-tabler-trash",
+        color: "error" as const,
+        onSelect: () => emit("action", "delete", "tag", item),
+      },
+    ],
+  ].filter((group) => group.length);
+}
 </script>
 
 <template>
@@ -40,13 +61,11 @@ const statusColor = (status: string) =>
           id="classification-tag-heading"
           class="font-semibold text-highlighted"
         >
-          Tag
+          标签
         </h2>
-        <p class="mt-1 text-sm text-muted">
-          扁平长尾词；Alias 和 replacement 直接解析到 canonical Tag，不允许链。
-        </p>
+        <p class="mt-1 text-sm text-muted">扁平管理长尾词和同义词关系。</p>
       </div>
-      <span class="text-xs text-dimmed">keyset cursor</span>
+      <span class="text-xs text-dimmed">{{ tags.length }} 项</span>
     </div>
     <SkeletonList v-if="!hydrated || pending" :rows="4" />
     <div
@@ -62,45 +81,41 @@ const statusColor = (status: string) =>
           <div class="flex flex-wrap items-center gap-2">
             <h3 class="font-medium text-highlighted">{{ tag.name }}</h3>
             <UBadge
-              :color="statusColor(tag.status)"
+              v-if="tag.status !== 'active'"
+              color="warning"
               variant="soft"
-              :label="tag.status"
+              :label="statusLabel[tag.status] || tag.status"
             />
           </div>
-          <p class="mt-1 truncate text-xs text-muted">
-            {{ tag.slug }} · {{ tag.id }}
-          </p>
+          <p class="mt-1 truncate text-xs text-muted">{{ tag.slug }}</p>
           <p class="mt-1 text-xs text-dimmed">
             {{ tag.assignmentCount }} 个关系 · {{ tag.aliasCount }} 个 Alias
           </p>
+          <details class="mt-1 text-xs text-dimmed">
+            <summary class="cursor-pointer">标识信息</summary>
+            <p class="mt-1 break-all font-mono">{{ tag.id }}</p>
+          </details>
         </div>
         <div class="flex flex-wrap gap-2">
           <UButton
             v-if="tag.status !== 'replaced'"
             class="min-h-11"
-            color="neutral"
-            variant="ghost"
+            color="primary"
+            variant="soft"
             size="sm"
             :label="tag.status === 'active' ? '停用' : '启用'"
             @click="$emit('action', 'status', 'tag', tag)"
           />
-          <UButton
-            v-if="tag.status !== 'replaced'"
-            class="min-h-11"
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            label="合并"
-            @click="$emit('action', 'merge', 'tag', tag)"
-          />
-          <UButton
-            class="min-h-11"
-            color="error"
-            variant="ghost"
-            size="sm"
-            label="删除"
-            @click="$emit('action', 'delete', 'tag', tag)"
-          />
+          <UDropdownMenu :items="moreItems(tag)"
+            ><UButton
+              class="min-h-11"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              icon="i-tabler-dots"
+              square
+              :aria-label="`更多标签操作：${tag.name}`"
+          /></UDropdownMenu>
         </div>
       </article>
       <div v-if="nextCursor" class="flex justify-center py-4">
