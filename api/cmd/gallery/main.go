@@ -81,7 +81,16 @@ func main() {
 func runSubmissionProcessor(ctx context.Context, service *galleryservice.Service) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
+	nextPublicationSweep := time.Time{}
 	for {
+		if time.Now().After(nextPublicationSweep) {
+			if _, err := service.ReconcilePublishedImages(ctx, 100); err != nil && ctx.Err() == nil {
+				g.Log().Warning(ctx, "gallery public rendition reconciliation failed", "error", err)
+				nextPublicationSweep = time.Now().Add(30 * time.Second)
+			} else {
+				nextPublicationSweep = time.Now().Add(10 * time.Minute)
+			}
+		}
 		processed, err := service.ProcessQueuedSubmissions(ctx, 8)
 		if err != nil && ctx.Err() == nil {
 			g.Log().Warning(ctx, "gallery submission processing batch failed", "error", err)

@@ -34,6 +34,25 @@ type submissionProcessingTestStore struct {
 	assetID       string
 }
 
+type publicationReconciliationStore struct {
+	*fakeStore
+	candidates []model.ImagePublicationCandidate
+}
+
+func (store *publicationReconciliationStore) PublishedImageCandidates(_ context.Context, afterID string, limit int) ([]model.ImagePublicationCandidate, error) {
+	start := 0
+	if afterID != "" {
+		for index, item := range store.candidates {
+			if item.ID == afterID {
+				start = index + 1
+				break
+			}
+		}
+	}
+	end := min(start+limit, len(store.candidates))
+	return append([]model.ImagePublicationCandidate(nil), store.candidates[start:end]...), nil
+}
+
 func (store *submissionProcessingTestStore) ClaimSubmissionProcessing(context.Context, int) ([]model.Submission, error) {
 	return append([]model.Submission(nil), store.claimed...), nil
 }
@@ -367,6 +386,26 @@ func TestApprovedSubmissionPublishesAssetBeforeImageBecomesPubliclyEligible(t *t
 	}
 	if store.publicRenditionReadyID != "image-1" {
 		t.Fatalf("ready image = %q", store.publicRenditionReadyID)
+	}
+}
+
+func TestReconcilePublishedImagesBackfillsLegacyApprovals(t *testing.T) {
+	store := &publicationReconciliationStore{
+		fakeStore: &fakeStore{},
+		candidates: []model.ImagePublicationCandidate{
+			{ID: "image-1", AssetID: "asset-1", Title: "First"},
+			{ID: "image-2", AssetID: "asset-2", Title: "Second"},
+		},
+	}
+	assets := &submissionProcessingAssetPort{}
+	service := New(store)
+	service.SetAssetReferencePort(assets)
+	processed, err := service.ReconcilePublishedImages(context.Background(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if processed != 2 || assets.publishedImageID != "image-2" || store.publicRenditionReadyID != "image-2" {
+		t.Fatalf("processed = %d, published = %q, ready = %q", processed, assets.publishedImageID, store.publicRenditionReadyID)
 	}
 }
 

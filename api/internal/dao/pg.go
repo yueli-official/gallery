@@ -1493,6 +1493,29 @@ WHERE id = ?::uuid AND publication_state = 'published'`, imageID)
 	return nil
 }
 
+func (p *PG) PublishedImageCandidates(ctx context.Context, afterID string, limit int) ([]model.ImagePublicationCandidate, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	args := []any{}
+	predicate := "publication_state = 'published' AND safety_state = 'safe'"
+	if afterID != "" {
+		predicate += " AND id > ?::uuid"
+		args = append(args, afterID)
+	}
+	args = append(args, limit)
+	var values []model.ImagePublicationCandidate
+	if err := p.db.Ctx(ctx).Raw(`
+SELECT id::text AS id, asset_id::text AS asset_id, title
+FROM gallery_images
+WHERE `+predicate+`
+ORDER BY id
+LIMIT ?`, args...).Scan(&values); err != nil {
+		return nil, gerror.Wrap(err, "list gallery image publication candidates")
+	}
+	return values, nil
+}
+
 func (p *PG) HideImage(ctx context.Context, operator, id, reason string) error {
 	result, err := p.db.Exec(ctx, `
 WITH hidden AS (

@@ -90,6 +90,10 @@ type SubmissionProcessingStore interface {
 	SubmissionAssetID(context.Context, string) (string, error)
 }
 
+type PublicationReconciliationStore interface {
+	PublishedImageCandidates(context.Context, string, int) ([]model.ImagePublicationCandidate, error)
+}
+
 type GuestClaimStore interface {
 	ClaimGuestSubmissions(context.Context, string, string) (int64, error)
 }
@@ -127,6 +131,40 @@ func (s *Service) ProcessQueuedSubmissions(ctx context.Context, limit int) (int,
 		}
 	}
 	return len(claimed), nil
+}
+
+// ReconcilePublishedImages backfills the Asset publication reference for
+// images approved before public rendition publication became explicit. The
+// cursor keeps the sweep bounded and the Asset operation is idempotent.
+func (s *Service) ReconcilePublishedImages(ctx context.Context, pageSize int) (int, error) {
+	store, ok := s.store.(PublicationReconciliationStore)
+	if !ok || s.assets == nil {
+		return 0, galleryerr.NotInitialized("publication_reconciler")
+	}
+	if pageSize <= 0 || pageSize > 500 {
+		pageSize = 100
+	}
+	processed := 0
+	afterID := ""
+	for {
+		items, err := store.PublishedImageCandidates(ctx, afterID, pageSize)
+		if err != nil {
+			return processed, err
+		}
+		for _, item := range items {
+			if err := s.assets.PublishImage(ctx, item.AssetID, item.ID, item.Title); err != nil {
+				return processed, err
+			}
+			if err := s.store.MarkImagePublicRenditionReady(ctx, item.ID); err != nil {
+				return processed, err
+			}
+			processed++
+			afterID = item.ID
+		}
+		if len(items) < pageSize {
+			return processed, nil
+		}
+	}
 }
 
 func (s *Service) SubmissionPreviewURL(ctx context.Context, rawID string) (string, error) {

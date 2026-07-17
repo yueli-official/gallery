@@ -35,6 +35,12 @@ type ImageCard struct {
 	FavoriteCount       int64       `json:"-" orm:"favorite_count"`
 }
 
+type ImagePublicationCandidate struct {
+	ID      string `orm:"id"`
+	AssetID string `orm:"asset_id"`
+	Title   string `orm:"title"`
+}
+
 type ImageDetail struct {
 	ImageCard
 	Description string                 `json:"description" orm:"description"`
