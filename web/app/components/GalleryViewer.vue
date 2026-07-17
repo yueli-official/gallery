@@ -207,7 +207,7 @@ onBeforeUnmount(() => {
 
       <USkeleton
         v-if="status === 'pending'"
-        class="h-[62vh] w-[70%] rounded-xl bg-white/10"
+        class="h-[62vh] w-[70%] rounded-xl bg-elevated"
       />
       <UAlert
         v-else-if="failed"
@@ -361,13 +361,13 @@ onBeforeUnmount(() => {
             <h2 id="related-heading">继续探索</h2>
             <p>基于分类、属性和标签推荐</p>
           </div>
-          <UIcon name="i-tabler-route" class="size-5 text-white/45" />
+          <UIcon name="i-tabler-route" class="size-5 text-dimmed" />
         </div>
         <div v-if="relatedPending" class="grid grid-cols-2 gap-2">
           <USkeleton
             v-for="index in 4"
             :key="index"
-            class="aspect-[4/3] rounded-lg bg-white/10"
+            class="aspect-[4/3] rounded-lg bg-elevated"
           />
         </div>
         <div v-else-if="related.length" class="gallery-viewer-related-grid">

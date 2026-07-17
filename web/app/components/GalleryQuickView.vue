@@ -46,16 +46,89 @@ const {
 const image = computed(() =>
   data.value?.image.id === props.imageId ? data.value.image : undefined,
 );
+const sequence = ref(
+  createViewerSequence(
+    props.imageId,
+    props.items.map((item) => item.id),
+  ),
+);
+const continuation = ref<GalleryImageCard[]>([]);
+const continuationPending = ref(false);
+const pool = computed(() => {
+  const values: GalleryImageCard[] = [
+    ...props.items,
+    ...(relatedData.value?.items || []),
+    ...continuation.value,
+  ];
+  if (image.value) values.push(image.value);
+  return new Map(values.map((item) => [item.id, item]));
+});
 const siblings = computed(() => {
-  const index = props.items.findIndex((item) => item.id === props.imageId);
   return {
-    previous: index > 0 ? props.items[index - 1] : undefined,
+    previous:
+      sequence.value.index > 0
+        ? pool.value.get(sequence.value.ids[sequence.value.index - 1]!)
+        : undefined,
     next:
-      index >= 0 && index < props.items.length - 1
-        ? props.items[index + 1]
+      sequence.value.index < sequence.value.ids.length - 1
+        ? pool.value.get(sequence.value.ids[sequence.value.index + 1]!)
         : undefined,
   };
 });
+
+async function ensureContinuation(): Promise<void> {
+  if (!import.meta.client) return;
+  if (
+    siblings.value.next ||
+    continuationPending.value ||
+    relatedStatus.value === "pending"
+  )
+    return;
+  continuationPending.value = true;
+  try {
+    const seed =
+      globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+    const discovery = await $fetch<{ images: GalleryImageCard[] }>(
+      "/api/gallery/discovery",
+      { query: { seed } },
+    );
+    continuation.value = discovery.images;
+    sequence.value = extendViewerSequence(
+      sequence.value,
+      discovery.images.map((item) => item.id),
+    );
+  } catch {
+    // Keep the current related sequence available when discovery is transiently unavailable.
+  } finally {
+    continuationPending.value = false;
+  }
+}
+
+watch(
+  [requestedId, relatedData],
+  ([current, suggestions]) => {
+    if (!current) return;
+    if (sequence.value.ids.length === 0) {
+      sequence.value = createViewerSequence(
+        current,
+        props.items.map((item) => item.id),
+      );
+    } else {
+      sequence.value = moveViewerSequence(sequence.value, current);
+    }
+    sequence.value = extendViewerSequence(
+      sequence.value,
+      (suggestions?.items || []).map((item) => item.id),
+    );
+    void ensureContinuation();
+  },
+  { immediate: true },
+);
+
+function navigate(imageId: string): void {
+  sequence.value = moveViewerSequence(sequence.value, imageId);
+  emit("navigate", imageId);
+}
 
 function retry(): void {
   void Promise.all([refresh(), refreshRelated()]);
@@ -85,7 +158,7 @@ function retry(): void {
         :related-pending="relatedStatus === 'pending'"
         @close="emit('close')"
         @retry="retry"
-        @navigate="emit('navigate', $event)"
+        @navigate="navigate"
       />
     </template>
   </UModal>

@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import type { GalleryImage, GalleryRelatedImage } from "~/types/gallery";
+import type {
+  GalleryDiscovery,
+  GalleryImage,
+  GalleryImageCard,
+  GalleryRelatedImage,
+} from "~/types/gallery";
 
 const route = useRoute("/images/[imageId]");
 const router = useRouter();
@@ -35,8 +40,79 @@ if (import.meta.server && error.value) {
 
 const image = computed(() => data.value?.image);
 const related = computed(() => relatedData.value?.items || []);
-const previous = computed(() => related.value[1]);
-const next = computed(() => related.value[0]);
+const sequence = ref(createViewerSequence(imageId.value));
+const candidatePool = ref<GalleryImageCard[]>([]);
+const continuationPending = ref(false);
+const closeTarget = ref("/images");
+
+function mergeCandidates(items: GalleryImageCard[]): void {
+  const byId = new Map(candidatePool.value.map((item) => [item.id, item]));
+  items.forEach((item) => byId.set(item.id, item));
+  candidatePool.value = [...byId.values()];
+}
+
+const candidateMap = computed(
+  () => new Map(candidatePool.value.map((item) => [item.id, item])),
+);
+const previous = computed(() =>
+  sequence.value.index > 0
+    ? candidateMap.value.get(sequence.value.ids[sequence.value.index - 1]!)
+    : undefined,
+);
+const next = computed(() =>
+  sequence.value.index < sequence.value.ids.length - 1
+    ? candidateMap.value.get(sequence.value.ids[sequence.value.index + 1]!)
+    : undefined,
+);
+
+async function ensureContinuation(): Promise<void> {
+  if (!import.meta.client) return;
+  if (
+    next.value ||
+    continuationPending.value ||
+    relatedStatus.value === "pending"
+  )
+    return;
+  continuationPending.value = true;
+  try {
+    const seed =
+      globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+    const discovery = await $fetch<GalleryDiscovery>("/api/gallery/discovery", {
+      query: { seed },
+    });
+    mergeCandidates(discovery.images);
+    sequence.value = extendViewerSequence(
+      sequence.value,
+      discovery.images.map((item) => item.id),
+    );
+  } catch {
+    // Related results remain usable; the next image can retry continuation.
+  } finally {
+    continuationPending.value = false;
+  }
+}
+
+watch(
+  [image, related],
+  ([current, suggestions]) => {
+    if (!current) return;
+    mergeCandidates([current, ...suggestions]);
+    sequence.value = moveViewerSequence(sequence.value, current.id);
+    sequence.value = extendViewerSequence(
+      sequence.value,
+      suggestions.map((item) => item.id),
+    );
+    void ensureContinuation();
+  },
+  { immediate: true },
+);
+
+onMounted(() => {
+  const back = window.history.state?.back;
+  closeTarget.value = viewerCloseTarget(
+    typeof back === "string" ? back : undefined,
+  );
+});
 
 useSeoMeta({
   title: () => image.value?.title || "图片详情",
@@ -77,12 +153,12 @@ useHead(() =>
 );
 
 function closeViewer(): void {
-  if (import.meta.client && window.history.length > 1) router.back();
-  else void router.push("/images");
+  void router.replace(closeTarget.value);
 }
 
 function navigate(targetId: string): void {
-  void router.push(`/images/${encodeURIComponent(targetId)}`);
+  sequence.value = moveViewerSequence(sequence.value, targetId);
+  void router.replace(`/images/${encodeURIComponent(targetId)}`);
 }
 
 function retry(): void {
