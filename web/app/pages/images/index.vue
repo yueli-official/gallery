@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import type {
   GalleryDiscovery,
-  GalleryFacet,
   GalleryImagePage,
   GallerySearchSuggestion,
 } from "~/types/gallery";
 import type { GalleryCatalogSort, GalleryCatalogView } from "~/utils/catalog";
 
 const mobileFiltersOpen = ref(false);
-const facetSearch = reactive<Record<string, string>>({});
 const {
   state: catalogState,
   request: query,
@@ -153,16 +151,11 @@ const searchSuggestions = computed<GallerySearchSuggestion[]>(() => {
   return suggestions.slice(0, 6);
 });
 
-function filteredFacetValues(facet: GalleryFacet) {
-  const term = (facetSearch[facet.slug] || "").trim().toLocaleLowerCase();
-  if (!term) return facet.values;
-  return facet.values.filter((value) =>
-    `${value.name} ${value.slug}`.toLocaleLowerCase().includes(term),
-  );
-}
-
 function openMobileFilters() {
   mobileFiltersOpen.value = true;
+}
+function closeMobileFilters() {
+  mobileFiltersOpen.value = false;
 }
 function applyFilters() {
   void apply();
@@ -285,67 +278,14 @@ useSeoMeta({
             :items="searchSuggestions"
             @select="selectSuggestion"
           />
-          <div v-if="categoryCandidates.length">
-            <h2 class="mb-3 text-sm font-semibold text-highlighted">分类</h2>
-            <div class="space-y-1">
-              <label
-                v-for="category in categoryCandidates"
-                :key="category.id"
-                class="gallery-filter-option"
-              >
-                <span class="flex min-w-0 items-center gap-2">
-                  <input
-                    type="checkbox"
-                    class="size-4 accent-[var(--ui-primary)]"
-                    :checked="selectedCategories.includes(category.slug)"
-                    @change="toggleCategory(category.slug)"
-                  />
-                  <span class="truncate">{{ category.name }}</span>
-                </span>
-                <span class="text-xs tabular-nums text-dimmed">{{
-                  category.count
-                }}</span>
-              </label>
-            </div>
-          </div>
-          <div v-for="group in facetGroups" :key="group.facet.id">
-            <h2 class="mb-3 text-sm font-semibold text-highlighted">
-              {{ group.facet.name }}
-            </h2>
-            <UInput
-              v-if="group.values.length > 8"
-              v-model="facetSearch[group.facet.slug]"
-              class="mb-2"
-              size="xs"
-              icon="i-tabler-search"
-              :placeholder="`查找${group.facet.name}`"
-              :aria-label="`查找${group.facet.name}选项`"
-            />
-            <div class="space-y-1">
-              <label
-                v-for="value in filteredFacetValues(group.facet)"
-                :key="value.id"
-                class="gallery-filter-option"
-              >
-                <span class="flex min-w-0 items-center gap-2">
-                  <input
-                    type="checkbox"
-                    class="size-4 accent-[var(--ui-primary)]"
-                    :checked="
-                      selectedFacets.includes(
-                        `${group.facet.slug}:${value.slug}`,
-                      )
-                    "
-                    @change="toggleFacet(`${group.facet.slug}:${value.slug}`)"
-                  />
-                  <span class="truncate">{{ value.name }}</span>
-                </span>
-                <span class="text-xs tabular-nums text-dimmed">{{
-                  value.count
-                }}</span>
-              </label>
-            </div>
-          </div>
+          <GalleryCatalogFilterFields
+            :categories="categoryCandidates"
+            :facets="facetGroups.map((group) => group.facet)"
+            :selected-categories="selectedCategories"
+            :selected-facets="selectedFacets"
+            @toggle-category="toggleCategory"
+            @toggle-facet="toggleFacet"
+          />
           <div class="flex gap-2">
             <UButton label="应用" size="sm" block @click="applyFilters" />
             <UButton
@@ -502,87 +442,68 @@ useSeoMeta({
       </section>
     </div>
 
-    <USlideover
+    <UDrawer
       v-model:open="mobileFiltersOpen"
-      title="筛选图片"
-      description="选择分类与维度，应用后会写入网址。"
+      direction="bottom"
+      :ui="{
+        content: 'max-h-[88dvh] rounded-t-2xl',
+        body: 'min-h-0 overflow-y-auto p-0 sm:p-0',
+        footer:
+          'border-t border-default bg-default p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4',
+      }"
     >
-      <template #body>
-        <div class="space-y-7 pb-24">
-          <UInput
-            v-model="searchDraft"
-            icon="i-tabler-search"
-            placeholder="搜索标题或说明"
-          />
-          <GallerySearchSuggestions
-            :items="searchSuggestions"
-            @select="selectSuggestion"
-          />
-          <div v-if="categoryCandidates.length">
-            <h2 class="mb-3 font-semibold text-highlighted">分类</h2>
-            <div class="grid grid-cols-2 gap-2">
-              <UButton
-                v-for="category in categoryCandidates"
-                :key="category.id"
-                color="neutral"
-                :variant="
-                  selectedCategories.includes(category.slug)
-                    ? 'solid'
-                    : 'outline'
-                "
-                :label="`${category.name} ${category.count}`"
-                block
-                @click="toggleCategory(category.slug)"
-              />
-            </div>
+      <template #header>
+        <div class="flex min-w-0 flex-1 items-center justify-between gap-4">
+          <div class="min-w-0">
+            <h2 class="font-semibold text-highlighted">筛选图片</h2>
+            <p class="mt-0.5 text-xs text-muted">分类与维度可组合选择</p>
           </div>
-          <div v-for="group in facetGroups" :key="group.facet.id">
-            <h2 class="mb-3 font-semibold text-highlighted">
-              {{ group.facet.name }}
-            </h2>
-            <UInput
-              v-if="group.values.length > 8"
-              v-model="facetSearch[group.facet.slug]"
-              class="mb-3"
-              icon="i-tabler-search"
-              :placeholder="`查找${group.facet.name}`"
-              :aria-label="`查找${group.facet.name}选项`"
+          <div class="flex items-center gap-2">
+            <UBadge
+              v-if="selectedCategories.length + selectedFacets.length"
+              color="primary"
+              variant="soft"
+              :label="`${selectedCategories.length + selectedFacets.length} 项`"
             />
-            <div class="grid grid-cols-2 gap-2">
-              <UButton
-                v-for="value in filteredFacetValues(group.facet)"
-                :key="value.id"
-                color="neutral"
-                :variant="
-                  selectedFacets.includes(`${group.facet.slug}:${value.slug}`)
-                    ? 'solid'
-                    : 'outline'
-                "
-                :label="value.name"
-                block
-                @click="toggleFacet(`${group.facet.slug}:${value.slug}`)"
-              />
-            </div>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              icon="i-tabler-x"
+              aria-label="关闭筛选"
+              @click="closeMobileFilters"
+            />
           </div>
         </div>
-        <div
-          class="fixed inset-x-0 bottom-0 flex gap-2 border-t border-default bg-default p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]"
-        >
+      </template>
+      <template #body>
+        <div class="px-4 py-5">
+          <GalleryCatalogFilterFields
+            :categories="categoryCandidates"
+            :facets="facetGroups.map((group) => group.facet)"
+            :selected-categories="selectedCategories"
+            :selected-facets="selectedFacets"
+            @toggle-category="toggleCategory"
+            @toggle-facet="toggleFacet"
+          />
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex w-full items-center gap-2">
           <UButton
             v-if="hasFilters"
             color="neutral"
-            variant="outline"
-            label="清除"
+            variant="ghost"
+            label="重置"
             @click="clearFilters"
           />
           <UButton
             class="flex-1"
-            :label="`应用${selectedCategories.length + selectedFacets.length ? ` ${selectedCategories.length + selectedFacets.length} 项` : ''}`"
+            :label="pageData ? `查看 ${pageData.total} 张图片` : '应用筛选'"
             @click="applyFilters"
           />
         </div>
       </template>
-    </USlideover>
+    </UDrawer>
 
     <GalleryQuickView
       :image-id="preview"

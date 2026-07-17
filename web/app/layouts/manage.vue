@@ -16,8 +16,25 @@ const labels: Record<string, string> = {
 </script>
 
 <template>
-  <ManageShell :site-name="brand" :context-label="labels[route.path] || '图库管理'" storage-key="gallery-manage" home-to="/manage">
+  <ManageShell
+    :site-name="brand"
+    :context-label="labels[route.path] || '图库管理'"
+    storage-key="gallery-manage"
+    home-to="/manage"
+  >
     <template #sidebar><ManageSidebar /></template>
+    <template #topbar-actions>
+      <UButton
+        to="/"
+        target="_blank"
+        color="neutral"
+        variant="ghost"
+        icon="i-tabler-external-link"
+        aria-label="在新标签页打开公开站点"
+      >
+        <span class="hidden sm:inline">公开站点</span>
+      </UButton>
+    </template>
     <template #user><ConsumerManageAccountControl home-to="/" /></template>
     <slot />
   </ManageShell>

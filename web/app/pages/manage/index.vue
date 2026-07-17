@@ -172,9 +172,7 @@ const workspaces = [
         </NuxtLink>
       </section>
 
-      <div
-        class="grid items-start gap-7 lg:grid-cols-[minmax(0,1.55fr)_minmax(19rem,.65fr)]"
-      >
+      <div>
         <section aria-labelledby="priority-heading">
           <div class="mb-3 flex items-end justify-between gap-4">
             <div>
@@ -292,53 +290,6 @@ const workspaces = [
             </div>
           </div>
         </section>
-
-        <aside class="space-y-5">
-          <section
-            class="rounded-xl border border-default bg-default px-5 py-5"
-          >
-            <div class="flex items-center justify-between gap-3">
-              <p class="text-sm font-semibold text-highlighted">图库运行正常</p>
-              <span class="size-2 rounded-full bg-success" />
-            </div>
-            <p class="mt-2 text-sm leading-6 text-muted">
-              API 可用，运营数据已同步。只有出现异常时，这里才会升级为处理入口。
-            </p>
-            <UButton
-              to="/"
-              target="_blank"
-              class="mt-4"
-              color="neutral"
-              variant="outline"
-              size="sm"
-              icon="i-tabler-arrow-up-right"
-              label="查看公开站点"
-            />
-          </section>
-          <section class="rounded-xl border border-default bg-default p-5">
-            <h2 class="text-sm font-semibold text-highlighted">工作原则</h2>
-            <dl class="mt-4 space-y-4 text-sm">
-              <div>
-                <dt class="font-medium text-default">先解除阻塞</dt>
-                <dd class="mt-1 leading-5 text-muted">
-                  失败处理和待审投稿优先于内容整理。
-                </dd>
-              </div>
-              <div>
-                <dt class="font-medium text-default">再处理信任</dt>
-                <dd class="mt-1 leading-5 text-muted">
-                  举报、来源和安全问题保留完整上下文。
-                </dd>
-              </div>
-              <div>
-                <dt class="font-medium text-default">最后优化发现</dt>
-                <dd class="mt-1 leading-5 text-muted">
-                  专题、分类和排行不会覆盖内容真实性。
-                </dd>
-              </div>
-            </dl>
-          </section>
-        </aside>
       </div>
     </template>
   </div>
