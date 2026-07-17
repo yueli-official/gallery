@@ -59,6 +59,12 @@
         "viewports": ["mobile", "desktop"]
       },
       {
+        "key": "collection-detail",
+        "path": "/collections/blue-hour",
+        "readySelector": "text=从海岸到夜色的蓝调图片精选",
+        "viewports": ["mobile", "desktop"]
+      },
+      {
         "key": "rankings",
         "path": "/rankings",
         "readySelector": "main h1",
@@ -78,6 +84,13 @@
         "viewports": ["mobile", "desktop"]
       },
       {
+        "key": "manage-collection-detail",
+        "path": "/manage/collections/019b6000-0000-7000-9000-000000000001",
+        "readySelector": "text=图片与顺序",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"]
+      },
+      {
         "key": "manage-images",
         "path": "/manage/images",
         "readySelector": "text=管理图片生命周期、分类和质量异常",
@@ -88,6 +101,20 @@
         "key": "classification",
         "path": "/manage/classification",
         "readySelector": "text=壁纸",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "manage-discovery",
+        "path": "/manage/discovery",
+        "readySelector": "text=多样性优先的首页探索",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "manage-assets",
+        "path": "/manage/assets",
+        "readySelector": "text=站点资源策略",
         "authenticated": true,
         "viewports": ["mobile", "desktop"]
       },
