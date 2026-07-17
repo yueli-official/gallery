@@ -224,7 +224,7 @@ const workspaces = [
                       priority.tone === 'error'
                         ? 'text-error'
                         : priority.tone === 'warning'
-                          ? 'text-warning'
+                          ? 'text-highlighted'
                           : 'text-primary'
                     "
                     >{{ priority.count }}</span

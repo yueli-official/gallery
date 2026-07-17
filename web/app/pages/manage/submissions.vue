@@ -339,9 +339,11 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
       <article
         v-for="item in data.items"
         :key="item.id"
-        class="grid gap-3 border-b border-default p-3 last:border-b-0 sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:p-4 xl:grid-cols-[6.5rem_minmax(0,1fr)_19rem] xl:items-start"
+        class="grid grid-cols-[5rem_minmax(0,1fr)] gap-3 border-b border-default p-3 last:border-b-0 sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:p-4 xl:grid-cols-[6.5rem_minmax(0,1fr)_19rem] xl:items-start"
       >
-        <div class="relative overflow-hidden rounded-lg bg-elevated">
+        <div
+          class="relative aspect-[4/3] self-start overflow-hidden rounded-lg bg-elevated"
+        >
           <img
             :src="galleryRendition(item.assetId, 'thumbnail')"
             :alt="item.altText"
@@ -423,7 +425,7 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
             :description="actionErrors[item.id]"
           />
         </div>
-        <div class="sm:col-start-2 xl:col-start-3">
+        <div class="col-span-2 sm:col-span-1 sm:col-start-2 xl:col-start-3">
           <div class="flex flex-wrap items-center gap-2 xl:justify-end">
             <UButton
               v-if="
