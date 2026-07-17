@@ -214,6 +214,18 @@ func (c *Admin) ReviewSubmission(ctx context.Context, req *v1.ReviewSubmissionRe
 	return &v1.ReviewSubmissionRes{Submission: *value}, nil
 }
 
+func (c *Admin) BulkReviewSubmissions(ctx context.Context, req *v1.BulkReviewSubmissionsReq) (*v1.BulkReviewSubmissionsRes, error) {
+	operator, err := requireAdmin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	results, err := c.service.BulkReviewSubmissions(ctx, operator, req.BulkSubmissionReviewInput)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.BulkReviewSubmissionsRes{Results: results}, nil
+}
+
 func (c *Admin) PreviewSubmission(ctx context.Context, req *v1.PreviewSubmissionReq) (*v1.PreviewSubmissionRes, error) {
 	if _, err := requireAdmin(ctx); err != nil {
 		return nil, err
@@ -250,6 +262,17 @@ func (c *Admin) ListAdminImages(ctx context.Context, req *v1.ListAdminImagesReq)
 		return nil, err
 	}
 	return &v1.ListAdminImagesRes{AdminImagePage: *page}, nil
+}
+
+func (c *Admin) GetAdminImage(ctx context.Context, req *v1.GetAdminImageReq) (*v1.GetAdminImageRes, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	value, err := c.service.AdminImage(ctx, req.ImageID)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.GetAdminImageRes{Image: *value}, nil
 }
 
 func (c *Admin) UpdateAdminImage(ctx context.Context, req *v1.UpdateAdminImageReq) (*v1.UpdateAdminImageRes, error) {

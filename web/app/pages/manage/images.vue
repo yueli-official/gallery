@@ -24,6 +24,7 @@ import { useManageSelection } from "@platform/manage/use-manage-selection";
 import type {
   GalleryAdminImage,
   GalleryAdminImagePage,
+  GalleryClassificationTagPage,
   GallerySubmissionOptions,
 } from "~/types/gallery";
 
@@ -57,8 +58,16 @@ const collectionDefinition = {
   defaultPageSize: 24,
   pagination: "server",
   selection: "page",
-  filters: ["category", "facet", "processing", "review", "safety"],
-  quickEditFields: ["title", "description", "altText", "sourceUrl"],
+  filters: ["category", "facet"],
+  quickEditFields: [
+    "title",
+    "description",
+    "altText",
+    "sourceUrl",
+    "primaryCategoryId",
+    "facetValueIds",
+    "tagIds",
+  ],
   bulkActions: ["set_primary_category", "hide"],
 } as const satisfies ManageCollectionDefinition;
 
@@ -80,9 +89,6 @@ const {
 });
 const category = filterModel("category", ALL);
 const facet = filterModel("facet", ALL);
-const processing = filterModel("processing", ALL);
-const review = filterModel("review", ALL);
-const safety = filterModel("safety", ALL);
 
 const apiSort = computed(() => {
   if (sort.value === "title")
@@ -104,26 +110,11 @@ const { data, pending, error, refresh } = await useAsyncData(
         publicationState: status.value || undefined,
         categoryId: category.value === ALL ? undefined : category.value,
         facetValueId: facet.value === ALL ? undefined : facet.value,
-        processingState:
-          processing.value === ALL ? undefined : processing.value,
-        reviewState: review.value === ALL ? undefined : review.value,
-        safetyState: safety.value === ALL ? undefined : safety.value,
       },
     }),
   {
     server: false,
-    watch: [
-      q,
-      apiSort,
-      page,
-      size,
-      status,
-      category,
-      facet,
-      processing,
-      review,
-      safety,
-    ],
+    watch: [q, apiSort, page, size, status, category, facet],
     default: () => ({
       items: [],
       page: 1,
@@ -158,28 +149,19 @@ const facetOptions = computed(() => [
     })),
   ),
 ]);
-const processingOptions = [
-  { label: "全部处理状态", value: ALL },
-  { label: "排队中", value: "queued" },
-  { label: "处理中", value: "processing" },
-  { label: "已就绪", value: "ready" },
-  { label: "处理失败", value: "failed" },
-];
-const reviewOptions = [
-  { label: "全部审核状态", value: ALL },
-  { label: "无需审核", value: "not_required" },
-  { label: "等待审核", value: "pending" },
-  { label: "已批准", value: "approved" },
-  { label: "已拒绝", value: "rejected" },
-];
-const safetyOptions = [
-  { label: "全部安全状态", value: ALL },
-  { label: "等待检查", value: "pending" },
-  { label: "安全", value: "safe" },
-  { label: "不确定", value: "uncertain" },
-  { label: "已阻止", value: "blocked" },
-  { label: "不可用", value: "unavailable" },
-];
+const { data: tagData } = await useAsyncData(
+  "gallery-manage-image-tags",
+  () =>
+    call<{ page: GalleryClassificationTagPage }>(
+      "/api/v1/gallery/admin/classification/tags?size=100",
+    ),
+  { server: false, default: () => ({ page: { items: [], nextCursor: "" } }) },
+);
+const tagOptions = computed(() =>
+  tagData.value.page.items
+    .filter((item) => item.status === "active")
+    .map((item) => ({ label: item.name, value: item.id })),
+);
 const sortOptions = [
   { label: "创建时间", value: "created" },
   { label: "更新时间", value: "updated" },
@@ -210,51 +192,13 @@ const activeFilters = computed(() => [
         },
       ]
     : []),
-  ...(processing.value !== ALL
-    ? [
-        {
-          key: "processing",
-          label:
-            processingOptions.find((item) => item.value === processing.value)
-              ?.label || processing.value,
-        },
-      ]
-    : []),
-  ...(review.value !== ALL
-    ? [
-        {
-          key: "review",
-          label:
-            reviewOptions.find((item) => item.value === review.value)?.label ||
-            review.value,
-        },
-      ]
-    : []),
-  ...(safety.value !== ALL
-    ? [
-        {
-          key: "safety",
-          label:
-            safetyOptions.find((item) => item.value === safety.value)?.label ||
-            safety.value,
-        },
-      ]
-    : []),
 ]);
 function removeFilter(key: string) {
   if (key === "category") category.value = ALL;
   if (key === "facet") facet.value = ALL;
-  if (key === "processing") processing.value = ALL;
-  if (key === "review") review.value = ALL;
-  if (key === "safety") safety.value = ALL;
 }
 function clearFilters() {
-  category.value =
-    facet.value =
-    processing.value =
-    review.value =
-    safety.value =
-      ALL;
+  category.value = facet.value = ALL;
 }
 
 const items = computed(() => data.value.items || []);
@@ -281,26 +225,59 @@ const {
 
 const editing = shallowRef<GalleryAdminImage>();
 const editPending = ref(false);
+const editLoading = ref(false);
 const editForm = reactive({
   title: "",
   description: "",
   altText: "",
   sourceUrl: "",
+  primaryCategoryId: ALL,
+  facetValueIds: {} as Record<string, string>,
+  tagIds: [] as string[],
 });
-function openEdit(item: GalleryAdminImage) {
+function hydrateEditForm(item: GalleryAdminImage) {
   editing.value = item;
   Object.assign(editForm, {
     title: item.title,
     description: item.description,
     altText: item.altText,
     sourceUrl: item.sourceUrl,
+    primaryCategoryId: item.primaryCategoryId || ALL,
+    facetValueIds: Object.fromEntries(
+      (item.facets || []).map((assignment) => [
+        assignment.facetId,
+        assignment.valueId,
+      ]),
+    ),
+    tagIds: (item.tags || []).map((tag) => tag.id),
   });
+}
+async function openEdit(item: GalleryAdminImage) {
+  hydrateEditForm(item);
+  editLoading.value = true;
+  try {
+    const response = await call<{ image: GalleryAdminImage }>(
+      `/api/v1/gallery/admin/images/${encodeURIComponent(item.id)}`,
+    );
+    hydrateEditForm(response.image);
+  } catch (reason: any) {
+    editing.value = undefined;
+    toast.add({
+      title: "无法打开图片编辑器",
+      description:
+        reason?.data?.message || "图片记录可能已变化，请刷新后重试。",
+      color: "error",
+    });
+  } finally {
+    editLoading.value = false;
+  }
 }
 async function saveEdit() {
   if (
     !editing.value?.updatedAt ||
     !editForm.title.trim() ||
-    !editForm.altText.trim()
+    !editForm.altText.trim() ||
+    editForm.primaryCategoryId === ALL
   )
     return;
   editPending.value = true;
@@ -309,11 +286,23 @@ async function saveEdit() {
       `/api/v1/gallery/admin/images/${encodeURIComponent(editing.value.id)}`,
       {
         method: "PATCH",
-        body: { expectedUpdatedAt: editing.value.updatedAt, ...editForm },
+        body: {
+          expectedUpdatedAt: editing.value.updatedAt,
+          title: editForm.title,
+          description: editForm.description,
+          altText: editForm.altText,
+          sourceUrl: editForm.sourceUrl,
+          classification: {
+            primaryCategoryId: editForm.primaryCategoryId,
+            facetValueIds: Object.values(editForm.facetValueIds).filter(
+              (value) => value && value !== ALL,
+            ),
+            tagIds: editForm.tagIds,
+          },
+        },
       },
     );
     editing.value = undefined;
-    toast.add({ title: "图片信息已保存", color: "success" });
     await refresh();
   } catch (reason: any) {
     toast.add({
@@ -387,24 +376,6 @@ function anomalyBadges(image: GalleryAdminImage) {
     label: string;
     color: "warning" | "error" | "neutral";
   }> = [];
-  if (image.processingState === "failed")
-    badges.push({ label: "处理失败", color: "error" });
-  else if (["queued", "processing"].includes(image.processingState))
-    badges.push({
-      label: image.processingState === "queued" ? "排队中" : "处理中",
-      color: "warning",
-    });
-  if (image.reviewState === "pending")
-    badges.push({ label: "待审核", color: "warning" });
-  if (image.reviewState === "rejected")
-    badges.push({ label: "审核拒绝", color: "error" });
-  if (!["safe"].includes(image.safetyState))
-    badges.push({
-      label:
-        safetyOptions.find((item) => item.value === image.safetyState)?.label ||
-        image.safetyState,
-      color: image.safetyState === "blocked" ? "error" : "warning",
-    });
   if (!image.publicRenditionReady)
     badges.push({ label: "公开版本未就绪", color: "warning" });
   return badges;
@@ -428,7 +399,7 @@ function moreItems(image: GalleryAdminImage) {
 <template>
   <div>
     <ManageHeader title="图片">
-      <template #subtitle>管理图片生命周期、分类和质量异常</template>
+      <template #subtitle>管理已审核图片的公开状态、分类、维度与标签</template>
       <template #actions
         ><UButton to="/submit" icon="i-tabler-upload" label="投稿图片"
       /></template>
@@ -459,30 +430,6 @@ function moreItems(image: GalleryAdminImage) {
           size="sm"
           class="w-full sm:w-40"
           :search-input="{ placeholder: '搜索维度…' }"
-        />
-        <USelect
-          v-model="processing"
-          :items="processingOptions"
-          value-key="value"
-          icon="i-tabler-progress"
-          size="sm"
-          class="w-full sm:w-36"
-        />
-        <USelect
-          v-model="review"
-          :items="reviewOptions"
-          value-key="value"
-          icon="i-tabler-clipboard-check"
-          size="sm"
-          class="w-full sm:w-36"
-        />
-        <USelect
-          v-model="safety"
-          :items="safetyOptions"
-          value-key="value"
-          icon="i-tabler-shield-check"
-          size="sm"
-          class="w-full sm:w-36"
         />
         <USelect
           v-model="sort"
@@ -584,7 +531,7 @@ function moreItems(image: GalleryAdminImage) {
             variant="soft"
             size="sm"
             icon="i-tabler-pencil"
-            label="快速编辑"
+            label="编辑图片"
             @click="openEdit(image)"
           />
           <UDropdownMenu
@@ -631,7 +578,7 @@ function moreItems(image: GalleryAdminImage) {
             size="xs"
             icon="i-tabler-pencil"
             square
-            aria-label="快速编辑"
+            aria-label="编辑图片"
             @click="openEdit(image)"
           />
         </div>
@@ -738,16 +685,21 @@ function moreItems(image: GalleryAdminImage) {
 
     <UModal
       :open="Boolean(editing)"
-      title="快速编辑图片"
-      description="修改最常用的图片元数据。"
+      title="编辑图片"
+      description="统一维护目录文案、主分类、维度和标签。"
       @update:open="
         (open) => {
           if (!open) editing = undefined;
         }
       "
     >
-      <template #body
-        ><form class="space-y-4" @submit.prevent="saveEdit">
+      <template #body>
+        <div v-if="editLoading" class="space-y-3 py-2">
+          <USkeleton class="h-10 rounded-lg" />
+          <USkeleton class="h-24 rounded-lg" />
+          <USkeleton class="h-32 rounded-lg" />
+        </div>
+        <form v-else class="space-y-5" @submit.prevent="saveEdit">
           <UFormField label="标题" required
             ><UInput v-model="editForm.title" maxlength="160" class="w-full"
           /></UFormField>
@@ -764,15 +716,67 @@ function moreItems(image: GalleryAdminImage) {
               placeholder="https://"
               class="w-full"
           /></UFormField>
+          <div class="border-t border-default pt-5">
+            <h3 class="text-sm font-semibold text-highlighted">目录信息</h3>
+            <p class="mt-1 text-xs text-muted">
+              主分类用于导航；每个维度最多选择一个值。
+            </p>
+          </div>
+          <UFormField label="主分类" required>
+            <USelectMenu
+              v-model="editForm.primaryCategoryId"
+              :items="categoryOptions.filter((item) => item.value !== ALL)"
+              value-key="value"
+              class="w-full"
+              :search-input="{ placeholder: '搜索分类…' }"
+            />
+          </UFormField>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <UFormField
+              v-for="group in options?.facets || []"
+              :key="group.id"
+              :label="group.name"
+            >
+              <USelect
+                v-model="editForm.facetValueIds[group.id]"
+                :items="[
+                  { label: '未设置', value: ALL },
+                  ...group.values.map((item) => ({
+                    label: item.name,
+                    value: item.id,
+                  })),
+                ]"
+                value-key="value"
+                class="w-full"
+              />
+            </UFormField>
+          </div>
+          <UFormField label="标签" hint="可多选">
+            <USelectMenu
+              v-model="editForm.tagIds"
+              :items="tagOptions"
+              value-key="value"
+              multiple
+              class="w-full"
+              :search-input="{ placeholder: '搜索标签…' }"
+              placeholder="选择标签"
+            />
+          </UFormField>
           <div class="flex justify-end gap-2">
             <UButton
               color="neutral"
               variant="outline"
               label="取消"
               @click="editing = undefined"
-            /><UButton type="submit" label="保存" :loading="editPending" />
-          </div></form
-      ></template>
+            /><UButton
+              type="submit"
+              label="保存更改"
+              :loading="editPending"
+              :disabled="editForm.primaryCategoryId === ALL"
+            />
+          </div>
+        </form>
+      </template>
     </UModal>
 
     <UModal

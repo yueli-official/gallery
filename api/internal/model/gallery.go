@@ -85,16 +85,23 @@ type ImagePage struct {
 
 type AdminImage struct {
 	ImageCard
-	PrimaryCategoryID    string      `json:"primaryCategoryId" orm:"primary_category_id"`
-	Description          string      `json:"description" orm:"description"`
-	SourceURL            string      `json:"sourceUrl" orm:"source_url"`
-	ProcessingState      string      `json:"processingState" orm:"processing_state"`
-	ReviewState          string      `json:"reviewState" orm:"review_state"`
-	PublicationState     string      `json:"publicationState" orm:"publication_state"`
-	SafetyState          string      `json:"safetyState" orm:"safety_state"`
-	PublicRenditionReady bool        `json:"publicRenditionReady" orm:"public_rendition_ready"`
-	CreatedAt            *gtime.Time `json:"createdAt" orm:"created_at"`
-	UpdatedAt            *gtime.Time `json:"updatedAt" orm:"updated_at"`
+	PrimaryCategoryID    string                 `json:"primaryCategoryId" orm:"primary_category_id"`
+	Description          string                 `json:"description" orm:"description"`
+	SourceURL            string                 `json:"sourceUrl" orm:"source_url"`
+	ProcessingState      string                 `json:"processingState" orm:"processing_state"`
+	ReviewState          string                 `json:"reviewState" orm:"review_state"`
+	PublicationState     string                 `json:"publicationState" orm:"publication_state"`
+	SafetyState          string                 `json:"safetyState" orm:"safety_state"`
+	PublicRenditionReady bool                   `json:"publicRenditionReady" orm:"public_rendition_ready"`
+	Facets               []FacetValueAssignment `json:"facets" orm:"-"`
+	Tags                 []AdminImageTag        `json:"tags" orm:"-"`
+	CreatedAt            *gtime.Time            `json:"createdAt" orm:"created_at"`
+	UpdatedAt            *gtime.Time            `json:"updatedAt" orm:"updated_at"`
+}
+
+type AdminImageTag struct {
+	ID   string `json:"id" orm:"id"`
+	Name string `json:"name" orm:"name"`
 }
 
 type AdminImageQuery struct {
@@ -120,11 +127,18 @@ type AdminImagePage struct {
 }
 
 type AdminImageUpdateInput struct {
-	ExpectedUpdatedAt string `json:"expectedUpdatedAt"`
-	Title             string `json:"title"`
-	Description       string `json:"description"`
-	AltText           string `json:"altText"`
-	SourceURL         string `json:"sourceUrl"`
+	ExpectedUpdatedAt string                         `json:"expectedUpdatedAt"`
+	Title             string                         `json:"title"`
+	Description       string                         `json:"description"`
+	AltText           string                         `json:"altText"`
+	SourceURL         string                         `json:"sourceUrl"`
+	Classification    *AdminImageClassificationInput `json:"classification,omitempty"`
+}
+
+type AdminImageClassificationInput struct {
+	PrimaryCategoryID string   `json:"primaryCategoryId"`
+	FacetValueIDs     []string `json:"facetValueIds"`
+	TagIDs            []string `json:"tagIds"`
 }
 
 type BulkImageHideInput struct {
@@ -484,6 +498,18 @@ type AdminSubmissionPage struct {
 type SubmissionReviewInput struct {
 	Decision string `json:"decision"`
 	Note     string `json:"note"`
+}
+
+type BulkSubmissionReviewInput struct {
+	SubmissionIDs []string `json:"submissionIds"`
+	Decision      string   `json:"decision"`
+	Note          string   `json:"note"`
+}
+
+type BulkSubmissionReviewResult struct {
+	SubmissionID string `json:"submissionId"`
+	Success      bool   `json:"success"`
+	Error        string `json:"error,omitempty"`
 }
 
 type CaseInput struct {

@@ -69,13 +69,14 @@ SELECT i.id::text AS id, i.asset_id::text AS asset_id, i.title, i.description,
        COALESCE(i.source_url, '') AS source_url, i.alt_text, i.width, i.height, i.dominant_color,
        i.processing_state, i.review_state, i.publication_state, i.safety_state,
        i.public_rendition_ready, i.published_at, i.created_at, i.updated_at,
+       COALESCE(primary_category.id::text, '') AS primary_category_id,
        COALESCE(primary_category.name, '') AS primary_category,
        COALESCE(primary_category.slug, '') AS primary_category_slug,
        COALESCE(metric.view_count, 0)::bigint AS view_count,
        COALESCE(metric.favorite_count, 0)::bigint AS favorite_count
 FROM gallery_images i
 LEFT JOIN LATERAL (
-    SELECT category.name, category.slug
+    SELECT category.id, category.name, category.slug
     FROM gallery_image_primary_categories primary_assignment
     JOIN gallery_categories category ON category.id = primary_assignment.category_id
     WHERE primary_assignment.image_id = i.id
@@ -1177,7 +1178,7 @@ SELECT
 }
 
 func (p *PG) AdminImages(ctx context.Context, input model.AdminImageQuery) ([]model.AdminImage, int, error) {
-	where := []string{"TRUE"}
+	where := []string{"i.review_state IN ('approved', 'not_required')"}
 	args := []any{}
 	if input.Search != "" {
 		where, args = append(where, "(i.title ILIKE ? OR i.description ILIKE ? OR i.alt_text ILIKE ?)"), append(args, "%"+input.Search+"%", "%"+input.Search+"%", "%"+input.Search+"%")
@@ -1224,7 +1225,7 @@ func (p *PG) AdminImageCounts(ctx context.Context) (map[string]int, error) {
 		Count int    `orm:"count"`
 	}
 	var rows []row
-	if err := p.db.Ctx(ctx).Raw(`SELECT publication_state AS state, COUNT(*)::int AS count FROM gallery_images GROUP BY publication_state`).Scan(&rows); err != nil {
+	if err := p.db.Ctx(ctx).Raw(`SELECT publication_state AS state, COUNT(*)::int AS count FROM gallery_images WHERE review_state IN ('approved', 'not_required') GROUP BY publication_state`).Scan(&rows); err != nil {
 		return nil, gerror.Wrap(err, "count gallery image lifecycle states")
 	}
 	counts := map[string]int{"all": 0, "draft": 0, "published": 0, "hidden": 0, "deleted": 0}
@@ -1233,6 +1234,34 @@ func (p *PG) AdminImageCounts(ctx context.Context) (map[string]int, error) {
 		counts["all"] += item.Count
 	}
 	return counts, nil
+}
+
+func (p *PG) AdminImage(ctx context.Context, id string) (*model.AdminImage, error) {
+	record, err := p.db.GetOne(ctx, adminImageSelect+` WHERE i.id = ?::uuid AND i.review_state IN ('approved', 'not_required')`, id)
+	if err != nil {
+		return nil, gerror.Wrap(err, "query admin gallery image")
+	}
+	value, err := recordAs[model.AdminImage](record)
+	if err != nil || value == nil {
+		return value, err
+	}
+	if err := p.db.Ctx(ctx).Raw(`
+SELECT facet_value.facet_id::text AS facet_id, assignment.facet_value_id::text AS value_id
+FROM gallery_image_facet_assignments assignment
+JOIN gallery_facet_values facet_value ON facet_value.id = assignment.facet_value_id
+WHERE assignment.image_id = ?::uuid
+ORDER BY facet_value.facet_id, assignment.facet_value_id`, id).Scan(&value.Facets); err != nil {
+		return nil, gerror.Wrap(err, "query admin gallery image facets")
+	}
+	if err := p.db.Ctx(ctx).Raw(`
+SELECT tag.id::text AS id, tag.current_name AS name
+FROM gallery_image_tag_assignments assignment
+JOIN gallery_tags tag ON tag.id = assignment.tag_id
+WHERE assignment.image_id = ?::uuid
+ORDER BY tag.current_name`, id).Scan(&value.Tags); err != nil {
+		return nil, gerror.Wrap(err, "query admin gallery image tags")
+	}
+	return value, nil
 }
 
 func (p *PG) SetImagePrimaryCategory(ctx context.Context, imageID, categoryID string) error {
@@ -1264,25 +1293,85 @@ func (p *PG) SetImagePrimaryCategory(ctx context.Context, imageID, categoryID st
 }
 
 func (p *PG) UpdateAdminImage(ctx context.Context, id string, input model.AdminImageUpdateInput) (*model.AdminImage, error) {
-	record, err := p.db.GetOne(ctx, `
+	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		tx = tx.Ctx(ctx)
+		record, err := tx.GetOne(`
 UPDATE gallery_images
 SET title = ?, description = ?, alt_text = ?, source_url = NULLIF(?, ''), updated_at = NOW()
 WHERE id = ?::uuid AND updated_at = ?::timestamptz AND publication_state <> 'deleted'
-RETURNING id::text AS id, asset_id::text AS asset_id, title, description,
-          COALESCE(source_url, '') AS source_url, alt_text, width, height, dominant_color,
-          processing_state, review_state, publication_state, safety_state, public_rendition_ready,
-          published_at, created_at, updated_at`, input.Title, input.Description, input.AltText, input.SourceURL, id, input.ExpectedUpdatedAt)
-	if err != nil {
-		return nil, gerror.Wrap(err, "update admin gallery image")
-	}
-	value, err := recordAs[model.AdminImage](record)
+  AND review_state IN ('approved', 'not_required')
+RETURNING id`, input.Title, input.Description, input.AltText, input.SourceURL, id, input.ExpectedUpdatedAt)
+		if err != nil {
+			return gerror.Wrap(err, "update admin gallery image")
+		}
+		if len(record) == 0 {
+			return galleryerr.Conflict("image_version")
+		}
+		if input.Classification == nil {
+			return nil
+		}
+
+		classificationInput := input.Classification
+		category, err := tx.GetValue(`SELECT EXISTS (SELECT 1 FROM gallery_categories WHERE id = ?::uuid AND status = 'active')`, classificationInput.PrimaryCategoryID)
+		if err != nil {
+			return gerror.Wrap(err, "validate gallery image primary category")
+		}
+		if !category.Bool() {
+			return galleryerr.NotFound("category", classificationInput.PrimaryCategoryID)
+		}
+		if _, err := tx.Exec(`INSERT INTO gallery_image_category_assignments (image_id, category_id) VALUES (?::uuid, ?::uuid) ON CONFLICT DO NOTHING`, id, classificationInput.PrimaryCategoryID); err != nil {
+			return gerror.Wrap(err, "assign gallery image primary category")
+		}
+		if _, err := tx.Exec(`INSERT INTO gallery_image_primary_categories (image_id, category_id) VALUES (?::uuid, ?::uuid) ON CONFLICT (image_id) DO UPDATE SET category_id = EXCLUDED.category_id`, id, classificationInput.PrimaryCategoryID); err != nil {
+			return gerror.Wrap(err, "update gallery image primary category")
+		}
+
+		facetGroups := map[string]struct{}{}
+		for _, valueID := range classificationInput.FacetValueIDs {
+			facetID, err := tx.GetValue(`SELECT facet_id::text FROM gallery_facet_values WHERE id = ?::uuid AND status = 'active'`, valueID)
+			if err != nil {
+				return gerror.Wrap(err, "validate gallery image facet value")
+			}
+			if facetID.String() == "" {
+				return galleryerr.NotFound("facet_value", valueID)
+			}
+			if _, duplicate := facetGroups[facetID.String()]; duplicate {
+				return galleryerr.Validation("facetValueIds", "only one value may be selected for each facet")
+			}
+			facetGroups[facetID.String()] = struct{}{}
+		}
+		if _, err := tx.Exec(`DELETE FROM gallery_image_facet_assignments WHERE image_id = ?::uuid`, id); err != nil {
+			return gerror.Wrap(err, "replace gallery image facets")
+		}
+		for _, valueID := range classificationInput.FacetValueIDs {
+			if _, err := tx.Exec(`INSERT INTO gallery_image_facet_assignments (image_id, facet_value_id) VALUES (?::uuid, ?::uuid)`, id, valueID); err != nil {
+				return gerror.Wrap(err, "assign gallery image facet")
+			}
+		}
+
+		for _, tagID := range classificationInput.TagIDs {
+			tag, err := tx.GetValue(`SELECT EXISTS (SELECT 1 FROM gallery_tags WHERE id = ?::uuid AND status = 'active')`, tagID)
+			if err != nil {
+				return gerror.Wrap(err, "validate gallery image tag")
+			}
+			if !tag.Bool() {
+				return galleryerr.NotFound("tag", tagID)
+			}
+		}
+		if _, err := tx.Exec(`DELETE FROM gallery_image_tag_assignments WHERE image_id = ?::uuid`, id); err != nil {
+			return gerror.Wrap(err, "replace gallery image tags")
+		}
+		for _, tagID := range classificationInput.TagIDs {
+			if _, err := tx.Exec(`INSERT INTO gallery_image_tag_assignments (image_id, tag_id) VALUES (?::uuid, ?::uuid) ON CONFLICT DO NOTHING`, id, tagID); err != nil {
+				return gerror.Wrap(err, "assign gallery image tag")
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	if value == nil {
-		return nil, galleryerr.Conflict("image_version")
-	}
-	return value, nil
+	return p.AdminImage(ctx, id)
 }
 
 func (p *PG) ReviewQueue(ctx context.Context, input model.AdminSubmissionQuery) ([]model.Submission, int, error) {

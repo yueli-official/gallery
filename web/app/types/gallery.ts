@@ -100,6 +100,8 @@ export interface GalleryAdminImage extends GalleryImageCard {
   publicationState: "draft" | "published" | "hidden" | "deleted";
   safetyState: "pending" | "safe" | "uncertain" | "blocked" | "unavailable";
   publicRenditionReady: boolean;
+  facets: GalleryFacetAssignment[];
+  tags: Array<{ id: string; name: string }>;
   createdAt?: string;
   updatedAt?: string;
 }

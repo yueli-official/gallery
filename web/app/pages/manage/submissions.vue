@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import {
+  ManageCollectionFooter,
   ManageCollectionToolbar,
   ManageEmpty,
   ManageHeader,
+  ManagePageSelection,
   ManageTabs,
   SkeletonList,
 } from "@platform/manage/components";
+import { useManageSelection } from "@platform/manage/use-manage-selection";
 import type {
   GalleryAdminSubmissionPage,
   GallerySubmission,
@@ -17,7 +20,14 @@ const route = useRoute();
 const router = useRouter();
 const { call } = useApi();
 const hydrated = useClientHydrated();
-const page = computed(() => Math.max(1, Number(route.query.page) || 1));
+const page = computed({
+  get: () => Math.max(1, Number(route.query.page) || 1),
+  set: (value: number) => setQuery({ page: value }),
+});
+const size = computed({
+  get: () => Math.min(60, Math.max(10, Number(route.query.size) || 20)),
+  set: (value: number) => setQuery({ size: value }),
+});
 const q = computed(() => String(route.query.q || ""));
 const qDraft = ref(q.value);
 const sort = computed(() => String(route.query.sort || "oldest"));
@@ -42,7 +52,7 @@ const { data, pending, error, refresh } = await useAsyncData(
         q: q.value || undefined,
         sort: sort.value,
         page: page.value,
-        size: 20,
+        size: size.value,
         processingState: processingState.value || undefined,
         reviewState: reviewState.value || undefined,
         safetyState: safetyState.value || undefined,
@@ -51,7 +61,16 @@ const { data, pending, error, refresh } = await useAsyncData(
     }),
   {
     server: false,
-    watch: [q, sort, page, processingState, reviewState, safetyState, outcome],
+    watch: [
+      q,
+      sort,
+      page,
+      size,
+      processingState,
+      reviewState,
+      safetyState,
+      outcome,
+    ],
     default: () => ({
       items: [],
       page: 1,
@@ -98,12 +117,6 @@ const outcomeItems = [
   { label: "已撤回", value: "withdrawn" },
   { label: "失败", value: "failed" },
 ];
-const processingLabel = Object.fromEntries(
-  processingItems.slice(1).map((item) => [item.value, item.label]),
-);
-const reviewLabel = Object.fromEntries(
-  reviewItems.slice(1).map((item) => [item.value, item.label]),
-);
 const safetyLabel = Object.fromEntries(
   safetyItems.slice(1).map((item) => [item.value, item.label]),
 );
@@ -157,6 +170,43 @@ const presetItems = [
   { key: "uncertain", label: "安全不确定" },
   { key: "all", label: "全部投稿" },
 ];
+
+const reviewableItems = computed(() =>
+  data.value.items.filter((item) => submissionReviewAction(item).canApprove),
+);
+const selectionResetKey = computed(() =>
+  [
+    q.value,
+    sort.value,
+    page.value,
+    size.value,
+    processingState.value,
+    reviewState.value,
+    safetyState.value,
+    outcome.value,
+  ].join("|"),
+);
+const {
+  selectedIds,
+  selectionCount,
+  isPageSelected,
+  isPageIndeterminate,
+  isSelected,
+  toggleOne,
+  togglePage,
+  replace: replaceSelection,
+  clear: clearSelection,
+} = useManageSelection({
+  visibleIds: computed(() => reviewableItems.value.map((item) => item.id)),
+  filteredTotal: computed(() => reviewableItems.value.length),
+  resetKey: selectionResetKey,
+});
+const bulkPending = ref(false);
+const bulkResult = ref<{
+  approved: number;
+  failed: number;
+  message?: string;
+}>();
 
 function setQuery(values: Record<string, string | number | undefined>) {
   const resetsPage = !("page" in values);
@@ -241,6 +291,55 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
   } finally {
     acting.value = "";
   }
+}
+
+async function bulkApprove() {
+  if (!selectedIds.value.length) return;
+  bulkPending.value = true;
+  bulkResult.value = undefined;
+  try {
+    const response = await call<{
+      results: Array<{
+        submissionId: string;
+        success: boolean;
+        error?: string;
+      }>;
+    }>("/api/v1/gallery/admin/submissions/bulk-review", {
+      method: "POST",
+      body: {
+        submissionIds: selectedIds.value,
+        decision: "approve",
+        note: "",
+      },
+    });
+    const failed = response.results.filter((item) => !item.success);
+    replaceSelection(failed.map((item) => item.submissionId));
+    bulkResult.value = {
+      approved: response.results.length - failed.length,
+      failed: failed.length,
+    };
+    await refresh();
+  } catch (reason: any) {
+    bulkResult.value = {
+      approved: 0,
+      failed: selectedIds.value.length,
+      message: reason?.data?.message || "批量请求中断，当前选择已保留。",
+    };
+  } finally {
+    bulkPending.value = false;
+  }
+}
+
+function decisionSummary(item: GallerySubmission) {
+  if (item.failureCode || item.processingState === "failed")
+    return "媒体处理失败";
+  if (item.safetyState === "blocked") return "安全判断已阻止";
+  if (item.safetyState === "uncertain") return "需要复核安全判断";
+  if (submissionReviewAction(item).canApprove)
+    return "已完成检查，可以批准进入目录";
+  if (item.outcome === "published") return "已发布到图片目录";
+  if (item.outcome === "duplicate") return "重复内容已合并到现有图片";
+  return outcomeLabel[item.outcome] || "等待处理";
 }
 </script>
 
@@ -340,6 +439,11 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
         v-for="item in data.items"
         :key="item.id"
         class="grid grid-cols-[5rem_minmax(0,1fr)] gap-3 border-b border-default p-3 last:border-b-0 sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:p-4 xl:grid-cols-[6.5rem_minmax(0,1fr)_19rem] xl:items-start"
+        :class="
+          isSelected(item.id)
+            ? 'bg-primary/5 shadow-[inset_2px_0_var(--ui-primary)]'
+            : ''
+        "
       >
         <div
           class="relative aspect-[4/3] self-start overflow-hidden rounded-lg bg-elevated"
@@ -347,6 +451,13 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
           <GallerySubmissionPreview
             :submission-id="item.id"
             :alt="item.altText"
+          />
+          <UCheckbox
+            v-if="submissionReviewAction(item).canApprove"
+            class="absolute left-1.5 top-1.5 rounded-md bg-default/90 p-1 shadow-sm backdrop-blur"
+            :model-value="isSelected(item.id)"
+            :aria-label="`选择投稿：${item.title}`"
+            @update:model-value="toggleOne(item.id)"
           />
           <span
             class="absolute bottom-1.5 left-1.5 rounded bg-default/90 px-1.5 py-0.5 text-[11px] font-medium text-default backdrop-blur"
@@ -372,34 +483,19 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
           >
             {{ item.description }}
           </p>
-          <dl
-            class="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 text-xs sm:grid-cols-4 xl:grid-cols-2"
-          >
-            <div>
-              <dt class="text-dimmed">媒体</dt>
-              <dd class="mt-0.5 font-medium text-default">
-                {{ processingLabel[item.processingState] }}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-dimmed">人工审核</dt>
-              <dd class="mt-0.5 font-medium text-default">
-                {{ reviewLabel[item.reviewState] }}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-dimmed">安全判断</dt>
-              <dd class="mt-0.5 font-medium text-default">
-                {{ safetyLabel[item.safetyState] }}
-              </dd>
-            </div>
-            <div>
-              <dt class="text-dimmed">最终结果</dt>
-              <dd class="mt-0.5 font-medium text-default">
-                {{ outcomeLabel[item.outcome] }}
-              </dd>
-            </div>
-          </dl>
+          <p class="mt-2 flex items-center gap-1.5 text-xs text-muted">
+            <UIcon
+              :name="
+                submissionReviewAction(item).canApprove
+                  ? 'i-tabler-circle-check'
+                  : item.failureCode || item.safetyState === 'blocked'
+                    ? 'i-tabler-alert-triangle'
+                    : 'i-tabler-progress'
+              "
+              class="size-4 shrink-0"
+            />
+            {{ decisionSummary(item) }}
+          </p>
           <UAlert
             v-if="item.failureCode"
             class="mt-3"
@@ -490,28 +586,52 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
       description="切换处理、安全或结果状态可以查看历史记录。"
     />
 
-    <nav
-      v-if="data.totalPages > 1"
-      class="mt-6 flex items-center justify-center gap-3"
-      aria-label="投稿分页"
+    <ManageCollectionFooter
+      v-if="data.items.length"
+      v-model:page="page"
+      v-model:size="size"
+      :total="data.total"
+      :total-pages="Math.max(1, data.totalPages)"
+      :page-size-options="[20, 40, 60]"
+      label="投稿选择、批量审核与分页"
     >
-      <UButton
-        color="neutral"
-        variant="outline"
-        label="上一页"
-        :disabled="page <= 1"
-        @click="setQuery({ page: page - 1 })"
-      />
-      <span class="text-sm tabular-nums text-muted"
-        >{{ page }} / {{ data.totalPages }}</span
-      >
-      <UButton
-        color="neutral"
-        variant="outline"
-        label="下一页"
-        :disabled="page >= data.totalPages"
-        @click="setQuery({ page: page + 1 })"
-      />
-    </nav>
+      <template #selection>
+        <ManagePageSelection
+          v-if="reviewableItems.length"
+          :model-value="isPageSelected"
+          :indeterminate="isPageIndeterminate"
+          label="选择本页可批准投稿"
+          @update:model-value="togglePage"
+        />
+        <template v-if="selectionCount">
+          <span class="text-sm">已选 {{ selectionCount }}</span>
+          <UButton
+            size="sm"
+            icon="i-tabler-checks"
+            label="批量批准"
+            :loading="bulkPending"
+            @click="bulkApprove"
+          />
+          <UButton
+            size="sm"
+            color="neutral"
+            variant="ghost"
+            label="取消"
+            @click="clearSelection"
+          />
+        </template>
+        <span v-else class="text-xs">共 {{ data.total }} 条</span>
+        <span
+          v-if="bulkResult"
+          class="rounded-md bg-elevated px-2 py-1 text-xs"
+          :class="bulkResult.failed ? 'text-warning' : 'text-success'"
+        >
+          {{
+            bulkResult.message ||
+            `已批准 ${bulkResult.approved} 条${bulkResult.failed ? `，${bulkResult.failed} 条失败并保留选择` : ""}`
+          }}
+        </span>
+      </template>
+    </ManageCollectionFooter>
   </div>
 </template>

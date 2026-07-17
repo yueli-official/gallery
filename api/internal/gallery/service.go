@@ -54,6 +54,7 @@ type Store interface {
 	CreateCase(context.Context, model.Subject, string, model.CaseInput) (*model.Case, error)
 	AdminOverview(context.Context) (*model.AdminOverview, error)
 	AdminImages(context.Context, model.AdminImageQuery) ([]model.AdminImage, int, error)
+	AdminImage(context.Context, string) (*model.AdminImage, error)
 	AdminImageCounts(context.Context) (map[string]int, error)
 	UpdateAdminImage(context.Context, string, model.AdminImageUpdateInput) (*model.AdminImage, error)
 	SetImagePrimaryCategory(context.Context, string, string) error
@@ -1338,9 +1339,7 @@ func (s *Service) AdminImages(ctx context.Context, query model.AdminImageQuery) 
 		values = []model.AdminImage{}
 	}
 	for index := range values {
-		values[index].ID = PublicID(values[index].ID)
-		values[index].PrimaryCategoryID = PublicID(values[index].PrimaryCategoryID)
-		values[index].Metrics = model.Metrics{Views: values[index].ViewCount, Favorites: values[index].FavoriteCount}
+		normalizeAdminImage(&values[index])
 	}
 	pages := 0
 	if total > 0 {
@@ -1354,6 +1353,22 @@ func (s *Service) AdminImages(ctx context.Context, query model.AdminImageQuery) 
 		counts = map[string]int{}
 	}
 	return &model.AdminImagePage{Items: values, Page: query.Page, PageSize: query.PageSize, Total: total, TotalPages: pages, Counts: counts}, nil
+}
+
+func (s *Service) AdminImage(ctx context.Context, rawID string) (*model.AdminImage, error) {
+	id, err := DatabaseID(rawID)
+	if err != nil {
+		return nil, galleryerr.NotFound("image", rawID)
+	}
+	value, err := s.store.AdminImage(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if value == nil {
+		return nil, galleryerr.NotFound("image", rawID)
+	}
+	normalizeAdminImage(value)
+	return value, nil
 }
 
 func (s *Service) UpdateAdminImage(ctx context.Context, rawID string, input model.AdminImageUpdateInput) (*model.AdminImage, error) {
@@ -1379,11 +1394,43 @@ func (s *Service) UpdateAdminImage(ctx context.Context, rawID string, input mode
 			return nil, galleryerr.Validation("sourceUrl", "source URL must be HTTP or HTTPS")
 		}
 	}
+	if input.Classification != nil {
+		classificationInput := input.Classification
+		classificationInput.PrimaryCategoryID, err = DatabaseID(strings.TrimSpace(classificationInput.PrimaryCategoryID))
+		if err != nil {
+			return nil, galleryerr.Validation("primaryCategoryId", "an active primary category is required")
+		}
+		for index, rawValueID := range classificationInput.FacetValueIDs {
+			classificationInput.FacetValueIDs[index], err = DatabaseID(strings.TrimSpace(rawValueID))
+			if err != nil {
+				return nil, galleryerr.Validation("facetValueIds", "facet values must be UUIDs or compact UUIDs")
+			}
+		}
+		for index, rawTagID := range classificationInput.TagIDs {
+			classificationInput.TagIDs[index], err = DatabaseID(strings.TrimSpace(rawTagID))
+			if err != nil {
+				return nil, galleryerr.Validation("tagIds", "tags must be UUIDs or compact UUIDs")
+			}
+		}
+	}
 	value, err := s.store.UpdateAdminImage(ctx, id, input)
 	if value != nil {
-		value.ID = PublicID(value.ID)
+		normalizeAdminImage(value)
 	}
 	return value, err
+}
+
+func normalizeAdminImage(value *model.AdminImage) {
+	value.ID = PublicID(value.ID)
+	value.PrimaryCategoryID = PublicID(value.PrimaryCategoryID)
+	value.Metrics = model.Metrics{Views: value.ViewCount, Favorites: value.FavoriteCount}
+	for index := range value.Facets {
+		value.Facets[index].FacetID = PublicID(value.Facets[index].FacetID)
+		value.Facets[index].ValueID = PublicID(value.Facets[index].ValueID)
+	}
+	for index := range value.Tags {
+		value.Tags[index].ID = PublicID(value.Tags[index].ID)
+	}
 }
 
 func (s *Service) BulkHideImages(ctx context.Context, operator string, input model.BulkImageHideInput) []model.BulkImageActionResult {
@@ -1529,6 +1576,50 @@ func (s *Service) ReviewSubmission(ctx context.Context, operator, rawID string, 
 	}
 	normalizeSubmission(value)
 	return value, nil
+}
+
+func (s *Service) BulkReviewSubmissions(ctx context.Context, operator string, input model.BulkSubmissionReviewInput) ([]model.BulkSubmissionReviewResult, error) {
+	if len(input.SubmissionIDs) == 0 {
+		return nil, galleryerr.Validation("submissionIds", "at least one submission is required")
+	}
+	if len(input.SubmissionIDs) > 60 {
+		return nil, galleryerr.Validation("submissionIds", "at most 60 submissions can be reviewed at once")
+	}
+	input.Decision = strings.TrimSpace(input.Decision)
+	input.Note = strings.TrimSpace(input.Note)
+	if !oneOf(input.Decision, "approve", "reject") {
+		return nil, galleryerr.Validation("decision", "decision must be approve or reject")
+	}
+	if input.Decision == "reject" && input.Note == "" {
+		return nil, galleryerr.Validation("note", "a rejection note is required")
+	}
+
+	results := make([]model.BulkSubmissionReviewResult, 0, len(input.SubmissionIDs))
+	seen := make(map[string]struct{}, len(input.SubmissionIDs))
+	for _, rawID := range input.SubmissionIDs {
+		rawID = strings.TrimSpace(rawID)
+		if rawID == "" {
+			continue
+		}
+		if _, exists := seen[rawID]; exists {
+			continue
+		}
+		seen[rawID] = struct{}{}
+		result := model.BulkSubmissionReviewResult{SubmissionID: rawID}
+		if _, err := s.ReviewSubmission(ctx, operator, rawID, model.SubmissionReviewInput{
+			Decision: input.Decision,
+			Note:     input.Note,
+		}); err != nil {
+			result.Error = err.Error()
+		} else {
+			result.Success = true
+		}
+		results = append(results, result)
+	}
+	if len(results) == 0 {
+		return nil, galleryerr.Validation("submissionIds", "at least one valid submission is required")
+	}
+	return results, nil
 }
 
 func (s *Service) HideImage(ctx context.Context, operator, rawID, reason string) error {

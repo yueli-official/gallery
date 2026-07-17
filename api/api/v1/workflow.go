@@ -155,6 +155,14 @@ type ReviewSubmissionRes struct {
 	Submission model.Submission `json:"submission"`
 }
 
+type BulkReviewSubmissionsReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/submissions/bulk-review" method:"POST" tags:"Gallery admin" summary:"Approve or reject multiple ready submissions with per-item outcomes"`
+	model.BulkSubmissionReviewInput
+}
+type BulkReviewSubmissionsRes struct {
+	Results []model.BulkSubmissionReviewResult `json:"results"`
+}
+
 type PreviewSubmissionReq struct {
 	g.Meta       `path:"/api/v1/gallery/admin/submissions/{submissionId}/preview" method:"GET" tags:"Gallery admin" summary:"Get a short-lived signed submission thumbnail URL"`
 	SubmissionID string `p:"submissionId" v:"required"`
@@ -186,6 +194,14 @@ type ListAdminImagesReq struct {
 	FacetValueID     string `p:"facetValueId"`
 }
 type ListAdminImagesRes struct{ model.AdminImagePage }
+
+type GetAdminImageReq struct {
+	g.Meta  `path:"/api/v1/gallery/admin/images/{imageId}" method:"GET" tags:"Gallery admin" summary:"Get a reviewed Gallery image with editable classification"`
+	ImageID string `p:"imageId" v:"required"`
+}
+type GetAdminImageRes struct {
+	Image model.AdminImage `json:"image"`
+}
 
 type UpdateAdminImageReq struct {
 	g.Meta  `path:"/api/v1/gallery/admin/images/{imageId}" method:"PATCH" tags:"Gallery admin" summary:"Optimistically update Gallery image metadata"`

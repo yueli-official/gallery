@@ -330,6 +330,13 @@ func (f *fakeStore) AdminImages(_ context.Context, query model.AdminImageQuery) 
 	f.adminImageQuerySeen = query
 	return f.adminImages, len(f.adminImages), nil
 }
+func (f *fakeStore) AdminImage(context.Context, string) (*model.AdminImage, error) {
+	if len(f.adminImages) == 0 {
+		return nil, nil
+	}
+	value := f.adminImages[0]
+	return &value, nil
+}
 func (f *fakeStore) AdminImageCounts(context.Context) (map[string]int, error) {
 	return f.adminImageCounts, nil
 }
@@ -387,6 +394,26 @@ func TestApprovedSubmissionPublishesAssetBeforeImageBecomesPubliclyEligible(t *t
 	if store.publicRenditionReadyID != "image-1" {
 		t.Fatalf("ready image = %q", store.publicRenditionReadyID)
 	}
+}
+
+func TestBulkReviewSubmissionsApprovesValidItemsAndKeepsPerItemFailure(t *testing.T) {
+	store := &fakeStore{submission: &model.Submission{
+		ID: testCategoryID, ReviewState: "approved", Outcome: "duplicate",
+	}}
+	results, err := New(store).BulkReviewSubmissions(context.Background(), "operator-1", model.BulkSubmissionReviewInput{
+		SubmissionIDs: []string{PublicID(testCategoryID), "not-an-id", PublicID(testCategoryID)},
+		Decision:      "approve",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 2 || !results[0].Success || results[1].Success || results[1].Error == "" {
+		t.Fatalf("bulk review results = %#v", results)
+	}
+	_, err = New(store).BulkReviewSubmissions(context.Background(), "operator-1", model.BulkSubmissionReviewInput{
+		SubmissionIDs: []string{PublicID(testCategoryID)}, Decision: "reject",
+	})
+	assertCode(t, err, "common.validation_failed")
 }
 
 func TestReconcilePublishedImagesBackfillsLegacyApprovals(t *testing.T) {
