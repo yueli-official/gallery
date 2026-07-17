@@ -16,6 +16,10 @@ _Avoid_: Image、作品草稿、创作者发布
 Submission 的所有者，可以是 Identity User 或 Guest。Subject 只参与权限、认领和审计，不进入公开 Image 投影。
 _Avoid_: Creator、作者、公开上传者
 
+**Guest Claim（游客认领）**:
+Identity 签名授权把同一 Guest Subject 的投稿迁移给已登录 User 的幂等过程；它改变所有权，不改变审核结论。
+_Avoid_: 浏览器直接提交 Guest ID、自动批准投稿
+
 **Processing State（处理状态）**:
 媒体校验和预处理进度：queued、processing、ready、failed。
 _Avoid_: 审核状态、发布状态
@@ -72,6 +76,7 @@ _Avoid_: hidden、软删除 Image
 
 - 一个 Image 对应一个逻辑 Asset；需要多图时使用 Collection。
 - 公开 Image 永远不展示投稿 Subject。
+- Guest Submission 必须人工审核；登录后认领只迁移 Subject，不提升 Review State。
 - 已发布 Image 不允许替换像素；撤稿后只能重新投稿。
 - 用户收藏只有 private singleton“我的收藏”，没有多个相册或社交分享。
 - 首页是 seeded random discovery；主目录是分页固定网格。
