@@ -26,6 +26,78 @@ type guestClaimTestStore struct {
 	user  string
 }
 
+type submissionProcessingTestStore struct {
+	*fakeStore
+	claimed       []model.Submission
+	completedID   string
+	completedFact model.SubmissionAssetFacts
+	assetID       string
+}
+
+func (store *submissionProcessingTestStore) ClaimSubmissionProcessing(context.Context, int) ([]model.Submission, error) {
+	return append([]model.Submission(nil), store.claimed...), nil
+}
+
+func (store *submissionProcessingTestStore) CompleteSubmissionProcessing(_ context.Context, id string, facts model.SubmissionAssetFacts) error {
+	store.completedID = id
+	store.completedFact = facts
+	return nil
+}
+
+func (store *submissionProcessingTestStore) SubmissionAssetID(context.Context, string) (string, error) {
+	return store.assetID, nil
+}
+
+type submissionProcessingAssetPort struct {
+	preparedAssetID string
+	facts           model.SubmissionAssetFacts
+}
+
+func (*submissionProcessingAssetPort) RegisterSubmission(context.Context, string, string, string, string) error {
+	return nil
+}
+
+func (*submissionProcessingAssetPort) UnregisterSubmission(context.Context, string, string, string) error {
+	return nil
+}
+
+func (port *submissionProcessingAssetPort) PrepareSubmission(_ context.Context, assetID string) (model.SubmissionAssetFacts, error) {
+	port.preparedAssetID = assetID
+	return port.facts, nil
+}
+
+func TestProcessQueuedSubmissionPersistsAssetFactsForReviewAndDedup(t *testing.T) {
+	facts := model.SubmissionAssetFacts{
+		PreviewURL: "http://asset.test/api/v1/assets/blob/signed", ContentHash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		Mime: "image/png", Width: 1600, Height: 900,
+	}
+	store := &submissionProcessingTestStore{fakeStore: &fakeStore{}, claimed: []model.Submission{{ID: "submission-1", AssetID: "asset-1"}}}
+	assets := &submissionProcessingAssetPort{facts: facts}
+	service := New(store)
+	service.SetAssetReferencePort(assets)
+	processed, err := service.ProcessQueuedSubmissions(context.Background(), 8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if processed != 1 || assets.preparedAssetID != "asset-1" || store.completedID != "submission-1" || store.completedFact != facts {
+		t.Fatalf("processed = %d, asset = %q, completed = %q %#v", processed, assets.preparedAssetID, store.completedID, store.completedFact)
+	}
+}
+
+func TestSubmissionPreviewUsesSignedAssetRendition(t *testing.T) {
+	store := &submissionProcessingTestStore{fakeStore: &fakeStore{}, assetID: "asset-1"}
+	assets := &submissionProcessingAssetPort{facts: model.SubmissionAssetFacts{PreviewURL: "http://asset.test/api/v1/assets/blob/signed"}}
+	service := New(store)
+	service.SetAssetReferencePort(assets)
+	preview, err := service.SubmissionPreviewURL(context.Background(), "019817c8-0000-7000-8300-000000000099")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview != assets.facts.PreviewURL || assets.preparedAssetID != "asset-1" {
+		t.Fatalf("preview = %q, asset = %q", preview, assets.preparedAssetID)
+	}
+}
+
 func (store *guestClaimTestStore) ClaimGuestSubmissions(_ context.Context, guestSubject, userID string) (int64, error) {
 	store.guest = guestSubject
 	store.user = userID

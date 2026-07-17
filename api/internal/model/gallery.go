@@ -448,6 +448,14 @@ type Submission struct {
 	UpdatedAt         *gtime.Time `json:"updatedAt" orm:"updated_at"`
 }
 
+type SubmissionAssetFacts struct {
+	PreviewURL  string
+	ContentHash string
+	Mime        string
+	Width       int
+	Height      int
+}
+
 type AdminSubmissionQuery struct {
 	Search          string
 	Sort            string

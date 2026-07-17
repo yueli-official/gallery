@@ -155,6 +155,12 @@ type ReviewSubmissionRes struct {
 	Submission model.Submission `json:"submission"`
 }
 
+type PreviewSubmissionReq struct {
+	g.Meta       `path:"/api/v1/gallery/admin/submissions/{submissionId}/preview" method:"GET" tags:"Gallery admin" summary:"Redirect to a short-lived signed submission thumbnail"`
+	SubmissionID string `p:"submissionId" v:"required"`
+}
+type PreviewSubmissionRes struct{}
+
 type HideImageReq struct {
 	g.Meta  `path:"/api/v1/gallery/admin/images/{imageId}/hide" method:"POST" tags:"Gallery admin" summary:"Hide a published image"`
 	ImageID string `p:"imageId" v:"required"`

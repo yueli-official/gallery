@@ -51,6 +51,9 @@ func main() {
 		panic(fmt.Sprintf("gallery asset client: %v", err))
 	}
 	service.SetAssetReferencePort(assetPort)
+	processorCtx, stopProcessor := context.WithCancel(context.Background())
+	defer stopProcessor()
+	go runSubmissionProcessor(processorCtx, service)
 	watcher, watcherErr := classificationwatcher.Start(g.DB().GetConfig(), func() {
 		refreshCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
@@ -73,4 +76,23 @@ func main() {
 	server.Configure(httpServer, server.Deps{Gallery: service, Verifier: verifier})
 	g.Log().Info(ctx, "gallery service starting")
 	httpServer.Run()
+}
+
+func runSubmissionProcessor(ctx context.Context, service *galleryservice.Service) {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		processed, err := service.ProcessQueuedSubmissions(ctx, 8)
+		if err != nil && ctx.Err() == nil {
+			g.Log().Warning(ctx, "gallery submission processing batch failed", "error", err)
+		}
+		if processed >= 8 {
+			continue
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }

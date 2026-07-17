@@ -79,6 +79,13 @@ type Service struct {
 type AssetReferencePort interface {
 	RegisterSubmission(context.Context, string, string, string, string) error
 	UnregisterSubmission(context.Context, string, string, string) error
+	PrepareSubmission(context.Context, string) (model.SubmissionAssetFacts, error)
+}
+
+type SubmissionProcessingStore interface {
+	ClaimSubmissionProcessing(context.Context, int) ([]model.Submission, error)
+	CompleteSubmissionProcessing(context.Context, string, model.SubmissionAssetFacts) error
+	SubmissionAssetID(context.Context, string) (string, error)
 }
 
 type GuestClaimStore interface {
@@ -96,6 +103,52 @@ func New(store Store) *Service {
 }
 
 func (s *Service) SetAssetReferencePort(port AssetReferencePort) { s.assets = port }
+
+func (s *Service) ProcessQueuedSubmissions(ctx context.Context, limit int) (int, error) {
+	store, ok := s.store.(SubmissionProcessingStore)
+	if !ok || s.assets == nil {
+		return 0, galleryerr.NotInitialized("submission_processor")
+	}
+	limit = bounded(limit, 1, 32, 8)
+	claimed, err := store.ClaimSubmissionProcessing(ctx, limit)
+	if err != nil {
+		return 0, err
+	}
+	for _, submission := range claimed {
+		facts, prepareErr := s.assets.PrepareSubmission(ctx, submission.AssetID)
+		if prepareErr != nil {
+			_ = s.store.FailSubmission(ctx, submission.ID, "asset_processing_failed")
+			continue
+		}
+		if err := store.CompleteSubmissionProcessing(ctx, submission.ID, facts); err != nil {
+			return len(claimed), err
+		}
+	}
+	return len(claimed), nil
+}
+
+func (s *Service) SubmissionPreviewURL(ctx context.Context, rawID string) (string, error) {
+	id, err := DatabaseID(rawID)
+	if err != nil {
+		return "", galleryerr.NotFound("submission", rawID)
+	}
+	store, ok := s.store.(SubmissionProcessingStore)
+	if !ok || s.assets == nil {
+		return "", galleryerr.NotInitialized("submission_preview")
+	}
+	assetID, err := store.SubmissionAssetID(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	if assetID == "" {
+		return "", galleryerr.NotFound("submission", rawID)
+	}
+	facts, err := s.assets.PrepareSubmission(ctx, assetID)
+	if err != nil {
+		return "", err
+	}
+	return facts.PreviewURL, nil
+}
 
 func (s *Service) ClaimGuestSubmissions(ctx context.Context, guestSubject, userID string) (int64, error) {
 	guestSubject = strings.TrimSpace(guestSubject)

@@ -345,7 +345,7 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
           class="relative aspect-[4/3] self-start overflow-hidden rounded-lg bg-elevated"
         >
           <img
-            :src="galleryRendition(item.assetId, 'thumbnail')"
+            :src="submissionPreviewURL(item.id)"
             :alt="item.altText"
             class="aspect-[4/3] size-full object-cover"
           />
@@ -431,12 +431,9 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
               v-if="
                 item.reviewState === 'pending' && item.outcome === 'pending'
               "
-              label="批准进入目录"
+              :label="submissionReviewAction(item).label"
               :loading="acting === item.id"
-              :disabled="
-                item.processingState !== 'ready' ||
-                !['safe', 'uncertain'].includes(item.safetyState)
-              "
+              :disabled="!submissionReviewAction(item).canApprove"
               @click="review(item, 'approve')"
             />
             <UButton
@@ -449,6 +446,12 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
               aria-label="查看公开图片"
             />
           </div>
+          <p
+            v-if="submissionReviewAction(item).reason"
+            class="mt-2 text-xs leading-5 text-muted xl:text-right"
+          >
+            {{ submissionReviewAction(item).reason }}
+          </p>
           <details
             v-if="item.reviewState === 'pending' && item.outcome === 'pending'"
             class="group mt-3 rounded-lg border border-default bg-elevated/35 px-3 py-2"

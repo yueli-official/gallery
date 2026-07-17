@@ -2,7 +2,10 @@ package controller
 
 import (
 	"context"
+	"net/http"
 	"strings"
+
+	"github.com/gogf/gf/v2/net/ghttp"
 
 	"platform/gokit/authjwt"
 	v1 "platform/products/gallery/api/api/v1"
@@ -212,6 +215,22 @@ func (c *Admin) ReviewSubmission(ctx context.Context, req *v1.ReviewSubmissionRe
 		return nil, err
 	}
 	return &v1.ReviewSubmissionRes{Submission: *value}, nil
+}
+
+func (c *Admin) PreviewSubmission(ctx context.Context, req *v1.PreviewSubmissionReq) (*v1.PreviewSubmissionRes, error) {
+	if _, err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	previewURL, err := c.service.SubmissionPreviewURL(ctx, req.SubmissionID)
+	if err != nil {
+		return nil, err
+	}
+	response := ghttp.RequestFromCtx(ctx).Response
+	response.Header().Set("Cache-Control", "private, no-store")
+	response.Header().Set("Location", previewURL)
+	response.WriteHeader(http.StatusFound)
+	response.Write([]byte("found"))
+	return nil, nil
 }
 
 func (c *Admin) HideImage(ctx context.Context, req *v1.HideImageReq) (*v1.HideImageRes, error) {

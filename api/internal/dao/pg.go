@@ -1070,6 +1070,58 @@ WHERE id = ?::uuid AND outcome = 'pending'`, code, id)
 	return gerror.Wrap(err, "fail gallery submission")
 }
 
+func (p *PG) ClaimSubmissionProcessing(ctx context.Context, limit int) ([]model.Submission, error) {
+	var values []model.Submission
+	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		return tx.Ctx(ctx).Raw(`
+WITH claimed AS (
+    SELECT id
+    FROM gallery_submissions
+    WHERE processing_state = 'queued' AND outcome = 'pending'
+    ORDER BY created_at, id
+    FOR UPDATE SKIP LOCKED
+    LIMIT ?
+)
+UPDATE gallery_submissions submission
+SET processing_state = 'processing', failure_code = '', updated_at = NOW()
+FROM claimed
+WHERE submission.id = claimed.id
+RETURNING submission.id::text AS id, submission.asset_id::text AS asset_id,
+          submission.title, submission.alt_text, submission.processing_state,
+          submission.review_state, submission.safety_state, submission.outcome,
+          submission.created_at, submission.updated_at`, limit).Scan(&values)
+	})
+	return values, gerror.Wrap(err, "claim gallery submission processing")
+}
+
+func (p *PG) CompleteSubmissionProcessing(ctx context.Context, id string, facts model.SubmissionAssetFacts) error {
+	result, err := p.db.Exec(ctx, `
+UPDATE gallery_submissions
+SET processing_state = 'ready', safety_state = 'uncertain', width = ?, height = ?,
+    exact_sha256 = decode(?, 'hex'), public_rendition_ready = TRUE,
+    failure_code = '', updated_at = NOW()
+WHERE id = ?::uuid AND processing_state = 'processing' AND outcome = 'pending'`, facts.Width, facts.Height, facts.ContentHash, id)
+	if err != nil {
+		return gerror.Wrap(err, "complete gallery submission processing")
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return gerror.Wrap(err, "read gallery submission processing result")
+	}
+	if rows == 0 {
+		return galleryerr.InvalidState("submission", "not_processing")
+	}
+	return nil
+}
+
+func (p *PG) SubmissionAssetID(ctx context.Context, id string) (string, error) {
+	value, err := p.db.GetValue(ctx, `SELECT asset_id::text FROM gallery_submissions WHERE id = ?::uuid`, id)
+	if err != nil {
+		return "", gerror.Wrap(err, "get gallery submission asset")
+	}
+	return value.String(), nil
+}
+
 func (p *PG) CreateCase(ctx context.Context, subject model.Subject, imageID string, input model.CaseInput) (*model.Case, error) {
 	const query = `
 INSERT INTO gallery_cases (image_id, kind, reporter_kind, reporter_id, reason, description, proposed_source_url)
@@ -1313,11 +1365,16 @@ RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
 		if current.ProcessingState != "ready" || !current.PublicRenditionReady || current.Width <= 0 || current.Height <= 0 || !oneOf(current.SafetyState, "safe", "uncertain") {
 			return nil
 		}
+		if _, err := tx.Ctx(ctx).Exec(`
+SELECT pg_advisory_xact_lock(hashtextextended(encode(exact_sha256, 'hex'), 0))
+FROM gallery_submissions WHERE id = ?::uuid`, id); err != nil {
+			return gerror.Wrap(err, "lock gallery exact duplicate hash")
+		}
 		duplicateValue, err := tx.GetValue(`
 SELECT public_image.id::text
 FROM gallery_submissions source
 JOIN gallery_images public_image ON public_image.exact_sha256 = source.exact_sha256
-WHERE source.id = ?::uuid AND source.exact_sha256 IS NOT NULL AND `+strings.ReplaceAll(eligibleImage, "i.", "public_image.")+`
+WHERE source.id = ?::uuid AND source.exact_sha256 IS NOT NULL
 LIMIT 1`, id)
 		if err != nil {
 			return gerror.Wrap(err, "find exact gallery duplicate")
