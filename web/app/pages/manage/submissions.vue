@@ -344,10 +344,9 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
         <div
           class="relative aspect-[4/3] self-start overflow-hidden rounded-lg bg-elevated"
         >
-          <img
-            :src="submissionPreviewURL(item.id)"
+          <GallerySubmissionPreview
+            :submission-id="item.id"
             :alt="item.altText"
-            class="aspect-[4/3] size-full object-cover"
           />
           <span
             class="absolute bottom-1.5 left-1.5 rounded bg-default/90 px-1.5 py-0.5 text-[11px] font-medium text-default backdrop-blur"
