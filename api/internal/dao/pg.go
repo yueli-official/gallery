@@ -938,6 +938,20 @@ FOR SHARE`)
 		if len(catalog) == 0 || catalog["revision"].Uint64() != input.Classification.CatalogRevision {
 			return galleryerr.Conflict("classification_revision")
 		}
+		if _, err := tx.Ctx(ctx).Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?, 0))`, subject.Kind+"\x00"+subject.ID+"\x00"+input.AssetID); err != nil {
+			return gerror.Wrap(err, "lock gallery pending submission identity")
+		}
+		pending, err := tx.GetValue(`
+SELECT EXISTS (
+    SELECT 1 FROM gallery_submissions
+    WHERE subject_kind = ? AND subject_id = ? AND asset_id = ?::uuid AND outcome = 'pending'
+)`, subject.Kind, subject.ID, input.AssetID)
+		if err != nil {
+			return gerror.Wrap(err, "find pending gallery asset submission")
+		}
+		if pending.Bool() {
+			return galleryerr.Conflict("submission")
+		}
 		if len(input.Classification.TagCreations) != 0 {
 			return galleryerr.NotInitialized("classification_tag_creation")
 		}
@@ -1077,7 +1091,8 @@ func (p *PG) ClaimSubmissionProcessing(ctx context.Context, limit int) ([]model.
 WITH claimed AS (
     SELECT id
     FROM gallery_submissions
-    WHERE processing_state = 'queued' AND outcome = 'pending'
+    WHERE outcome = 'pending'
+      AND (processing_state = 'queued' OR (processing_state = 'processing' AND updated_at < NOW() - INTERVAL '5 minutes'))
     ORDER BY created_at, id
     FOR UPDATE SKIP LOCKED
     LIMIT ?
