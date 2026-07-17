@@ -2,6 +2,8 @@ package dao
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -938,7 +940,7 @@ FOR SHARE`)
 		if len(catalog) == 0 || catalog["revision"].Uint64() != input.Classification.CatalogRevision {
 			return galleryerr.Conflict("classification_revision")
 		}
-		if _, err := tx.Ctx(ctx).Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?, 0))`, subject.Kind+"\x00"+subject.ID+"\x00"+input.AssetID); err != nil {
+		if _, err := tx.Ctx(ctx).Exec(`SELECT pg_advisory_xact_lock(?)`, submissionLockKey(subject.Kind, subject.ID, input.AssetID)); err != nil {
 			return gerror.Wrap(err, "lock gallery pending submission identity")
 		}
 		pending, err := tx.GetValue(`
@@ -1010,6 +1012,11 @@ VALUES (?::uuid, ?, ?)`, value.ID, proposal.DisplayValue, proposal.LookupKey); e
 		return nil, gerror.Wrap(err, "create gallery submission")
 	}
 	return value, nil
+}
+
+func submissionLockKey(subjectKind, subjectID, assetID string) int64 {
+	sum := sha256.Sum256([]byte(subjectKind + "\x00" + subjectID + "\x00" + assetID))
+	return int64(binary.BigEndian.Uint64(sum[:8]))
 }
 
 func (p *PG) MySubmissions(ctx context.Context, subject model.Subject, input model.MySubmissionQuery) ([]model.Submission, int, error) {
