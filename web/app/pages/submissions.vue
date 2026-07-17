@@ -112,6 +112,19 @@ const stateColor = (value: string) =>
     withdrawn: "neutral",
   })[value] || "warning") as any;
 
+function submissionSummary(submission: GallerySubmission) {
+  if (submission.failureCode)
+    return failureLabel[submission.failureCode] || submission.failureCode;
+  if (submission.outcome !== "pending")
+    return stateLabel[submission.outcome] || submission.outcome;
+  if (submission.processingState !== "ready")
+    return processingLabel[submission.processingState] || "等待媒体处理";
+  if (submission.safetyState !== "safe")
+    return safetyLabel[submission.safetyState] || "等待安全判断";
+  if (submission.reviewState === "pending") return "等待人工审核";
+  return reviewLabel[submission.reviewState] || "等待发布";
+}
+
 function setQuery(
   key: "outcome" | "processingState" | "reviewState",
   value: string,
@@ -255,30 +268,10 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
               :label="stateLabel[submission.outcome] || submission.outcome"
             />
           </div>
-          <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-            <span
-              ><UIcon name="i-tabler-settings" class="mr-1 inline size-3.5" />{{
-                processingLabel[submission.processingState] ||
-                submission.processingState
-              }}</span
-            >
-            <span
-              ><UIcon
-                name="i-tabler-shield-check"
-                class="mr-1 inline size-3.5"
-              />{{
-                safetyLabel[submission.safetyState] || submission.safetyState
-              }}</span
-            >
-            <span
-              ><UIcon
-                name="i-tabler-user-check"
-                class="mr-1 inline size-3.5"
-              />{{
-                reviewLabel[submission.reviewState] || submission.reviewState
-              }}</span
-            >
-          </div>
+          <p class="mt-2 flex items-center gap-1.5 text-xs text-muted">
+            <UIcon name="i-tabler-progress-check" class="size-4 shrink-0" />
+            {{ submissionSummary(submission) }}
+          </p>
           <div
             v-if="submission.failureCode || submission.reviewNote"
             class="mt-3 rounded-lg bg-elevated px-3 py-2 text-sm leading-6 text-toned"

@@ -64,13 +64,8 @@ const { data, pending, error, refresh } = await useAsyncData(
                 <span class="size-2 rounded-full bg-success" />
                 当前策略可用
               </div>
-              <p
-                class="mt-5 text-xs font-semibold uppercase tracking-[.14em] text-primary"
-              >
-                Homepage exploration
-              </p>
               <h2
-                class="mt-2 text-2xl font-semibold tracking-tight text-highlighted"
+                class="mt-5 text-xl font-semibold tracking-tight text-highlighted"
               >
                 多样性优先的首页探索
               </h2>
@@ -114,9 +109,6 @@ const { data, pending, error, refresh } = await useAsyncData(
                 icon="i-tabler-external-link"
                 label="打开这批首页"
               />
-              <span class="max-w-48 truncate font-mono text-xs text-dimmed"
-                >seed {{ data.seed }}</span
-              >
             </div>
           </div>
         </div>
@@ -126,17 +118,8 @@ const { data, pending, error, refresh } = await useAsyncData(
         class="grid gap-5 rounded-xl border border-default bg-default p-5 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-center lg:p-6"
       >
         <div class="min-w-0">
-          <p
-            class="text-xs font-semibold uppercase tracking-[.14em] text-primary"
-          >
-            Rankings
-          </p>
-          <h2 class="mt-2 text-lg font-semibold text-highlighted">
-            排行榜只回答“最近值得回看什么”
-          </h2>
-          <p class="mt-2 max-w-3xl text-sm leading-6 text-muted">
-            浏览、唯一访客、收藏与分享按时间窗口聚合。举报只进入信任处理单，不公开展示，也不会仅凭次数自动下架。
-          </p>
+          <h2 class="text-lg font-semibold text-highlighted">公开排行榜</h2>
+          <p class="mt-1 text-sm text-muted">按近期有效浏览与收藏聚合。</p>
         </div>
         <div class="flex flex-wrap items-center gap-2 lg:justify-end">
           <span class="rounded-md bg-elevated px-2.5 py-1.5 text-xs text-muted"

@@ -451,13 +451,13 @@ func TestSubmissionOptionsKeepActiveClassificationOnEmptyGallery(t *testing.T) {
 		t.Fatalf("submission options requested public candidate counts %d times", store.candidateCountCalls)
 	}
 	if !reflect.DeepEqual(options.Categories, []model.ClassificationNode{{
-		ID: testCategoryID, Slug: "wallpaper", Name: "壁纸",
+		ID: PublicID(testCategoryID), Slug: "wallpaper", Name: "壁纸",
 	}}) {
 		t.Fatalf("categories = %#v", options.Categories)
 	}
 	if !reflect.DeepEqual(options.Facets, []model.ClassificationFacet{{
-		ID: testFacetID, Slug: "scene", Name: "场景",
-		Values: []model.ClassificationNode{{ID: testValueID, Slug: "landscape", Name: "风景"}},
+		ID: PublicID(testFacetID), Slug: "scene", Name: "场景",
+		Values: []model.ClassificationNode{{ID: PublicID(testValueID), Slug: "landscape", Name: "风景"}},
 	}}) {
 		t.Fatalf("facets = %#v", options.Facets)
 	}

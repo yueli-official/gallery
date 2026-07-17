@@ -266,12 +266,7 @@ async function openPicker(): Promise<void> {
         class="gallery-manage-panel order-2 space-y-5 xl:sticky xl:top-20"
       >
         <div>
-          <p
-            class="text-xs font-semibold uppercase tracking-[.14em] text-primary"
-          >
-            Publish
-          </p>
-          <h2 class="mt-2 text-lg font-semibold text-highlighted">专题设置</h2>
+          <h2 class="text-lg font-semibold text-highlighted">专题设置</h2>
           <p class="mt-1 text-sm text-muted">
             私有状态适合编排；公开前确认名称、封面和说明。
           </p>
@@ -353,14 +348,7 @@ async function openPicker(): Promise<void> {
       <section class="gallery-manage-panel order-1">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p
-              class="text-xs font-semibold uppercase tracking-[.14em] text-primary"
-            >
-              Editorial sequence
-            </p>
-            <h2 class="mt-2 text-lg font-semibold text-highlighted">
-              图片与顺序
-            </h2>
+            <h2 class="text-lg font-semibold text-highlighted">图片与顺序</h2>
             <p class="mt-1 text-sm text-muted">
               {{ collection.itemCount }} 张。顺序决定公开专题的阅读节奏。
             </p>

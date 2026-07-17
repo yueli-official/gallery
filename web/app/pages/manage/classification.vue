@@ -2,7 +2,6 @@
 import {
   ManageCollectionToolbar,
   ManageHeader,
-  ManageTabs,
   SkeletonList,
 } from "@platform/manage/components";
 import type {
@@ -416,7 +415,19 @@ async function reviewTagProposal(
       </template>
     </ManageHeader>
 
-    <ManageTabs v-model="section" :items="tabs" class="mb-4 lg:hidden" />
+    <USelect
+      v-model="section"
+      :items="
+        tabs.map((item) => ({
+          label: `${item.label} · ${item.count}`,
+          value: item.key,
+        }))
+      "
+      value-key="value"
+      icon="i-tabler-category"
+      class="mb-4 w-full lg:hidden"
+      aria-label="选择目录治理任务"
+    />
     <div class="grid gap-6 lg:grid-cols-[13.5rem_minmax(0,1fr)] lg:items-start">
       <aside class="hidden lg:block lg:sticky lg:top-20">
         <nav class="space-y-1" aria-label="目录治理任务">

@@ -85,15 +85,18 @@
       },
       {
         "key": "manage-collection-detail",
-        "path": "/manage/collections/019b6000-0000-7000-9000-000000000001",
+        "path": "/manage/collections",
         "readySelector": "text=图片与顺序",
         "authenticated": true,
-        "viewports": ["mobile", "desktop"]
+        "viewports": ["mobile", "desktop"],
+        "actions": [
+          { "role": "link", "name": "编辑专题：安静的蓝色时刻" }
+        ]
       },
       {
         "key": "manage-images",
         "path": "/manage/images",
-        "readySelector": "text=管理图片生命周期、分类和质量异常",
+        "readySelector": "text=管理已审核图片的公开状态、分类、维度与标签",
         "authenticated": true,
         "viewports": ["mobile", "desktop"]
       },
@@ -124,6 +127,16 @@
         "readySelector": "text=批量投稿样本",
         "authenticated": true,
         "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "review-bulk-selection",
+        "path": "/manage/submissions",
+        "readySelector": "text=已选 20",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"],
+        "actions": [
+          { "role": "checkbox", "name": "选择本页可批准投稿" }
+        ]
       },
       {
         "key": "case-queue",

@@ -256,7 +256,7 @@ h3 {
   color: var(--ui-text-highlighted);
 }
 .gallery-section {
-  padding-block: clamp(2.8rem, 7vw, 6rem) 0;
+  padding-block: clamp(2rem, 4vw, 3.75rem) 0;
 }
 .gallery-section-header {
   display: flex;
@@ -578,7 +578,7 @@ h3 {
 }
 .gallery-upload-field {
   display: grid;
-  min-height: 32rem;
+  min-height: 22rem;
   cursor: pointer;
   place-items: center;
   overflow: hidden;
@@ -904,7 +904,7 @@ h3 {
 
 .gallery-empty {
   display: grid;
-  min-height: 30rem;
+  min-height: 22rem;
   grid-template-columns: minmax(0, 0.9fr) minmax(18rem, 1.1fr);
   align-items: center;
   gap: clamp(2rem, 6vw, 7rem);
@@ -1092,7 +1092,7 @@ h3 {
     padding: 1.25rem;
   }
   .gallery-empty-visual {
-    max-height: 16rem;
+    max-height: 12rem;
   }
   .gallery-page-header {
     flex-direction: column;
@@ -1111,7 +1111,7 @@ h3 {
     align-items: start;
   }
   .gallery-upload-field {
-    min-height: 24rem;
+    min-height: 18rem;
   }
   .gallery-collection-hero {
     grid-template-columns: 1fr;

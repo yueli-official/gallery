@@ -1116,7 +1116,7 @@ func categoryCandidates(values []classification.CandidateNode) []model.Classific
 	result := make([]model.ClassificationNode, 0, len(values))
 	for _, value := range values {
 		result = append(result, model.ClassificationNode{
-			ID: value.ID, ParentID: value.ParentID, Slug: value.Slug, Name: value.Name,
+			ID: PublicID(value.ID), ParentID: PublicID(value.ParentID), Slug: value.Slug, Name: value.Name,
 			Count: value.Count, Selected: value.Selected,
 		})
 	}
@@ -1127,7 +1127,7 @@ func facetCandidates(values []classification.CandidateFacet) []model.Classificat
 	result := make([]model.ClassificationFacet, 0, len(values))
 	for _, value := range values {
 		result = append(result, model.ClassificationFacet{
-			ID: value.ID, Slug: value.Slug, Name: value.Name, Values: categoryCandidates(value.Values),
+			ID: PublicID(value.ID), Slug: value.Slug, Name: value.Name, Values: categoryCandidates(value.Values),
 		})
 	}
 	return result

@@ -313,7 +313,7 @@ onBeforeUnmount(() =>
 
         <label
           v-if="!queue.length"
-          class="gallery-upload-field group min-h-[26rem] focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-primary"
+          class="gallery-upload-field group min-h-[18rem] focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-primary sm:min-h-[22rem]"
         >
           <input
             type="file"
