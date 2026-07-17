@@ -12,6 +12,14 @@ type JWKS struct {
 	Audience string
 }
 
+type AssetClient struct {
+	BaseURL      string
+	TokenURL     string
+	ClientID     string
+	ClientSecret string
+	Scope        string
+}
+
 func LoadJWKS(ctx context.Context) JWKS {
 	return JWKS{
 		URL:      g.Cfg().MustGet(ctx, "gallery.jwks.url", "http://localhost:8081/oauth2/jwks.json").String(),
@@ -30,4 +38,14 @@ func SiteSlug(ctx context.Context) string {
 
 func AssetBaseURL(ctx context.Context) string {
 	return g.Cfg().MustGet(ctx, "gallery.asset.baseUrl", "http://localhost:8082").String()
+}
+
+func LoadAssetClient(ctx context.Context) AssetClient {
+	return AssetClient{
+		BaseURL:      AssetBaseURL(ctx),
+		TokenURL:     g.Cfg().MustGet(ctx, "gallery.asset.tokenUrl", "http://localhost:8081/oauth2/token").String(),
+		ClientID:     g.Cfg().MustGet(ctx, "gallery.asset.clientId").String(),
+		ClientSecret: g.Cfg().MustGet(ctx, "gallery.asset.clientSecret").String(),
+		Scope:        g.Cfg().MustGet(ctx, "gallery.asset.scope", "asset:sign").String(),
+	}
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -41,7 +42,15 @@ func main() {
 	}
 
 	service := galleryservice.New(dao.NewPG(g.DB()))
-	service.SetAssetReferencePort(assetclient.NewHTTP(appconfig.AssetBaseURL(ctx), appconfig.SiteSlug(ctx)))
+	assetCfg := appconfig.LoadAssetClient(ctx)
+	assetPort, err := assetclient.NewHTTP(assetclient.Config{
+		BaseURL: assetCfg.BaseURL, TokenURL: assetCfg.TokenURL, ClientID: assetCfg.ClientID,
+		ClientSecret: assetCfg.ClientSecret, Scope: assetCfg.Scope, SiteKey: appconfig.SiteSlug(ctx),
+	})
+	if err != nil {
+		panic(fmt.Sprintf("gallery asset client: %v", err))
+	}
+	service.SetAssetReferencePort(assetPort)
 	watcher, watcherErr := classificationwatcher.Start(g.DB().GetConfig(), func() {
 		refreshCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
