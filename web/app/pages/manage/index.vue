@@ -222,7 +222,7 @@ const workspaces = [
                     class="text-sm font-semibold tabular-nums"
                     :class="
                       priority.tone === 'error'
-                        ? 'text-error'
+                        ? 'text-highlighted'
                         : priority.tone === 'warning'
                           ? 'text-highlighted'
                           : 'text-primary'

@@ -40,10 +40,28 @@ if (import.meta.server && error.value) {
 
 const image = computed(() => data.value?.image);
 const related = computed(() => relatedData.value?.items || []);
-const sequence = ref(createViewerSequence(imageId.value));
-const candidatePool = ref<GalleryImageCard[]>([]);
+const navigationSession = useState<{
+  sequence: ReturnType<typeof createViewerSequence>;
+  candidates: GalleryImageCard[];
+}>("gallery-viewer-navigation", () => ({
+  sequence: createViewerSequence(imageId.value),
+  candidates: [],
+}));
+const sequence = computed({
+  get: () => navigationSession.value.sequence,
+  set: (value) => {
+    navigationSession.value.sequence = value;
+  },
+});
+const candidatePool = computed({
+  get: () => navigationSession.value.candidates,
+  set: (value) => {
+    navigationSession.value.candidates = value;
+  },
+});
 const continuationPending = ref(false);
 const closeTarget = ref("/images");
+const navigationReady = ref(false);
 
 function mergeCandidates(items: GalleryImageCard[]): void {
   const byId = new Map(candidatePool.value.map((item) => [item.id, item]));
@@ -108,6 +126,7 @@ watch(
 );
 
 onMounted(() => {
+  navigationReady.value = true;
   const back = window.history.state?.back;
   closeTarget.value = viewerCloseTarget(
     typeof back === "string" ? back : undefined,
@@ -153,6 +172,10 @@ useHead(() =>
 );
 
 function closeViewer(): void {
+  navigationSession.value = {
+    sequence: createViewerSequence(imageId.value),
+    candidates: [],
+  };
   void router.replace(closeTarget.value);
 }
 
@@ -164,10 +187,19 @@ function navigate(targetId: string): void {
 function retry(): void {
   void Promise.all([refresh(), refreshRelated()]);
 }
+
+onBeforeRouteLeave((to) => {
+  if (/^\/images\/[^/]+/.test(to.path)) return;
+  navigationSession.value = {
+    sequence: createViewerSequence(imageId.value),
+    candidates: [],
+  };
+});
 </script>
 
 <template>
   <GalleryViewer
+    :data-navigation-ready="navigationReady ? 'true' : 'false'"
     :image="image"
     :status="status"
     :failed="Boolean(error)"

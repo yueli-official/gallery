@@ -65,6 +65,12 @@
         "viewports": ["mobile", "desktop"]
       },
       {
+        "key": "viewer",
+        "path": "/images/AZsQAAAAcACQAAAAAAAAAQ",
+        "readySelector": ".gallery-viewer.has-image",
+        "viewports": ["mobile", "desktop"]
+      },
+      {
         "key": "manage-collections",
         "path": "/manage/collections",
         "readySelector": "text=下期专题草稿",
