@@ -59,6 +59,7 @@ type Store interface {
 	SetImagePrimaryCategory(context.Context, string, string) error
 	ReviewQueue(context.Context, model.AdminSubmissionQuery) ([]model.Submission, int, error)
 	ReviewSubmission(context.Context, string, string, model.SubmissionReviewInput) (*model.Submission, error)
+	MarkImagePublicRenditionReady(context.Context, string) error
 	HideImage(context.Context, string, string, string) error
 	Cases(context.Context, model.AdminCaseQuery) ([]model.Case, int, error)
 	ResolveCase(context.Context, string, string, model.CaseResolutionInput) (*model.Case, error)
@@ -80,6 +81,7 @@ type AssetReferencePort interface {
 	RegisterSubmission(context.Context, string, string, string, string) error
 	UnregisterSubmission(context.Context, string, string, string) error
 	PrepareSubmission(context.Context, string) (model.SubmissionAssetFacts, error)
+	PublishImage(context.Context, string, string, string) error
 }
 
 type SubmissionProcessingStore interface {
@@ -1478,6 +1480,14 @@ func (s *Service) ReviewSubmission(ctx context.Context, operator, rawID string, 
 	}
 	if value == nil {
 		return nil, galleryerr.InvalidState("submission", "not_reviewable")
+	}
+	if input.Decision == "approve" && value.Outcome == "published" && value.ImageID != "" && s.assets != nil {
+		if err := s.assets.PublishImage(ctx, value.AssetID, value.ImageID, value.Title); err != nil {
+			return nil, err
+		}
+		if err := s.store.MarkImagePublicRenditionReady(ctx, value.ImageID); err != nil {
+			return nil, err
+		}
 	}
 	normalizeSubmission(value)
 	return value, nil

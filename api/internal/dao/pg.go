@@ -1364,7 +1364,13 @@ SELECT id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
 FROM gallery_submissions WHERE id = ?::uuid FOR UPDATE`, id).Scan(&current); err != nil {
 			return gerror.Wrap(err, "lock gallery submission review")
 		}
-		if current == nil || current.ReviewState != "pending" || current.Outcome != "pending" {
+		if current == nil {
+			return nil
+		}
+		if current.ReviewState != "pending" || current.Outcome != "pending" {
+			if input.Decision == "approve" && current.ReviewState == "approved" && current.Outcome == "published" && current.ImageID != "" {
+				value = &current.Submission
+			}
 			return nil
 		}
 		if input.Decision == "reject" {
@@ -1412,7 +1418,7 @@ INSERT INTO gallery_images (
     public_rendition_ready, exact_sha256, pdq_hash, published_at
 )
 SELECT asset_id, id, title, description, source_url, alt_text, width, height,
-       dominant_color, 'ready', 'approved', 'published', 'safe', TRUE, exact_sha256, pdq_hash, NOW()
+       dominant_color, 'ready', 'approved', 'published', 'safe', FALSE, exact_sha256, pdq_hash, NOW()
 FROM gallery_submissions WHERE id = ?::uuid
 RETURNING id::text AS id`, id)
 			if err != nil {
@@ -1467,6 +1473,24 @@ RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
 		return err
 	})
 	return value, err
+}
+
+func (p *PG) MarkImagePublicRenditionReady(ctx context.Context, imageID string) error {
+	result, err := p.db.Exec(ctx, `
+UPDATE gallery_images
+SET public_rendition_ready = TRUE, updated_at = NOW()
+WHERE id = ?::uuid AND publication_state = 'published'`, imageID)
+	if err != nil {
+		return gerror.Wrap(err, "mark gallery image public rendition ready")
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return gerror.Wrap(err, "read gallery rendition readiness result")
+	}
+	if rows == 0 {
+		return galleryerr.InvalidState("image", "not_published")
+	}
+	return nil
 }
 
 func (p *PG) HideImage(ctx context.Context, operator, id, reason string) error {

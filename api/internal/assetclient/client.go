@@ -72,6 +72,12 @@ func (c *HTTP) UnregisterSubmission(ctx context.Context, _ string, assetID, subm
 	return c.referenceRequest(ctx, http.MethodDelete, c.baseURL+"/api/v1/asset-references?"+query.Encode(), nil)
 }
 
+func (c *HTTP) PublishImage(ctx context.Context, assetID, imageID, title string) error {
+	return c.referenceRequest(ctx, http.MethodPost, c.baseURL+"/api/v1/assets/"+url.PathEscape(strings.TrimSpace(assetID))+"/publications", map[string]any{
+		"siteKey": c.siteKey, "refType": "gallery-public-image", "refId": imageID, "refLabel": title,
+	})
+}
+
 func (c *HTTP) PrepareSubmission(ctx context.Context, assetID string) (SubmissionAssetFacts, error) {
 	token, err := c.accessToken(ctx)
 	if err != nil {

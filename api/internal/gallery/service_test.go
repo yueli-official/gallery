@@ -49,8 +49,10 @@ func (store *submissionProcessingTestStore) SubmissionAssetID(context.Context, s
 }
 
 type submissionProcessingAssetPort struct {
-	preparedAssetID string
-	facts           model.SubmissionAssetFacts
+	preparedAssetID  string
+	publishedAssetID string
+	publishedImageID string
+	facts            model.SubmissionAssetFacts
 }
 
 func (*submissionProcessingAssetPort) RegisterSubmission(context.Context, string, string, string, string) error {
@@ -64,6 +66,12 @@ func (*submissionProcessingAssetPort) UnregisterSubmission(context.Context, stri
 func (port *submissionProcessingAssetPort) PrepareSubmission(_ context.Context, assetID string) (model.SubmissionAssetFacts, error) {
 	port.preparedAssetID = assetID
 	return port.facts, nil
+}
+
+func (port *submissionProcessingAssetPort) PublishImage(_ context.Context, assetID, imageID, _ string) error {
+	port.publishedAssetID = assetID
+	port.publishedImageID = imageID
+	return nil
 }
 
 func TestProcessQueuedSubmissionPersistsAssetFactsForReviewAndDedup(t *testing.T) {
@@ -152,6 +160,7 @@ type fakeStore struct {
 	adminCases             []model.Case
 	adminCaseQuery         model.AdminCaseQuery
 	caseResolutionSeen     model.CaseResolutionInput
+	publicRenditionReadyID string
 }
 
 func (f *fakeStore) SiteSettings(context.Context) (*model.SiteSettings, error) {
@@ -320,6 +329,10 @@ func (f *fakeStore) ReviewQueue(_ context.Context, query model.AdminSubmissionQu
 func (f *fakeStore) ReviewSubmission(context.Context, string, string, model.SubmissionReviewInput) (*model.Submission, error) {
 	return f.submission, nil
 }
+func (f *fakeStore) MarkImagePublicRenditionReady(_ context.Context, imageID string) error {
+	f.publicRenditionReadyID = imageID
+	return nil
+}
 func (f *fakeStore) HideImage(context.Context, string, string, string) error { return nil }
 func (f *fakeStore) Cases(_ context.Context, query model.AdminCaseQuery) ([]model.Case, int, error) {
 	f.adminCaseQuery = query
@@ -334,6 +347,27 @@ func (f *fakeStore) ResolveCase(_ context.Context, _ string, _ string, input mod
 }
 func (f *fakeStore) RecordEvent(context.Context, model.Subject, string, model.EventInput) error {
 	return nil
+}
+
+func TestApprovedSubmissionPublishesAssetBeforeImageBecomesPubliclyEligible(t *testing.T) {
+	store := &fakeStore{submission: &model.Submission{
+		ID: "019817c8-0000-7000-8300-000000000099", AssetID: "asset-1", ImageID: "image-1",
+		Title: "Approved", ReviewState: "approved", Outcome: "published",
+	}}
+	assets := &submissionProcessingAssetPort{}
+	service := New(store)
+	service.SetAssetReferencePort(assets)
+
+	value, err := service.ReviewSubmission(context.Background(), "operator-1", store.submission.ID, model.SubmissionReviewInput{Decision: "approve"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value.ImageID != "image-1" || assets.publishedAssetID != "asset-1" || assets.publishedImageID != "image-1" {
+		t.Fatalf("submission = %#v, published asset/image = %q/%q", value, assets.publishedAssetID, assets.publishedImageID)
+	}
+	if store.publicRenditionReadyID != "image-1" {
+		t.Fatalf("ready image = %q", store.publicRenditionReadyID)
+	}
 }
 
 func TestDiscoveryRequiresSettings(t *testing.T) {
