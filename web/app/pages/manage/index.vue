@@ -294,12 +294,14 @@ const workspaces = [
         </section>
 
         <aside class="space-y-5">
-          <section class="rounded-xl bg-inverted px-5 py-5 text-inverted">
+          <section
+            class="rounded-xl border border-default bg-default px-5 py-5"
+          >
             <div class="flex items-center justify-between gap-3">
-              <p class="text-sm font-semibold">图库运行正常</p>
+              <p class="text-sm font-semibold text-highlighted">图库运行正常</p>
               <span class="size-2 rounded-full bg-success" />
             </div>
-            <p class="mt-2 text-sm leading-6 text-inverted/70">
+            <p class="mt-2 text-sm leading-6 text-muted">
               API 可用，运营数据已同步。只有出现异常时，这里才会升级为处理入口。
             </p>
             <UButton
@@ -307,7 +309,7 @@ const workspaces = [
               target="_blank"
               class="mt-4"
               color="neutral"
-              variant="solid"
+              variant="outline"
               size="sm"
               icon="i-tabler-arrow-up-right"
               label="查看公开站点"
