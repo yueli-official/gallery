@@ -23,8 +23,13 @@ export default defineNuxtConfig({
   runtimeConfig: {
     apiBase: process.env.NUXT_API_BASE || "http://127.0.0.1:8091",
     assetBase: process.env.NUXT_ASSET_BASE || "http://127.0.0.1:8082",
-    downstreamBase:
-      process.env.NUXT_DOWNSTREAM_BASE || "http://127.0.0.1:8091",
+    downstreamBase: process.env.NUXT_DOWNSTREAM_BASE || "http://127.0.0.1:8091",
+    guestSessionTtlSeconds: Number(
+      process.env.NUXT_GUEST_SESSION_TTL_SECONDS || 60 * 60 * 24 * 30,
+    ),
+    guestCookieSecure:
+      process.env.NUXT_GUEST_COOKIE_SECURE === "true" ||
+      process.env.NODE_ENV === "production",
     sealSecret:
       process.env.NUXT_SEAL_SECRET ||
       "dev-gallery-seal-secret-change-me-0123456789ab",
@@ -46,8 +51,7 @@ export default defineNuxtConfig({
       siteDomain: process.env.NUXT_PUBLIC_SITE_DOMAIN || "gallery.localhost",
       assetSpace: process.env.NUXT_PUBLIC_ASSET_SPACE || "yueli",
       assetNamespace: process.env.NUXT_PUBLIC_ASSET_NAMESPACE || "yueli",
-      assetProfile:
-        process.env.NUXT_PUBLIC_ASSET_PROFILE || "gallery-default",
+      assetProfile: process.env.NUXT_PUBLIC_ASSET_PROFILE || "gallery-default",
       operatorSubs: process.env.NUXT_PUBLIC_OPERATOR_SUBS || "",
     },
   },
