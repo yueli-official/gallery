@@ -14,6 +14,14 @@ type CreateSubmissionRes struct {
 	Submission model.Submission `json:"submission"`
 }
 
+type ClaimGuestSubmissionsReq struct {
+	g.Meta `path:"/api/v1/gallery/guest-claims" method:"POST" tags:"Gallery submissions" summary:"Transfer guest submissions to the signed-in user"`
+}
+
+type ClaimGuestSubmissionsRes struct {
+	Claimed int64 `json:"claimed"`
+}
+
 type ListMySubmissionsReq struct {
 	g.Meta          `path:"/api/v1/gallery/me/submissions" method:"GET" tags:"Gallery submissions" summary:"List submissions owned by the current user or guest"`
 	Page            int    `p:"page" d:"1"`

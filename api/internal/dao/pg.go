@@ -24,6 +24,16 @@ type PG struct{ db gdb.DB }
 
 func NewPG(db gdb.DB) *PG { return &PG{db: db} }
 
+func (p *PG) ClaimGuestSubmissions(ctx context.Context, guestSubject, userID string) (int64, error) {
+	result, err := p.db.Exec(ctx, `UPDATE gallery_submissions
+SET subject_kind = 'user', subject_id = ?
+WHERE subject_kind = 'guest' AND subject_id = ?`, userID, guestSubject)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const eligibleImage = `
 i.processing_state = 'ready'
 AND i.review_state IN ('not_required', 'approved')

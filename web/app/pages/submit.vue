@@ -222,10 +222,6 @@ async function submitItem(item: QueueItem) {
 }
 
 async function run(items: QueueItem[]) {
-  if (!loggedIn.value) {
-    await login();
-    return;
-  }
   if (running.value || !validMetadata.value || !items.length) return;
   running.value = true;
   for (const item of items) await submitItem(item);
@@ -270,12 +266,12 @@ onBeforeUnmount(() =>
       class="gallery-submit-notice mb-6"
       color="primary"
       variant="subtle"
-      icon="i-tabler-login-2"
-      title="登录后即可投稿"
-      description="登录状态用于保存投稿进度和处理结果。"
+      icon="i-tabler-shield-check"
+      title="可以直接匿名投稿"
+      description="浏览器会获得一个 30 天临时投稿身份；登录后可继续管理这些投稿。"
     >
       <template #actions
-        ><UButton label="登录" @click="void login()"
+        ><UButton label="登录后投稿" @click="void login()"
       /></template>
     </UAlert>
 
@@ -565,7 +561,7 @@ onBeforeUnmount(() =>
             icon="i-tabler-send"
             :label="readyCount > 1 ? `投稿 ${readyCount} 张图片` : '开始投稿'"
             :loading="running"
-            :disabled="!loggedIn || !readyCount || !validMetadata"
+            :disabled="!readyCount || !validMetadata"
           />
           <UButton
             v-if="failedCount"

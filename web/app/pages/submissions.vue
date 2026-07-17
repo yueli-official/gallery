@@ -10,7 +10,7 @@ interface SubmissionPage {
   totalPages: number;
 }
 
-definePageMeta({ middleware: "auth" });
+const { loggedIn, login } = useAuth();
 const route = useRoute();
 const router = useRouter();
 const hydrated = useClientHydrated();
@@ -168,6 +168,20 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
       </div>
       <UButton to="/submit" icon="i-tabler-library-plus" label="批量投稿" />
     </header>
+
+    <UAlert
+      v-if="!loggedIn"
+      class="mb-6"
+      color="neutral"
+      variant="subtle"
+      icon="i-tabler-clock-shield"
+      title="正在查看此浏览器的临时投稿"
+      description="临时身份保留 30 天。登录后会自动把这些投稿转入你的账号。"
+    >
+      <template #actions>
+        <UButton label="登录并长期保留" @click="void login()" />
+      </template>
+    </UAlert>
 
     <section
       class="mb-6 rounded-xl border border-default bg-default/75 p-4"

@@ -20,6 +20,30 @@ const (
 	testValueID    = "019817c8-0000-7000-8200-000000000003"
 )
 
+type guestClaimTestStore struct {
+	Store
+	guest string
+	user  string
+}
+
+func (store *guestClaimTestStore) ClaimGuestSubmissions(_ context.Context, guestSubject, userID string) (int64, error) {
+	store.guest = guestSubject
+	store.user = userID
+	return 3, nil
+}
+
+func TestClaimGuestSubmissionsTransfersOwnership(t *testing.T) {
+	store := &guestClaimTestStore{}
+	service := New(store)
+	claimed, err := service.ClaimGuestSubmissions(context.Background(), "guest-1", "user-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claimed != 3 || store.guest != "guest-1" || store.user != "user-1" {
+		t.Fatalf("claim = %d, guest = %q, user = %q", claimed, store.guest, store.user)
+	}
+}
+
 type fakeStore struct {
 	settings               *model.SiteSettings
 	candidates             []model.ImageCard

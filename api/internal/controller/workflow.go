@@ -4,8 +4,10 @@ import (
 	"context"
 	"strings"
 
+	"platform/gokit/authjwt"
 	v1 "platform/products/gallery/api/api/v1"
 	galleryservice "platform/products/gallery/api/internal/gallery"
+	"platform/products/gallery/api/internal/galleryerr"
 	"platform/products/gallery/api/internal/model"
 )
 
@@ -23,6 +25,22 @@ func (c *Workflow) CreateSubmission(ctx context.Context, req *v1.CreateSubmissio
 		return nil, err
 	}
 	return &v1.CreateSubmissionRes{Submission: *value}, nil
+}
+
+func (c *Workflow) ClaimGuestSubmissions(ctx context.Context, _ *v1.ClaimGuestSubmissionsReq) (*v1.ClaimGuestSubmissionsRes, error) {
+	principal, ok := authjwt.From(ctx)
+	if !ok || principal == nil || !principal.HasScope("guest:claim") {
+		return nil, galleryerr.Forbidden()
+	}
+	guestSubject := valueString(principal.Claims["guest_subject"])
+	if guestSubject == "" || valueString(principal.Claims["subject_kind"]) != "user" {
+		return nil, galleryerr.Forbidden()
+	}
+	claimed, err := c.service.ClaimGuestSubmissions(ctx, guestSubject, principal.Subject)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.ClaimGuestSubmissionsRes{Claimed: claimed}, nil
 }
 
 func (c *Workflow) ListMySubmissions(ctx context.Context, req *v1.ListMySubmissionsReq) (*v1.ListMySubmissionsRes, error) {

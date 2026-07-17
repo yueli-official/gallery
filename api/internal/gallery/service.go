@@ -81,6 +81,10 @@ type AssetReferencePort interface {
 	UnregisterSubmission(context.Context, string, string, string) error
 }
 
+type GuestClaimStore interface {
+	ClaimGuestSubmissions(context.Context, string, string) (int64, error)
+}
+
 func New(store Store) *Service {
 	service := &Service{store: store, clock: time.Now}
 	collectionStore, storeOK := any(store).(collection.Store)
@@ -92,6 +96,19 @@ func New(store Store) *Service {
 }
 
 func (s *Service) SetAssetReferencePort(port AssetReferencePort) { s.assets = port }
+
+func (s *Service) ClaimGuestSubmissions(ctx context.Context, guestSubject, userID string) (int64, error) {
+	guestSubject = strings.TrimSpace(guestSubject)
+	userID = strings.TrimSpace(userID)
+	if guestSubject == "" || userID == "" {
+		return 0, galleryerr.Forbidden()
+	}
+	store, ok := s.store.(GuestClaimStore)
+	if !ok {
+		return 0, galleryerr.NotInitialized("guest claim store")
+	}
+	return store.ClaimGuestSubmissions(ctx, guestSubject, userID)
+}
 
 func (s *Service) Discovery(ctx context.Context, seed string) (*model.Discovery, error) {
 	if s.store == nil {

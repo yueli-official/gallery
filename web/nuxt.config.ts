@@ -30,6 +30,19 @@ export default defineNuxtConfig({
     guestCookieSecure:
       process.env.NUXT_GUEST_COOKIE_SECURE === "true" ||
       process.env.NODE_ENV === "production",
+    assetAudience: "asset-api",
+    guestClaimTargets: [
+      {
+        audience: process.env.NUXT_PUBLIC_OIDC_CLIENT_ID || "gallery-main-web",
+        base: process.env.NUXT_DOWNSTREAM_BASE || "http://127.0.0.1:8091",
+        path: "/api/v1/gallery/guest-claims",
+      },
+      {
+        audience: "asset-api",
+        base: process.env.NUXT_ASSET_BASE || "http://127.0.0.1:8082",
+        path: "/api/v1/assets/guest-claims",
+      },
+    ],
     sealSecret:
       process.env.NUXT_SEAL_SECRET ||
       "dev-gallery-seal-secret-change-me-0123456789ab",
