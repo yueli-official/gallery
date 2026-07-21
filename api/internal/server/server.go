@@ -3,7 +3,8 @@ package server
 import (
 	"github.com/gogf/gf/v2/net/ghttp"
 
-	"platform/gokit/authjwt"
+	foundationauth "github.com/yueli-official/foundation/go/auth"
+	"platform/gokit/authhttp"
 	"platform/gokit/ghttpx"
 	"platform/gokit/healthcheck"
 	"platform/products/gallery/api/internal/controller"
@@ -12,7 +13,7 @@ import (
 
 type Deps struct {
 	Gallery     *galleryservice.Service
-	Verifier    *authjwt.Verifier
+	Verifier    *foundationauth.Verifier
 	ReadyChecks map[string]healthcheck.Check
 }
 
@@ -29,12 +30,12 @@ func Configure(s *ghttp.Server, deps Deps) {
 	})
 	if deps.Gallery != nil {
 		s.Group("/", func(group *ghttp.RouterGroup) {
-			group.Middleware(ghttpx.Middleware, authjwt.OptionalMiddleware(deps.Verifier))
+			group.Middleware(ghttpx.Middleware, authhttp.Optional(deps.Verifier))
 			group.Bind(controller.NewPublic(deps.Gallery))
 		})
 		s.Group("/", func(group *ghttp.RouterGroup) {
 			if deps.Verifier != nil {
-				group.Middleware(ghttpx.Middleware, authjwt.Middleware(deps.Verifier))
+				group.Middleware(ghttpx.Middleware, authhttp.Required(deps.Verifier))
 			} else {
 				// OpenAPI export has no runtime verifier, but protected route shapes
 				// still belong in the generated contract.

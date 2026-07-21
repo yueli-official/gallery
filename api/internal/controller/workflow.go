@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"platform/gokit/authjwt"
+	foundationauth "github.com/yueli-official/foundation/go/auth"
 	v1 "platform/products/gallery/api/api/v1"
 	galleryservice "platform/products/gallery/api/internal/gallery"
 	"platform/products/gallery/api/internal/galleryerr"
@@ -28,12 +28,14 @@ func (c *Workflow) CreateSubmission(ctx context.Context, req *v1.CreateSubmissio
 }
 
 func (c *Workflow) ClaimGuestSubmissions(ctx context.Context, _ *v1.ClaimGuestSubmissionsReq) (*v1.ClaimGuestSubmissionsRes, error) {
-	principal, ok := authjwt.From(ctx)
+	principal, ok := foundationauth.FromContext(ctx)
 	if !ok || principal == nil || !principal.HasScope("guest:claim") {
 		return nil, galleryerr.Forbidden()
 	}
-	guestSubject := valueString(principal.Claims["guest_subject"])
-	if guestSubject == "" || valueString(principal.Claims["subject_kind"]) != "user" {
+	guestClaim, _ := principal.Claim("guest_subject")
+	guestSubject := valueString(guestClaim)
+	subjectKind, _ := principal.Claim("subject_kind")
+	if guestSubject == "" || valueString(subjectKind) != "user" {
 		return nil, galleryerr.Forbidden()
 	}
 	claimed, err := c.service.ClaimGuestSubmissions(ctx, guestSubject, principal.Subject)

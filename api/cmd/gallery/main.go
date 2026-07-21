@@ -11,7 +11,7 @@ import (
 
 	_ "github.com/gogf/gf/contrib/drivers/pgsql/v2"
 
-	"platform/gokit/authjwt"
+	"platform/gokit/authsetup"
 	"platform/gokit/observability"
 	"platform/gokit/openapiexport"
 	"platform/products/gallery/api/internal/appconfig"
@@ -67,9 +67,7 @@ func main() {
 		defer watcher.Close()
 	}
 	jwks := appconfig.LoadJWKS(ctx)
-	verifier, err := authjwt.NewVerifier(authjwt.VerifierConfig{
-		Keys: authjwt.NewRemoteKeySource(jwks.URL), Issuer: jwks.Issuer, Audience: jwks.Audience,
-	})
+	verifier, err := authsetup.NewRemoteVerifier(authsetup.RemoteVerifierConfig{JWKSURL: jwks.URL, Issuer: jwks.Issuer, Audience: jwks.Audience})
 	if err != nil {
 		panic(err)
 	}
