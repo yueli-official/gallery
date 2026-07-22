@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import { PageHeader } from '@yueli/ui/dashboard/pattern'
-import {
-  ManageCollectionToolbar,
-  SkeletonList,
-} from "@platform/manage/components";
+import { PageHeader } from "@yueli/ui/dashboard/pattern";
+import { SkeletonList } from "@platform/manage/components";
+import { CollectionToolbar } from "@yueli/ui/collection/pattern";
 import type {
   GalleryClassificationCatalog,
   GalleryClassificationCatalogFacet,
@@ -477,7 +475,7 @@ async function reviewTagProposal(
       </aside>
 
       <div class="min-w-0">
-        <ManageCollectionToolbar
+        <CollectionToolbar
           v-model:search="searchInput"
           :search-placeholder="searchPlaceholder"
           compact-filters

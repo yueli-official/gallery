@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { PageHeader } from '@yueli/ui/dashboard/pattern'
+import { PageHeader } from "@yueli/ui/dashboard/pattern";
 import {
-  ManageCollectionToolbar,
   ManageEmpty,
   ManageTabs,
   SkeletonList,
 } from "@platform/manage/components";
+import { CollectionToolbar } from "@yueli/ui/collection/pattern";
 import type { GalleryAdminCasePage, GalleryCase } from "~/types/gallery";
 
 definePageMeta({ layout: "manage", middleware: "auth" });
@@ -187,7 +187,7 @@ async function resolve(
     </PageHeader>
 
     <ManageTabs v-model="statusModel" :items="tabItems" class="mb-4" />
-    <ManageCollectionToolbar
+    <CollectionToolbar
       v-model:search="qDraft"
       search-placeholder="搜索原因、说明或处理结论…"
       :filter-count="filterCount"
@@ -228,7 +228,7 @@ async function resolve(
           @click="search"
         />
       </template>
-    </ManageCollectionToolbar>
+    </CollectionToolbar>
     <div
       class="mb-4 flex min-h-7 items-center justify-between gap-3 px-1 text-xs text-muted"
     >
