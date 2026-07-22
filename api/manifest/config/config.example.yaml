@@ -29,3 +29,4 @@ gallery:
     url: "http://localhost:8081/oauth2/jwks.json"
     issuer: "http://localhost:8081"
     audience: "gallery-main-web"
+    allowLoopbackHttp: true # local development only

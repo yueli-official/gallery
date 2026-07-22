@@ -67,7 +67,10 @@ func main() {
 		defer watcher.Close()
 	}
 	jwks := appconfig.LoadJWKS(ctx)
-	verifier, err := authsetup.NewRemoteVerifier(authsetup.RemoteVerifierConfig{JWKSURL: jwks.URL, Issuer: jwks.Issuer, Audience: jwks.Audience})
+	verifier, err := authsetup.NewRemoteVerifier(authsetup.RemoteVerifierConfig{
+		JWKSURL: jwks.URL, Issuer: jwks.Issuer, Audience: jwks.Audience,
+		AllowLoopbackHTTP: jwks.AllowLoopbackHTTP,
+	})
 	if err != nil {
 		panic(err)
 	}

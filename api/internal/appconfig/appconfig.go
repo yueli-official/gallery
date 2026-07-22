@@ -7,9 +7,10 @@ import (
 )
 
 type JWKS struct {
-	URL      string
-	Issuer   string
-	Audience string
+	URL               string
+	Issuer            string
+	Audience          string
+	AllowLoopbackHTTP bool
 }
 
 type AssetClient struct {
@@ -22,9 +23,10 @@ type AssetClient struct {
 
 func LoadJWKS(ctx context.Context) JWKS {
 	return JWKS{
-		URL:      g.Cfg().MustGet(ctx, "gallery.jwks.url", "http://localhost:8081/oauth2/jwks.json").String(),
-		Issuer:   g.Cfg().MustGet(ctx, "gallery.jwks.issuer", "http://localhost:8081").String(),
-		Audience: g.Cfg().MustGet(ctx, "gallery.jwks.audience", "").String(),
+		URL:               g.Cfg().MustGet(ctx, "gallery.jwks.url", "http://localhost:8081/oauth2/jwks.json").String(),
+		Issuer:            g.Cfg().MustGet(ctx, "gallery.jwks.issuer", "http://localhost:8081").String(),
+		Audience:          g.Cfg().MustGet(ctx, "gallery.jwks.audience", "").String(),
+		AllowLoopbackHTTP: g.Cfg().MustGet(ctx, "gallery.jwks.allowLoopbackHttp", false).Bool(),
 	}
 }
 
