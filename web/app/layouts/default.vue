@@ -3,7 +3,7 @@ const { brand } = useSiteRuntime();
 </script>
 
 <template>
-  <div class="platform-app-shell flex min-h-dvh flex-col text-default">
+  <div class="yueli-app-shell flex min-h-dvh flex-col text-default">
     <GalleryHeader :brand-name="brand" />
     <main
       id="public-main"
