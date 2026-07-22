@@ -2,9 +2,10 @@ package galleryerr
 
 import (
 	"net/http"
+	"strings"
 
+	"github.com/yueli-official/foundation/go/problem"
 	"platform/gokit/errs"
-	"platform/gokit/response"
 )
 
 var (
@@ -35,7 +36,7 @@ func Gone(resource, id string) *errs.Coded {
 
 func Validation(field, detail string) *errs.Coded {
 	return errs.New(errs.CommonValidationFailed, "validation failed", map[string]any{
-		"details": []response.ValidationDetail{{Field: field, Code: "invalid", Params: map[string]any{"detail": detail}}},
+		"details": []problem.Violation{{Pointer: "/" + strings.ReplaceAll(strings.ReplaceAll(field, "~", "~0"), "/", "~1"), Code: "validation.invalid", Params: problem.Parameters{"detail": detail}}},
 	})
 }
 

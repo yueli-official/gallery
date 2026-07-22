@@ -20,10 +20,11 @@ func TestRegisterSubmissionUsesServiceCredentialInsteadOfUserBearer(t *testing.T
 		_ = json.NewEncoder(response).Encode(map[string]any{"access_token": "service-token", "expires_in": 600})
 	})
 	mux.HandleFunc("/api/v1/asset-references", func(response http.ResponseWriter, request *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
 		if request.Header.Get("Authorization") != "Bearer service-token" {
 			t.Fatalf("authorization = %q", request.Header.Get("Authorization"))
 		}
-		_ = json.NewEncoder(response).Encode(map[string]any{"code": "ok", "data": map[string]any{}})
+		_ = json.NewEncoder(response).Encode(map[string]any{})
 	})
 	server := httptest.NewServer(mux)
 	defer server.Close()
@@ -48,13 +49,14 @@ func TestPrepareSubmissionUsesSignedThumbnailAndReturnsImmutableFacts(t *testing
 		_ = json.NewEncoder(response).Encode(map[string]any{"access_token": "service-token", "expires_in": 600})
 	})
 	mux.HandleFunc("/api/v1/assets/asset-1/sign", func(response http.ResponseWriter, request *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
 		if request.URL.Query().Get("preset") != "thumbnail" || request.Header.Get("Authorization") != "Bearer service-token" {
 			t.Fatalf("request = %s, auth = %q", request.URL.String(), request.Header.Get("Authorization"))
 		}
-		_ = json.NewEncoder(response).Encode(map[string]any{"code": "ok", "data": map[string]any{
+		_ = json.NewEncoder(response).Encode(map[string]any{
 			"url": "http://asset.test/api/v1/assets/blob/signed", "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			"mime": "image/png", "width": 1600, "height": 900,
-		}})
+		})
 	})
 	server := httptest.NewServer(mux)
 	defer server.Close()
@@ -80,6 +82,7 @@ func TestPublishImageRegistersPublicRenditionWithServiceCredential(t *testing.T)
 		_ = json.NewEncoder(response).Encode(map[string]any{"access_token": "service-token", "expires_in": 600})
 	})
 	mux.HandleFunc("/api/v1/assets/asset-1/publications", func(response http.ResponseWriter, request *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
 		if request.Method != http.MethodPost || request.Header.Get("Authorization") != "Bearer service-token" {
 			t.Fatalf("request = %s, auth = %q", request.Method, request.Header.Get("Authorization"))
 		}
@@ -90,7 +93,7 @@ func TestPublishImageRegistersPublicRenditionWithServiceCredential(t *testing.T)
 		if body["siteKey"] != "gallery-main" || body["refType"] != "gallery-public-image" || body["refId"] != "image-1" {
 			t.Fatalf("body = %#v", body)
 		}
-		_ = json.NewEncoder(response).Encode(map[string]any{"code": "ok", "data": map[string]any{"published": true}})
+		_ = json.NewEncoder(response).Encode(map[string]any{"published": true})
 	})
 	server := httptest.NewServer(mux)
 	defer server.Close()

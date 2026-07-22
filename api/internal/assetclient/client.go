@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	foundationhttpclient "github.com/yueli-official/foundation/go/httpclient"
 	"platform/products/gallery/api/internal/galleryerr"
 	"platform/products/gallery/api/internal/model"
 )
@@ -94,26 +96,23 @@ func (c *HTTP) PrepareSubmission(ctx context.Context, assetID string) (Submissio
 		return SubmissionAssetFacts{}, galleryerr.UpstreamFailed("asset.unreachable")
 	}
 	defer response.Body.Close()
-	var envelope struct {
-		Code string `json:"code"`
-		Data struct {
-			URL         string `json:"url"`
-			ContentHash string `json:"contentHash"`
-			Mime        string `json:"mime"`
-			Width       *int   `json:"width"`
-			Height      *int   `json:"height"`
-		} `json:"data"`
+	facts, decodeErr := foundationhttpclient.DecodeJSON[struct {
+		URL         string `json:"url"`
+		ContentHash string `json:"contentHash"`
+		Mime        string `json:"mime"`
+		Width       *int   `json:"width"`
+		Height      *int   `json:"height"`
+	}](response, foundationhttpclient.Limits{})
+	if decodeErr != nil {
+		return SubmissionAssetFacts{}, galleryerr.UpstreamFailed(remoteCode(decodeErr))
 	}
-	if json.NewDecoder(response.Body).Decode(&envelope) != nil || response.StatusCode < 200 || response.StatusCode >= 300 || envelope.Code != "ok" {
-		return SubmissionAssetFacts{}, galleryerr.UpstreamFailed(envelope.Code)
-	}
-	_, hashErr := hex.DecodeString(envelope.Data.ContentHash)
-	if envelope.Data.URL == "" || len(envelope.Data.ContentHash) != 64 || hashErr != nil || !strings.HasPrefix(envelope.Data.Mime, "image/") || envelope.Data.Width == nil || envelope.Data.Height == nil || *envelope.Data.Width <= 0 || *envelope.Data.Height <= 0 {
+	_, hashErr := hex.DecodeString(facts.ContentHash)
+	if facts.URL == "" || len(facts.ContentHash) != 64 || hashErr != nil || !strings.HasPrefix(facts.Mime, "image/") || facts.Width == nil || facts.Height == nil || *facts.Width <= 0 || *facts.Height <= 0 {
 		return SubmissionAssetFacts{}, galleryerr.UpstreamFailed("asset.invalid_media_facts")
 	}
 	return SubmissionAssetFacts{
-		PreviewURL: envelope.Data.URL, ContentHash: strings.ToLower(envelope.Data.ContentHash), Mime: envelope.Data.Mime,
-		Width: *envelope.Data.Width, Height: *envelope.Data.Height,
+		PreviewURL: facts.URL, ContentHash: strings.ToLower(facts.ContentHash), Mime: facts.Mime,
+		Width: *facts.Width, Height: *facts.Height,
 	}, nil
 }
 
@@ -140,13 +139,18 @@ func (c *HTTP) referenceRequest(ctx context.Context, method, endpoint string, bo
 		return galleryerr.UpstreamFailed("asset.unreachable")
 	}
 	defer response.Body.Close()
-	var envelope struct {
-		Code string `json:"code"`
-	}
-	if json.NewDecoder(response.Body).Decode(&envelope) != nil || response.StatusCode < 200 || response.StatusCode >= 300 || envelope.Code != "ok" {
-		return galleryerr.UpstreamFailed(envelope.Code)
+	if _, decodeErr := foundationhttpclient.DecodeJSON[any](response, foundationhttpclient.Limits{}); decodeErr != nil {
+		return galleryerr.UpstreamFailed(remoteCode(decodeErr))
 	}
 	return nil
+}
+
+func remoteCode(err error) string {
+	var remote *foundationhttpclient.RemoteError
+	if errors.As(err, &remote) {
+		return remote.Problem.Code
+	}
+	return "foundation.response.invalid"
 }
 
 func (c *HTTP) accessToken(ctx context.Context) (string, error) {
