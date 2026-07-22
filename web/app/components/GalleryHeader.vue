@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { PlatformUserMenuAction } from "@platform/ui/components";
+import type { AccountMenuAction } from "@yueli/ui/account-menu/pattern";
 
 defineProps<{ brandName?: string }>();
 
@@ -10,7 +10,7 @@ const nav = [
   { label: "专题", to: "/collections" },
   { label: "排行", to: "/rankings" },
 ];
-const contextActions: PlatformUserMenuAction[] = [
+const contextActions: AccountMenuAction[] = [
   { label: "我的收藏", icon: "i-tabler-heart", to: "/favorites" },
   { label: "我的投稿", icon: "i-tabler-photo-up", to: "/submissions" },
 ];
