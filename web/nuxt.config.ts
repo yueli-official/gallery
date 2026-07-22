@@ -7,7 +7,7 @@ export default defineNuxtConfig({
     "@platform/manage",
     "@platform/asset",
   ],
-  modules: ["@nuxt/ui"],
+  modules: ["@nuxt/ui", "@yueli/ui"],
   css: ["~/assets/css/main.css"],
   app: {
     head: {
