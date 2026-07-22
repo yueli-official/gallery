@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import { PageHeader } from '@yueli/ui/dashboard/pattern'
 import {
   ManageCollectionToolbar,
   ManageEmpty,
-  ManageHeader,
   ManageTabs,
   SkeletonList,
 } from "@platform/manage/components";
@@ -180,11 +180,11 @@ async function resolve(
 
 <template>
   <div>
-    <ManageHeader title="信任处理单">
+    <PageHeader title="信任处理单">
       <template #subtitle>
         先接手，再记录判断。举报、来源、安全和下架调查保留同一条审计上下文。
       </template>
-    </ManageHeader>
+    </PageHeader>
 
     <ManageTabs v-model="statusModel" :items="tabItems" class="mb-4" />
     <ManageCollectionToolbar

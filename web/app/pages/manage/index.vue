@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ManageHeader } from "@platform/manage/components";
+import { PageHeader } from '@yueli/ui/dashboard/pattern'
 import type { GalleryAdminOverview } from "~/types/gallery";
 
 definePageMeta({ layout: "manage", middleware: "auth" });
@@ -105,13 +105,13 @@ const workspaces = [
 
 <template>
   <div>
-    <ManageHeader title="今日运营">
+    <PageHeader title="今日运营">
       <template #subtitle
         >{{
           user?.name || user?.email || "运营者"
         }}，先处理会阻塞发布或影响信任的工作。</template
       >
-    </ManageHeader>
+    </PageHeader>
 
     <div v-if="!hydrated || pending" class="space-y-6">
       <USkeleton class="h-24 rounded-xl" />

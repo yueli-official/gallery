@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { PageHeader } from '@yueli/ui/dashboard/pattern'
 import {
   ManageCollectionToolbar,
-  ManageHeader,
   SkeletonList,
 } from "@platform/manage/components";
 import type {
@@ -409,11 +409,11 @@ async function reviewTagProposal(
 
 <template>
   <div>
-    <ManageHeader title="分类与维度">
+    <PageHeader title="分类与维度">
       <template #subtitle>
         维护公开目录的路径、筛选轴和检索词；高风险变更先预演影响。
       </template>
-    </ManageHeader>
+    </PageHeader>
 
     <USelect
       v-model="section"

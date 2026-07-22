@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ManageHeader, SkeletonList } from "@platform/manage/components";
+import { PageHeader } from '@yueli/ui/dashboard/pattern'
+import { SkeletonList } from "@platform/manage/components";
 import { createPlatformNotifier } from "@platform/ui/feedback";
 import type {
   GalleryCollection,
@@ -226,7 +227,7 @@ async function openPicker(): Promise<void> {
 
 <template>
   <div>
-    <ManageHeader :title="collection?.name || '专题编辑'">
+    <PageHeader :title="collection?.name || '专题编辑'">
       <template #subtitle>先组织图片和顺序，再完成封面与公开叙事。</template>
       <template #actions>
         <UButton
@@ -246,7 +247,7 @@ async function openPicker(): Promise<void> {
           label="公开预览"
         />
       </template>
-    </ManageHeader>
+    </PageHeader>
 
     <SkeletonList v-if="!hydrated || (pending && !collection)" :rows="7" />
     <UAlert

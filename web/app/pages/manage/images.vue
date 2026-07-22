@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import { PageHeader } from '@yueli/ui/dashboard/pattern'
 import { createPlatformNotifier } from "@platform/ui/feedback";
 import {
   ManageActiveFilters,
   ManageCollectionFooter,
   ManageCollectionToolbar,
   ManageEmpty,
-  ManageHeader,
   ManageLifecycleTabs,
   ManagePageSelection,
   ManageRowShell,
@@ -398,12 +398,12 @@ function moreItems(image: GalleryAdminImage) {
 
 <template>
   <div>
-    <ManageHeader title="图片">
+    <PageHeader title="图片">
       <template #subtitle>管理已审核图片的公开状态、分类、维度与标签</template>
       <template #actions
         ><UButton to="/submit" icon="i-tabler-upload" label="投稿图片"
       /></template>
-    </ManageHeader>
+    </PageHeader>
 
     <ManageLifecycleTabs v-model="status" :items="tabs" class="mb-4" />
     <ManageCollectionToolbar

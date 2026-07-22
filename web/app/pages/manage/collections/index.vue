@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { PageHeader } from '@yueli/ui/dashboard/pattern'
 import {
   ManageEmpty,
-  ManageHeader,
   SkeletonList,
 } from "@platform/manage/components";
 import type { GalleryCollection } from "~/types/gallery";
@@ -58,7 +58,7 @@ async function createCollection() {
 
 <template>
   <div>
-    <ManageHeader title="专题策展"
+    <PageHeader title="专题策展"
       ><template #subtitle
         >把已经通过审核的图片组织成有封面、有顺序、有公开叙事的专题。</template
       ><template #actions
@@ -69,7 +69,7 @@ async function createCollection() {
             createOpen = true;
             void 0;
           " /></template
-    ></ManageHeader>
+    ></PageHeader>
     <div
       v-if="hydrated && !pending && !error"
       class="mb-5 grid overflow-hidden rounded-xl border border-default bg-default sm:grid-cols-3"

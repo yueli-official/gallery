@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import { PageHeader } from '@yueli/ui/dashboard/pattern'
 import {
   ManageCollectionFooter,
   ManageCollectionToolbar,
   ManageEmpty,
-  ManageHeader,
   ManagePageSelection,
   ManageTabs,
   SkeletonList,
@@ -345,11 +345,11 @@ function decisionSummary(item: GallerySubmission) {
 
 <template>
   <div>
-    <ManageHeader title="投稿审核">
+    <PageHeader title="投稿审核">
       <template #subtitle>
         先处理能进入目录的投稿；媒体失败和安全不确定保留为独立队列。
       </template>
-    </ManageHeader>
+    </PageHeader>
 
     <ManageTabs v-model="presetModel" :items="presetItems" class="mb-4" />
     <ManageCollectionToolbar

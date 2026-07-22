@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ManageHeader, SkeletonList } from "@platform/manage/components";
+import { PageHeader } from '@yueli/ui/dashboard/pattern'
+import { SkeletonList } from "@platform/manage/components";
 import type { GalleryDiscovery } from "~/types/gallery";
 
 definePageMeta({ layout: "manage", middleware: "auth" });
@@ -16,11 +17,11 @@ const { data, pending, error, refresh } = await useAsyncData(
 
 <template>
   <div>
-    <ManageHeader title="发现策略">
+    <PageHeader title="发现策略">
       <template #subtitle>
         检查首页探索与排行榜是否各自完成任务，不在这里手工干预单张图片。
       </template>
-    </ManageHeader>
+    </PageHeader>
     <SkeletonList v-if="!hydrated || pending" :rows="5" />
     <UAlert
       v-else-if="error"
