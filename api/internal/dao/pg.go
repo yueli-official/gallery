@@ -15,6 +15,8 @@ import (
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/os/gtime"
 	"github.com/lib/pq"
+	"github.com/yueli-official/foundation/go/work"
+	workpostgres "github.com/yueli-official/foundation/go/work/postgres"
 
 	"platform/gokit/classification"
 	"platform/products/gallery/api/internal/collection"
@@ -22,9 +24,46 @@ import (
 	"platform/products/gallery/api/internal/model"
 )
 
-type PG struct{ db gdb.DB }
+type PG struct {
+	db   gdb.DB
+	work *workpostgres.Adapter
+}
 
-func NewPG(db gdb.DB) *PG { return &PG{db: db} }
+func NewPG(db gdb.DB, adapters ...*workpostgres.Adapter) *PG {
+	var adapter *workpostgres.Adapter
+	if len(adapters) > 0 {
+		adapter = adapters[0]
+	}
+	return &PG{db: db, work: adapter}
+}
+
+func (p *PG) enqueueClassificationRefresh(
+	ctx context.Context,
+	tx gdb.TX,
+	catalogID string,
+	revision uint64,
+	eventType string,
+	payload json.RawMessage,
+) error {
+	if p.work == nil {
+		_, err := tx.Ctx(ctx).Exec(`
+INSERT INTO gallery_classification_outbox (catalog_id, revision, event_type, payload)
+VALUES (?::uuid, ?, ?, ?::jsonb)`, catalogID, revision, eventType, string(payload))
+		return err
+	}
+	envelope, err := json.Marshal(map[string]any{
+		"catalogId": catalogID, "revision": revision,
+		"eventType": eventType, "data": json.RawMessage(payload),
+	})
+	if err != nil {
+		return err
+	}
+	_, err = p.work.EnqueueTx(ctx, tx.GetSqlTX(), work.Request{
+		Kind: "gallery.classification-refresh", Payload: envelope,
+		IdempotencyKey: fmt.Sprintf("gallery.classification:%s:%d", catalogID, revision),
+	})
+	return err
+}
 
 func (p *PG) ClaimGuestSubmissions(ctx context.Context, guestSubject, userID string) (int64, error) {
 	result, err := p.db.Exec(ctx, `UPDATE gallery_submissions
@@ -1319,10 +1358,10 @@ RETURNING id`, input.Title, input.Description, input.AltText, input.SourceURL, i
 		if !category.Bool() {
 			return galleryerr.NotFound("category", classificationInput.PrimaryCategoryID)
 		}
-		if _, err := tx.Exec(`INSERT INTO gallery_image_category_assignments (image_id, category_id) VALUES (?::uuid, ?::uuid) ON CONFLICT DO NOTHING`, id, classificationInput.PrimaryCategoryID); err != nil {
+		if _, err := tx.Ctx(ctx).Exec(`INSERT INTO gallery_image_category_assignments (image_id, category_id) VALUES (?::uuid, ?::uuid) ON CONFLICT DO NOTHING`, id, classificationInput.PrimaryCategoryID); err != nil {
 			return gerror.Wrap(err, "assign gallery image primary category")
 		}
-		if _, err := tx.Exec(`INSERT INTO gallery_image_primary_categories (image_id, category_id) VALUES (?::uuid, ?::uuid) ON CONFLICT (image_id) DO UPDATE SET category_id = EXCLUDED.category_id`, id, classificationInput.PrimaryCategoryID); err != nil {
+		if _, err := tx.Ctx(ctx).Exec(`INSERT INTO gallery_image_primary_categories (image_id, category_id) VALUES (?::uuid, ?::uuid) ON CONFLICT (image_id) DO UPDATE SET category_id = EXCLUDED.category_id`, id, classificationInput.PrimaryCategoryID); err != nil {
 			return gerror.Wrap(err, "update gallery image primary category")
 		}
 
@@ -1340,11 +1379,11 @@ RETURNING id`, input.Title, input.Description, input.AltText, input.SourceURL, i
 			}
 			facetGroups[facetID.String()] = struct{}{}
 		}
-		if _, err := tx.Exec(`DELETE FROM gallery_image_facet_assignments WHERE image_id = ?::uuid`, id); err != nil {
+		if _, err := tx.Ctx(ctx).Exec(`DELETE FROM gallery_image_facet_assignments WHERE image_id = ?::uuid`, id); err != nil {
 			return gerror.Wrap(err, "replace gallery image facets")
 		}
 		for _, valueID := range classificationInput.FacetValueIDs {
-			if _, err := tx.Exec(`INSERT INTO gallery_image_facet_assignments (image_id, facet_value_id) VALUES (?::uuid, ?::uuid)`, id, valueID); err != nil {
+			if _, err := tx.Ctx(ctx).Exec(`INSERT INTO gallery_image_facet_assignments (image_id, facet_value_id) VALUES (?::uuid, ?::uuid)`, id, valueID); err != nil {
 				return gerror.Wrap(err, "assign gallery image facet")
 			}
 		}
@@ -1358,11 +1397,11 @@ RETURNING id`, input.Title, input.Description, input.AltText, input.SourceURL, i
 				return galleryerr.NotFound("tag", tagID)
 			}
 		}
-		if _, err := tx.Exec(`DELETE FROM gallery_image_tag_assignments WHERE image_id = ?::uuid`, id); err != nil {
+		if _, err := tx.Ctx(ctx).Exec(`DELETE FROM gallery_image_tag_assignments WHERE image_id = ?::uuid`, id); err != nil {
 			return gerror.Wrap(err, "replace gallery image tags")
 		}
 		for _, tagID := range classificationInput.TagIDs {
-			if _, err := tx.Exec(`INSERT INTO gallery_image_tag_assignments (image_id, tag_id) VALUES (?::uuid, ?::uuid) ON CONFLICT DO NOTHING`, id, tagID); err != nil {
+			if _, err := tx.Ctx(ctx).Exec(`INSERT INTO gallery_image_tag_assignments (image_id, tag_id) VALUES (?::uuid, ?::uuid) ON CONFLICT DO NOTHING`, id, tagID); err != nil {
 				return gerror.Wrap(err, "assign gallery image tag")
 			}
 		}

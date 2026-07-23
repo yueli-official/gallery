@@ -2,21 +2,24 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/os/gctx"
+	"github.com/yueli-official/foundation/go/work"
+	workpostgres "github.com/yueli-official/foundation/go/work/postgres"
 
 	_ "github.com/gogf/gf/contrib/drivers/pgsql/v2"
 
 	"platform/gokit/authsetup"
 	"platform/gokit/observability"
 	"platform/gokit/openapiexport"
+	"platform/gokit/postgresdb"
 	"platform/products/gallery/api/internal/appconfig"
 	"platform/products/gallery/api/internal/assetclient"
-	"platform/products/gallery/api/internal/classificationwatcher"
 	"platform/products/gallery/api/internal/dao"
 	galleryservice "platform/products/gallery/api/internal/gallery"
 	"platform/products/gallery/api/internal/server"
@@ -41,7 +44,22 @@ func main() {
 		}
 	}
 
-	service := galleryservice.New(dao.NewPG(g.DB()))
+	workDB, err := postgresdb.OpenDefault(ctx)
+	if err != nil {
+		panic(err)
+	}
+	defer workDB.Close()
+	workCatalog, err := work.Compile(galleryservice.WorkDefinition())
+	if err != nil {
+		panic(err)
+	}
+	workAdapter, err := workpostgres.New(ctx, workCatalog, workpostgres.Options{
+		DB: workDB, InstanceKey: "gallery:" + appconfig.SiteSlug(ctx),
+	})
+	if err != nil {
+		panic(err)
+	}
+	service := galleryservice.New(dao.NewPG(g.DB(), workAdapter))
 	assetCfg := appconfig.LoadAssetClient(ctx)
 	assetPort, err := assetclient.NewHTTP(assetclient.Config{
 		BaseURL: assetCfg.BaseURL, TokenURL: assetCfg.TokenURL, ClientID: assetCfg.ClientID,
@@ -54,18 +72,26 @@ func main() {
 	processorCtx, stopProcessor := context.WithCancel(context.Background())
 	defer stopProcessor()
 	go runSubmissionProcessor(processorCtx, service)
-	watcher, watcherErr := classificationwatcher.Start(g.DB().GetConfig(), func() {
-		refreshCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-		if refreshErr := service.RefreshClassificationCatalog(refreshCtx); refreshErr != nil {
-			g.Log().Warning(refreshCtx, "gallery classification catalog refresh failed", "error", refreshErr)
-		}
-	})
-	if watcherErr != nil {
-		g.Log().Warning(ctx, "gallery classification listener unavailable; request-time revision checks remain active", "error", watcherErr)
-	} else {
-		defer watcher.Close()
+	workerID := "gallery-worker"
+	if hostname, err := os.Hostname(); err == nil && hostname != "" {
+		workerID += ":" + hostname
 	}
+	runner, err := work.NewRunner(workCatalog, workAdapter, map[work.Kind]work.Handler{
+		galleryservice.ClassificationRefreshKind: service.ClassificationRefreshHandler(),
+	}, work.RunnerOptions{
+		WorkerID: workerID, PollInterval: time.Second,
+		OnError: func(err error) {
+			g.Log().Warning(ctx, "gallery work runner error", "error", err)
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	go func() {
+		if err := runner.Run(processorCtx); err != nil && !errors.Is(err, context.Canceled) {
+			g.Log().Error(ctx, "gallery work runner stopped", "error", err)
+		}
+	}()
 	jwks := appconfig.LoadJWKS(ctx)
 	verifier, err := authsetup.NewRemoteVerifier(authsetup.RemoteVerifierConfig{
 		JWKSURL: jwks.URL, Issuer: jwks.Issuer, Audience: jwks.Audience,

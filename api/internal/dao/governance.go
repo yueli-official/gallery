@@ -235,10 +235,11 @@ RETURNING revision`, catalog["id"].String(), plan.ExpectedCatalogRevision)
 		if err != nil {
 			return gerror.Wrap(err, "encode gallery classification outbox payload")
 		}
-		if _, err := tx.Ctx(ctx).Exec(`
-INSERT INTO gallery_classification_outbox (catalog_id, revision, event_type, payload)
-VALUES (?::uuid, ?, 'classification.governance.applied', ?::jsonb)`, catalog["id"].String(), nextRevision, string(payload)); err != nil {
-			return gerror.Wrap(err, "write gallery classification outbox event")
+		if err := p.enqueueClassificationRefresh(
+			ctx, tx, catalog["id"].String(), nextRevision,
+			"classification.governance.applied", payload,
+		); err != nil {
+			return gerror.Wrap(err, "enqueue gallery classification refresh")
 		}
 		return nil
 	})
