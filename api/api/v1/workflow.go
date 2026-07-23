@@ -9,6 +9,8 @@ import (
 type CreateSubmissionReq struct {
 	g.Meta `path:"/api/v1/gallery/submissions" method:"POST" tags:"Gallery submissions" summary:"Submit one uploaded image"`
 	model.SubmissionInput
+	AbuseAttemptID string `json:"abuseAttemptId" v:"length:0,128"`
+	ChallengeProof string `json:"challengeProof" v:"length:0,4096"`
 }
 type CreateSubmissionRes struct {
 	Submission model.Submission `json:"submission"`

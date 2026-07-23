@@ -15,9 +15,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/yueli-official/foundation/go/abuse"
 
 	"platform/gokit/classification"
 	"platform/products/gallery/api/internal/collection"
+	"platform/products/gallery/api/internal/galleryabuse"
 	"platform/products/gallery/api/internal/galleryerr"
 	"platform/products/gallery/api/internal/model"
 )
@@ -76,6 +78,7 @@ type Service struct {
 	catalog          *classification.Catalog
 	catalogRevision  uint64
 	catalogCheckedAt time.Time
+	abuse            galleryabuse.Actions
 }
 
 type AssetReferencePort interface {
@@ -110,6 +113,49 @@ func New(store Store) *Service {
 }
 
 func (s *Service) SetAssetReferencePort(port AssetReferencePort) { s.assets = port }
+
+func (s *Service) SetAbuse(module abuse.Module) error {
+	actions, err := galleryabuse.Bind(module)
+	if err != nil {
+		return err
+	}
+	s.abuse = actions
+	return nil
+}
+
+func (s *Service) AdmitSubmission(
+	ctx context.Context,
+	subject model.Subject,
+	ip string,
+	attemptID string,
+	proof string,
+) (abuse.Admission, error) {
+	if err := normalizeSubject(&subject); err != nil {
+		return abuse.Admission{}, err
+	}
+	action := s.abuse.Member
+	if subject.Kind == "guest" {
+		action = s.abuse.Guest
+	}
+	if action == nil {
+		return abuse.Admission{Disposition: abuse.DispositionAllow}, nil
+	}
+	network, err := galleryabuse.NetworkPrefix(ip)
+	if err != nil {
+		return abuse.Admission{}, err
+	}
+	input := abuse.Input{
+		ID: abuse.AttemptID(attemptID),
+		Signals: abuse.Signals{
+			Network: network,
+			Actor:   subject.Kind + ":" + subject.ID,
+		},
+	}
+	if proof = strings.TrimSpace(proof); proof != "" {
+		input.Proof = &abuse.Proof{Kind: "turnstile", Token: proof}
+	}
+	return action.Admit(ctx, input)
+}
 
 func (s *Service) ProcessQueuedSubmissions(ctx context.Context, limit int) (int, error) {
 	store, ok := s.store.(SubmissionProcessingStore)

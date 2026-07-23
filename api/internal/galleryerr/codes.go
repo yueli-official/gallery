@@ -9,13 +9,17 @@ import (
 )
 
 var (
-	CodeNotFound       = errs.Register("gallery.not_found", http.StatusNotFound)
-	CodeGone           = errs.Register("gallery.gone", 410)
-	CodeNotInitialized = errs.Register("gallery.not_initialized", 503)
-	CodeForbidden      = errs.Register("gallery.forbidden", http.StatusForbidden)
-	CodeConflict       = errs.Register("gallery.conflict", http.StatusConflict)
-	CodeInvalidState   = errs.Register("gallery.invalid_state", http.StatusConflict)
-	CodeUpstreamFailed = errs.Register("gallery.upstream_failed", http.StatusBadGateway)
+	CodeNotFound          = errs.Register("gallery.not_found", http.StatusNotFound)
+	CodeGone              = errs.Register("gallery.gone", 410)
+	CodeNotInitialized    = errs.Register("gallery.not_initialized", 503)
+	CodeForbidden         = errs.Register("gallery.forbidden", http.StatusForbidden)
+	CodeConflict          = errs.Register("gallery.conflict", http.StatusConflict)
+	CodeInvalidState      = errs.Register("gallery.invalid_state", http.StatusConflict)
+	CodeUpstreamFailed    = errs.Register("gallery.upstream_failed", http.StatusBadGateway)
+	CodeRateLimited       = errs.Register("gallery.rate_limited", http.StatusTooManyRequests)
+	CodeChallengeRequired = errs.Register("gallery.challenge_required", http.StatusForbidden)
+	CodeAbuseUnavailable  = errs.Register("gallery.abuse_unavailable", http.StatusServiceUnavailable)
+	CodeAbuseReplay       = errs.Register("gallery.abuse_attempt_replayed", http.StatusConflict)
 )
 
 func NotFound(resource, id string) *errs.Coded {
@@ -50,4 +54,22 @@ func UpstreamFailed(code string) *errs.Coded {
 
 func NotInitialized(resource string) *errs.Coded {
 	return errs.New(CodeNotInitialized, "gallery site configuration is not initialized", map[string]any{"resource": resource})
+}
+
+func RateLimited() *errs.Coded {
+	return errs.New(CodeRateLimited, "too many submissions — please try again later", nil)
+}
+
+func ChallengeRequired(attemptID string) *errs.Coded {
+	return errs.New(CodeChallengeRequired, "additional verification required", map[string]any{
+		"attemptId": attemptID, "challenge": "turnstile",
+	})
+}
+
+func AbuseUnavailable() *errs.Coded {
+	return errs.New(CodeAbuseUnavailable, "submission admission is temporarily unavailable", nil)
+}
+
+func AbuseAttemptReplayed() *errs.Coded {
+	return errs.New(CodeAbuseReplay, "submission attempt was already admitted", nil)
 }

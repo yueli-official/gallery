@@ -9,6 +9,8 @@ import (
 
 	"github.com/gogf/gf/v2/frame/g"
 	"github.com/gogf/gf/v2/os/gctx"
+	foundationabuse "github.com/yueli-official/foundation/go/abuse"
+	"github.com/yueli-official/foundation/go/abuse/turnstile"
 	"github.com/yueli-official/foundation/go/work"
 	workpostgres "github.com/yueli-official/foundation/go/work/postgres"
 
@@ -22,6 +24,7 @@ import (
 	"platform/products/gallery/api/internal/assetclient"
 	"platform/products/gallery/api/internal/dao"
 	galleryservice "platform/products/gallery/api/internal/gallery"
+	"platform/products/gallery/api/internal/galleryabuse"
 	"platform/products/gallery/api/internal/server"
 )
 
@@ -60,6 +63,43 @@ func main() {
 		panic(err)
 	}
 	service := galleryservice.New(dao.NewPG(g.DB(), workAdapter))
+	var (
+		abuseChallenge *foundationabuse.ChallengeDefinition
+		abuseVerifiers map[foundationabuse.ChallengeKind]foundationabuse.ChallengeVerifier
+	)
+	if secret := g.Cfg().MustGet(ctx, "gallery.abuse.turnstile.secret").String(); secret != "" {
+		hostnames := g.Cfg().MustGet(ctx, "gallery.abuse.turnstile.hostnames").Strings()
+		if len(hostnames) == 0 {
+			panic("gallery.abuse.turnstile.hostnames is required when Turnstile is enabled")
+		}
+		challengeVerifier, err := turnstile.New(turnstile.Options{
+			Secret:   secret,
+			Endpoint: g.Cfg().MustGet(ctx, "gallery.abuse.turnstile.endpoint").String(),
+		})
+		if err != nil {
+			panic(err)
+		}
+		abuseChallenge = &foundationabuse.ChallengeDefinition{
+			Kind: "turnstile", ExpectedAction: "gallery-submission",
+			AllowedHosts: hostnames,
+		}
+		abuseVerifiers = map[foundationabuse.ChallengeKind]foundationabuse.ChallengeVerifier{
+			"turnstile": challengeVerifier,
+		}
+	}
+	abuseCatalog := foundationabuse.MustCompile(galleryabuse.Definition(galleryabuse.Policy{
+		Challenge: abuseChallenge,
+	}))
+	abuseModule, err := foundationabuse.NewPostgres(ctx, abuseCatalog, foundationabuse.PostgresOptions{
+		DB: workDB, InstanceKey: "gallery:" + appconfig.SiteSlug(ctx),
+		Verifiers: abuseVerifiers,
+	})
+	if err != nil {
+		panic(err)
+	}
+	if err := service.SetAbuse(abuseModule); err != nil {
+		panic(err)
+	}
 	assetCfg := appconfig.LoadAssetClient(ctx)
 	assetPort, err := assetclient.NewHTTP(assetclient.Config{
 		BaseURL: assetCfg.BaseURL, TokenURL: assetCfg.TokenURL, ClientID: assetCfg.ClientID,

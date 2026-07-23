@@ -4,6 +4,9 @@ import (
 	"context"
 	"strings"
 
+	"github.com/gogf/gf/v2/net/ghttp"
+	"github.com/google/uuid"
+	"github.com/yueli-official/foundation/go/abuse"
 	foundationauth "github.com/yueli-official/foundation/go/auth"
 	v1 "platform/products/gallery/api/api/v1"
 	galleryservice "platform/products/gallery/api/internal/gallery"
@@ -19,6 +22,33 @@ func (c *Workflow) CreateSubmission(ctx context.Context, req *v1.CreateSubmissio
 	subject, err := requiredSubject(ctx)
 	if err != nil {
 		return nil, err
+	}
+	attemptID := strings.TrimSpace(req.AbuseAttemptID)
+	if attemptID == "" {
+		attemptID = uuid.NewString()
+	}
+	request := ghttp.RequestFromCtx(ctx)
+	if request == nil {
+		return nil, galleryerr.AbuseUnavailable()
+	}
+	admission, err := c.service.AdmitSubmission(
+		ctx, subject, request.GetClientIp(), attemptID, req.ChallengeProof,
+	)
+	if err != nil {
+		if abuse.IsKind(err, abuse.ErrorConflict) {
+			return nil, galleryerr.AbuseAttemptReplayed()
+		}
+		return nil, galleryerr.AbuseUnavailable()
+	}
+	switch admission.Disposition {
+	case abuse.DispositionAllow:
+		if admission.Replay {
+			return nil, galleryerr.AbuseAttemptReplayed()
+		}
+	case abuse.DispositionChallenge:
+		return nil, galleryerr.ChallengeRequired(attemptID)
+	default:
+		return nil, galleryerr.RateLimited()
 	}
 	value, err := c.service.Submit(ctx, subject, req.SubmissionInput)
 	if err != nil {
