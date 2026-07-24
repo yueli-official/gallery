@@ -20,7 +20,7 @@ import (
 	"github.com/yueli-official/foundation/go/work"
 	workpostgres "github.com/yueli-official/foundation/go/work/postgres"
 
-	"platform/gokit/classification"
+	"github.com/yueli-official/foundation/go/classification"
 	"platform/products/gallery/api/internal/collection"
 	"platform/products/gallery/api/internal/galleryerr"
 	"platform/products/gallery/api/internal/gallerywebhook"

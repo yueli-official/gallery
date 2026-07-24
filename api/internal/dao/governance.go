@@ -13,7 +13,7 @@ import (
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/lib/pq"
 
-	"platform/gokit/classification"
+	"github.com/yueli-official/foundation/go/classification"
 	"platform/products/gallery/api/internal/galleryerr"
 )
 

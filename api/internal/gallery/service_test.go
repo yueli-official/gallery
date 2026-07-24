@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"platform/gokit/classification"
+	"github.com/yueli-official/foundation/go/classification"
 	"platform/gokit/errs"
 	"platform/products/gallery/api/internal/collection"
 	"platform/products/gallery/api/internal/model"

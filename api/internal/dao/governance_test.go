@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"platform/gokit/classification"
+	"github.com/yueli-official/foundation/go/classification"
 )
 
 func TestClassificationGovernanceImpactTokenIsCanonicalAndSensitive(t *testing.T) {

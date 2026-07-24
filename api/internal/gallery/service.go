@@ -17,7 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/yueli-official/foundation/go/abuse"
 
-	"platform/gokit/classification"
+	"github.com/yueli-official/foundation/go/classification"
 	"platform/products/gallery/api/internal/collection"
 	"platform/products/gallery/api/internal/galleryabuse"
 	"platform/products/gallery/api/internal/galleryerr"
