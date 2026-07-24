@@ -30,6 +30,11 @@ gallery:
       secret: ""            # optional; enable challenge escalation for guest submissions
       endpoint: ""          # empty uses Cloudflare Siteverify
       hostnames: []         # trusted public hosts; never infer from request Host
+  webhook:
+    # Enables durable publication/review/classification integration facts.
+    enabled: false
+    # Exactly 32 random bytes encoded as base64 or 64 hex characters.
+    masterKey: ""
   jwks:
     url: "http://localhost:8081/oauth2/jwks.json"
     issuer: "http://localhost:8081"

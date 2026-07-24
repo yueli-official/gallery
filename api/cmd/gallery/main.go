@@ -20,11 +20,13 @@ import (
 	"platform/gokit/observability"
 	"platform/gokit/openapiexport"
 	"platform/gokit/postgresdb"
+	"platform/gokit/webhooksetup"
 	"platform/products/gallery/api/internal/appconfig"
 	"platform/products/gallery/api/internal/assetclient"
 	"platform/products/gallery/api/internal/dao"
 	galleryservice "platform/products/gallery/api/internal/gallery"
 	"platform/products/gallery/api/internal/galleryabuse"
+	"platform/products/gallery/api/internal/gallerywebhook"
 	"platform/products/gallery/api/internal/server"
 )
 
@@ -62,7 +64,40 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	service := galleryservice.New(dao.NewPG(g.DB(), workAdapter))
+	store := dao.NewPG(g.DB(), workAdapter)
+	var webhookRuntime *webhooksetup.Runtime
+	if g.Cfg().MustGet(ctx, "gallery.webhook.enabled").Bool() {
+		masterKey, err := webhooksetup.DecodeMasterKey(
+			g.Cfg().MustGet(ctx, "gallery.webhook.masterKey").String(),
+		)
+		if err != nil {
+			panic(err)
+		}
+		webhookWorkerID := "gallery-webhook-worker"
+		if hostname, hostErr := os.Hostname(); hostErr == nil && hostname != "" {
+			webhookWorkerID += ":" + hostname
+		}
+		webhookRuntime, err = webhooksetup.New(ctx, webhooksetup.Options{
+			DB: workDB, InstanceKey: "gallery:" + appconfig.SiteSlug(ctx) + ":webhook",
+			Definition: gallerywebhook.Definition(appconfig.SiteSlug(ctx)),
+			MasterKey:  masterKey, WorkerID: webhookWorkerID,
+			OnError: func(runErr error) {
+				g.Log().Warning(ctx, "gallery webhook runner error", "error", runErr)
+			},
+		})
+		if err != nil {
+			panic(err)
+		}
+		store.SetWebhook(webhookRuntime.Hooks)
+		webhookContext, stopWebhook := context.WithCancel(context.Background())
+		defer stopWebhook()
+		go func() {
+			if runErr := webhookRuntime.Runner.Run(webhookContext); runErr != nil && !errors.Is(runErr, context.Canceled) {
+				g.Log().Error(ctx, "gallery webhook runner stopped", "error", runErr)
+			}
+		}()
+	}
+	service := galleryservice.New(store)
 	var (
 		abuseChallenge *foundationabuse.ChallengeDefinition
 		abuseVerifiers map[foundationabuse.ChallengeKind]foundationabuse.ChallengeVerifier

@@ -3,6 +3,7 @@ package dao
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -15,18 +16,29 @@ import (
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/os/gtime"
 	"github.com/lib/pq"
+	"github.com/yueli-official/foundation/go/webhook"
 	"github.com/yueli-official/foundation/go/work"
 	workpostgres "github.com/yueli-official/foundation/go/work/postgres"
 
 	"platform/gokit/classification"
 	"platform/products/gallery/api/internal/collection"
 	"platform/products/gallery/api/internal/galleryerr"
+	"platform/products/gallery/api/internal/gallerywebhook"
 	"platform/products/gallery/api/internal/model"
 )
 
 type PG struct {
-	db   gdb.DB
-	work *workpostgres.Adapter
+	db       gdb.DB
+	work     *workpostgres.Adapter
+	webhooks TransactionalWebhookPublisher
+}
+
+type TransactionalWebhookPublisher interface {
+	PublishTx(context.Context, *sql.Tx, webhook.EventCommand) (webhook.EventReceipt, error)
+}
+
+func (p *PG) SetWebhook(runtime TransactionalWebhookPublisher) {
+	p.webhooks = runtime
 }
 
 func NewPG(db gdb.DB, adapters ...*workpostgres.Adapter) *PG {
@@ -46,21 +58,39 @@ func (p *PG) enqueueClassificationRefresh(
 	payload json.RawMessage,
 ) error {
 	if p.work == nil {
-		_, err := tx.Ctx(ctx).Exec(`
+		if _, err := tx.Ctx(ctx).Exec(`
 INSERT INTO gallery_classification_outbox (catalog_id, revision, event_type, payload)
-VALUES (?::uuid, ?, ?, ?::jsonb)`, catalogID, revision, eventType, string(payload))
-		return err
+VALUES (?::uuid, ?, ?, ?::jsonb)`, catalogID, revision, eventType, string(payload)); err != nil {
+			return err
+		}
+	} else {
+		envelope, err := json.Marshal(map[string]any{
+			"catalogId": catalogID, "revision": revision, "eventType": eventType, "data": json.RawMessage(payload),
+		})
+		if err != nil {
+			return err
+		}
+		if _, err = p.work.EnqueueTx(ctx, tx.GetSqlTX(), work.Request{
+			Kind: "gallery.classification-refresh", Payload: envelope,
+			IdempotencyKey: fmt.Sprintf("gallery.classification:%s:%d", catalogID, revision),
+		}); err != nil {
+			return err
+		}
 	}
-	envelope, err := json.Marshal(map[string]any{
+	if p.webhooks == nil {
+		return nil
+	}
+	event, err := json.Marshal(map[string]any{
 		"catalogId": catalogID, "revision": revision,
-		"eventType": eventType, "data": json.RawMessage(payload),
+		"changeType": eventType,
 	})
 	if err != nil {
 		return err
 	}
-	_, err = p.work.EnqueueTx(ctx, tx.GetSqlTX(), work.Request{
-		Kind: "gallery.classification-refresh", Payload: envelope,
-		IdempotencyKey: fmt.Sprintf("gallery.classification:%s:%d", catalogID, revision),
+	_, err = p.webhooks.PublishTx(ctx, tx.GetSqlTX(), webhook.EventCommand{
+		Type: gallerywebhook.ClassificationRevised, Subject: "classification/" + catalogID,
+		Data: event, OccurredAt: time.Now().UTC(),
+		IdempotencyKey: fmt.Sprintf("gallery:classification:%s:%d", catalogID, revision),
 	})
 	return err
 }
@@ -1516,7 +1546,10 @@ RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
 				return gerror.Wrap(err, "reject gallery submission")
 			}
 			value, err = recordAs[model.Submission](record)
-			return err
+			if err != nil {
+				return err
+			}
+			return p.publishSubmissionReviewedTx(ctx, tx, value, input.Decision)
 		}
 		if current.ProcessingState != "ready" || !current.PublicRenditionReady || current.Width <= 0 || current.Height <= 0 || !oneOf(current.SafetyState, "safe", "uncertain") {
 			return nil
@@ -1598,7 +1631,10 @@ RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
 			return gerror.Wrap(err, "complete gallery submission review")
 		}
 		value, err = recordAs[model.Submission](record)
-		return err
+		if err != nil {
+			return err
+		}
+		return p.publishSubmissionReviewedTx(ctx, tx, value, input.Decision)
 	})
 	return value, err
 }
