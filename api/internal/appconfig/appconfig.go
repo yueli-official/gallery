@@ -38,6 +38,10 @@ func SiteSlug(ctx context.Context) string {
 	return g.Cfg().MustGet(ctx, "gallery.siteSlug", "gallery-main").String()
 }
 
+func BootstrapAdministratorSubs(ctx context.Context) []string {
+	return g.Cfg().MustGet(ctx, "gallery.authorization.bootstrapAdministratorSubs").Strings()
+}
+
 func AssetBaseURL(ctx context.Context) string {
 	return g.Cfg().MustGet(ctx, "gallery.asset.baseUrl", "http://localhost:8082").String()
 }

@@ -8,12 +8,14 @@ import {
 import { CollectionToolbar } from "@yueli/ui/collection/pattern";
 import type { GalleryAdminCasePage, GalleryCase } from "~/types/gallery";
 
-definePageMeta({ layout: "manage", middleware: "auth" });
+definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
 useSeoMeta({ title: "处理单 · 图库管理" });
 const route = useRoute();
 const router = useRouter();
 const { call } = useApi();
+const { can } = useGalleryMe();
 const hydrated = useClientHydrated();
+const canResolveCases = computed(() => can("gallery.case.resolve"));
 const page = computed(() => Math.max(1, Number(route.query.page) || 1));
 const q = computed(() => String(route.query.q || ""));
 const qDraft = ref(q.value);
@@ -147,7 +149,7 @@ async function resolve(
   item: GalleryCase,
   nextStatus: "reviewing" | "resolved" | "dismissed",
 ) {
-  if (!item.updatedAt) return;
+  if (!canResolveCases.value || !item.updatedAt) return;
   acting.value = item.id;
   actionErrors.value = Object.fromEntries(
     Object.entries(actionErrors.value).filter(([id]) => id !== item.id),
@@ -320,7 +322,7 @@ async function resolve(
             :description="actionErrors[item.id]"
           />
           <div
-            v-if="resolvingId === item.id"
+            v-if="canResolveCases && resolvingId === item.id"
             class="mt-4 rounded-lg border border-default bg-elevated/35 p-3"
           >
             <UFormField label="处理结论" required>
@@ -358,14 +360,14 @@ async function resolve(
         </div>
         <div class="flex flex-wrap items-center gap-2 lg:justify-end">
           <UButton
-            v-if="item.status === 'open'"
+            v-if="canResolveCases && item.status === 'open'"
             label="接手处理"
             :loading="acting === item.id"
             :disabled="!item.updatedAt"
             @click="resolve(item, 'reviewing')"
           />
           <UButton
-            v-else-if="item.status === 'reviewing'"
+            v-else-if="canResolveCases && item.status === 'reviewing'"
             label="完成处理"
             @click="toggleResolution(item.id)"
           />

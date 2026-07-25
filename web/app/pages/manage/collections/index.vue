@@ -1,15 +1,14 @@
 <script setup lang="ts">
-import { PageHeader } from '@yueli/ui/dashboard/pattern'
-import {
-  ManageEmpty,
-  SkeletonList,
-} from "@platform/manage/components";
+import { PageHeader } from "@yueli/ui/dashboard/pattern";
+import { ManageEmpty, SkeletonList } from "@platform/manage/components";
 import type { GalleryCollection } from "~/types/gallery";
 
-definePageMeta({ layout: "manage", middleware: "auth" });
+definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
 useSeoMeta({ title: "专题集合 · 图库管理" });
 const { call } = useApi();
+const { can } = useGalleryMe();
 const hydrated = useClientHydrated();
+const canManageCollections = computed(() => can("gallery.collection.manage"));
 const createOpen = ref(false);
 const creating = ref(false);
 const form = reactive({
@@ -35,7 +34,8 @@ const imageCount = computed(() =>
   data.value.collections.reduce((total, item) => total + item.itemCount, 0),
 );
 async function createCollection() {
-  if (!form.name.trim() || !form.slug.trim()) return;
+  if (!canManageCollections.value || !form.name.trim() || !form.slug.trim())
+    return;
   creating.value = true;
   try {
     await call("/api/v1/gallery/admin/collections", {
@@ -63,6 +63,7 @@ async function createCollection() {
         >把已经通过审核的图片组织成有封面、有顺序、有公开叙事的专题。</template
       ><template #actions
         ><UButton
+          v-if="canManageCollections"
           icon="i-tabler-plus"
           label="新建专题"
           @click="
@@ -157,8 +158,8 @@ async function createCollection() {
         <div class="flex items-center gap-1 sm:justify-end">
           <UButton
             :to="`/manage/collections/${encodeURIComponent(item.id)}`"
-            icon="i-tabler-pencil"
-            label="继续策展"
+            :icon="canManageCollections ? 'i-tabler-pencil' : 'i-tabler-eye'"
+            :label="canManageCollections ? '继续策展' : '查看专题'"
           />
           <UButton
             v-if="item.visibility === 'public' && item.slug"
@@ -179,6 +180,7 @@ async function createCollection() {
       description="从私有专题开始整理，准备好后再公开。"
     />
     <UModal
+      v-if="canManageCollections"
       v-model:open="createOpen"
       title="新建专题"
       description="专题默认可以保持私有；公开后会出现在前台。"

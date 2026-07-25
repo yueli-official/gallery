@@ -18,11 +18,13 @@ import type {
   GallerySubmission,
 } from "~/types/gallery";
 
-definePageMeta({ layout: "manage", middleware: "auth" });
+definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
 useSeoMeta({ title: "投稿与审核 · 图库管理" });
 const router = useRouter();
 const { call } = useApi();
+const { can } = useGalleryMe();
 const hydrated = useClientHydrated();
+const canReviewSubmissions = computed(() => can("gallery.submission.review"));
 type SubmissionSort = "oldest" | "newest" | "updated";
 interface SubmissionCollectionQuery {
   q: string;
@@ -115,7 +117,7 @@ const {
   queryPolicy: createJsonCollectionQueryPolicy<SubmissionCollectionQuery>(),
   keyOf: (item: GallerySubmission) => item.id,
   isSelectable: (item: GallerySubmission) =>
-    submissionReviewAction(item).canApprove,
+    canReviewSubmissions.value && submissionReviewAction(item).canApprove,
   querySync,
   dataQueryKey: (query) => JSON.stringify(query),
   load: loadSubmissions,
@@ -332,6 +334,7 @@ function preset(kind: "review" | "failed" | "uncertain" | "all") {
     });
 }
 async function review(item: GallerySubmission, decision: "approve" | "reject") {
+  if (!canReviewSubmissions.value) return;
   acting.value = item.id;
   actionErrors.value = Object.fromEntries(
     Object.entries(actionErrors.value).filter(([id]) => id !== item.id),
@@ -357,7 +360,7 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
 }
 
 async function bulkApprove() {
-  if (!selectedIds.value.length) return;
+  if (!canReviewSubmissions.value || !selectedIds.value.length) return;
   bulkPending.value = true;
   bulkResult.value = undefined;
   try {
@@ -521,7 +524,7 @@ function decisionSummary(item: GallerySubmission) {
       :is-selected="submissionWorkflow.isSelected"
       :is-item-selectable="(item) => submissionReviewAction(item).canApprove"
       label="投稿审核队列"
-      selectable
+      :selectable="canReviewSubmissions"
       @search="search"
       @control-change="changeControl"
       @clear-filters="clearFilters"
@@ -540,6 +543,7 @@ function decisionSummary(item: GallerySubmission) {
       >
       <template #bulk-actions
         ><UButton
+          v-if="canReviewSubmissions"
           size="xs"
           icon="i-tabler-checks"
           label="批量批准"
@@ -622,7 +626,9 @@ function decisionSummary(item: GallerySubmission) {
             <div class="flex flex-wrap items-center gap-2 xl:justify-end">
               <UButton
                 v-if="
-                  item.reviewState === 'pending' && item.outcome === 'pending'
+                  canReviewSubmissions &&
+                  item.reviewState === 'pending' &&
+                  item.outcome === 'pending'
                 "
                 :label="submissionReviewAction(item).label"
                 :loading="acting === item.id"
@@ -647,7 +653,9 @@ function decisionSummary(item: GallerySubmission) {
             </p>
             <details
               v-if="
-                item.reviewState === 'pending' && item.outcome === 'pending'
+                canReviewSubmissions &&
+                item.reviewState === 'pending' &&
+                item.outcome === 'pending'
               "
               class="group mt-3 rounded-lg border border-default bg-elevated/35 px-3 py-2"
             >

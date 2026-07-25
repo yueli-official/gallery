@@ -11,6 +11,8 @@ import (
 	"github.com/gogf/gf/v2/os/gctx"
 	foundationabuse "github.com/yueli-official/foundation/go/abuse"
 	"github.com/yueli-official/foundation/go/abuse/turnstile"
+	"github.com/yueli-official/foundation/go/authorization"
+	authorizationpostgres "github.com/yueli-official/foundation/go/authorization/postgres"
 	"github.com/yueli-official/foundation/go/work"
 	workpostgres "github.com/yueli-official/foundation/go/work/postgres"
 
@@ -26,6 +28,7 @@ import (
 	"platform/products/gallery/api/internal/dao"
 	galleryservice "platform/products/gallery/api/internal/gallery"
 	"platform/products/gallery/api/internal/galleryabuse"
+	"platform/products/gallery/api/internal/galleryauthz"
 	"platform/products/gallery/api/internal/gallerywebhook"
 	"platform/products/gallery/api/internal/server"
 )
@@ -39,8 +42,24 @@ func main() {
 	defer observability.ShutdownWithTimeout(shutdown)
 
 	httpServer := g.Server()
+	authorizationDefinition, err := authorization.Compile(galleryauthz.Definition())
+	if err != nil {
+		panic(err)
+	}
 	if os.Getenv("PLATFORM_OPENAPI_OUTPUT") != "" {
-		server.Configure(httpServer, server.Deps{Gallery: galleryservice.New(nil)})
+		authz, err := authorization.NewMemory(authorizationDefinition, authorization.MemoryOptions{
+			RootScopeID: galleryauthz.RootScopeID,
+			ProtectedSubjects: []authorization.SubjectRef{{
+				Kind: authorization.SubjectUser, ID: "openapi-export-admin",
+			}},
+			Predicates: galleryauthz.PredicateEvaluators(),
+		})
+		if err != nil {
+			panic(err)
+		}
+		server.Configure(httpServer, server.Deps{
+			Gallery: galleryservice.New(nil), Authorization: galleryauthz.New(authz),
+		})
 		if handled, exportErr := openapiexport.ExportIfRequested(httpServer); handled {
 			if exportErr != nil {
 				panic(exportErr)
@@ -54,6 +73,30 @@ func main() {
 		panic(err)
 	}
 	defer workDB.Close()
+	bootstrapSubs := appconfig.BootstrapAdministratorSubs(ctx)
+	protected := make([]authorization.SubjectRef, 0, len(bootstrapSubs))
+	for _, sub := range bootstrapSubs {
+		if sub != "" {
+			protected = append(protected, authorization.SubjectRef{
+				Kind: authorization.SubjectUser, ID: sub,
+			})
+		}
+	}
+	authz, err := authorizationpostgres.New(ctx, authorizationDefinition, authorizationpostgres.Options{
+		DB: workDB, InstanceKey: "gallery:" + appconfig.SiteSlug(ctx),
+		Memory: authorization.MemoryOptions{
+			RootScopeID:       galleryauthz.RootScopeID,
+			ProtectedSubjects: protected,
+			Predicates:        galleryauthz.PredicateEvaluators(),
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	if authz.InstanceWasCreated() && len(protected) == 0 {
+		panic("gallery authorization bootstrap requires at least one administrator subject")
+	}
+	authorizationService := galleryauthz.New(authz)
 	workCatalog, err := work.Compile(galleryservice.WorkDefinition())
 	if err != nil {
 		panic(err)
@@ -175,7 +218,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	server.Configure(httpServer, server.Deps{Gallery: service, Verifier: verifier})
+	server.Configure(httpServer, server.Deps{
+		Gallery: service, Verifier: verifier, Authorization: authorizationService,
+	})
 	g.Log().Info(ctx, "gallery service starting")
 	httpServer.Run()
 }

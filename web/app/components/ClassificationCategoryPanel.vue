@@ -7,7 +7,10 @@ import type {
 type IdentityKind = GalleryClassificationGovernanceCommand["kind"];
 type Operation = "status" | "reparent" | "merge" | "delete";
 
-const props = defineProps<{ items: GalleryClassificationCatalogNode[] }>();
+const props = defineProps<{
+  items: GalleryClassificationCatalogNode[];
+  canGovern: boolean;
+}>();
 const emit = defineEmits<{
   action: [
     operation: Operation,
@@ -108,7 +111,7 @@ function moreItems(item: GalleryClassificationCatalogNode) {
           </details>
         </div>
         <div class="flex items-center justify-end gap-1">
-          <UDropdownMenu :items="moreItems(item)"
+          <UDropdownMenu v-if="canGovern" :items="moreItems(item)"
             ><UButton
               class="min-h-11"
               color="neutral"

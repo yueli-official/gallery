@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { PageHeader } from '@yueli/ui/dashboard/pattern'
+import { PageHeader } from "@yueli/ui/dashboard/pattern";
 import type { GalleryAdminOverview } from "~/types/gallery";
 
-definePageMeta({ layout: "manage", middleware: "auth" });
+definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
 useSeoMeta({ title: "今日运营 · 图库管理" });
 
-const { user, isAdmin } = useAuth();
+const { user } = useAuth();
+const { can } = useGalleryMe();
 const { call } = useApi();
 const hydrated = useClientHydrated();
 const { data, pending, error, refresh } = await useAsyncData(
@@ -21,86 +22,108 @@ const attentionTotal = computed(
     (overview.value?.openCases || 0) +
     (overview.value?.failedProcessing || 0),
 );
-const signals = computed(() => [
-  {
-    label: "待审投稿",
-    value: overview.value?.pendingSubmissions || 0,
-    tone: "primary",
-  },
-  {
-    label: "开放处理单",
-    value: overview.value?.openCases || 0,
-    tone: "warning",
-  },
-  {
-    label: "处理失败",
-    value: overview.value?.failedProcessing || 0,
-    tone: "error",
-  },
-  {
-    label: "公开图片",
-    value: overview.value?.publishedImages || 0,
-    tone: "neutral",
-  },
-]);
-const priorities = computed(() => [
-  {
-    key: "submissions",
-    label: "审核新投稿",
-    description: "确认内容质量、分类与安全判断，让合格图片进入公开目录。",
-    count: overview.value?.pendingSubmissions || 0,
-    icon: "i-tabler-photo-check",
-    to: "/manage/submissions?reviewState=pending&outcome=pending",
-    action: "进入审核",
-    tone: "primary",
-  },
-  {
-    key: "cases",
-    label: "跟进信任问题",
-    description: "处理举报、来源修正和安全不确定，优先解决等待时间最长的项目。",
-    count: overview.value?.openCases || 0,
-    icon: "i-tabler-shield-check",
-    to: "/manage/cases",
-    action: "查看处理单",
-    tone: "warning",
-  },
-  {
-    key: "failed",
-    label: "恢复失败处理",
-    description: "检查媒体处理失败原因，保留已有投稿信息并重新推进。",
-    count: overview.value?.failedProcessing || 0,
-    icon: "i-tabler-alert-triangle",
-    to: "/manage/submissions?processingState=failed",
-    action: "检查失败项",
-    tone: "error",
-  },
-]);
-const workspaces = [
-  {
-    label: "图片资产",
-    description: "浏览完整生命周期与异常状态",
-    icon: "i-tabler-photo",
-    to: "/manage/images",
-  },
-  {
-    label: "专题策展",
-    description: "组织封面、成员与公开叙事",
-    icon: "i-tabler-folders",
-    to: "/manage/collections",
-  },
-  {
-    label: "目录治理",
-    description: "维护分类、维度和标签质量",
-    icon: "i-tabler-category",
-    to: "/manage/classification",
-  },
-  {
-    label: "发现策略",
-    description: "检查随机发现与排行信号",
-    icon: "i-tabler-sparkles",
-    to: "/manage/discovery",
-  },
-];
+const signals = computed(() =>
+  [
+    {
+      label: "待审投稿",
+      value: overview.value?.pendingSubmissions || 0,
+      tone: "primary",
+      capability: "gallery.submission.review",
+      to: "/manage/submissions?reviewState=pending&outcome=pending",
+    },
+    {
+      label: "开放处理单",
+      value: overview.value?.openCases || 0,
+      tone: "warning",
+      capability: "gallery.case.read",
+      to: "/manage/cases",
+    },
+    {
+      label: "处理失败",
+      value: overview.value?.failedProcessing || 0,
+      tone: "error",
+      capability: "gallery.submission.read",
+      to: "/manage/submissions?processingState=failed",
+    },
+    {
+      label: "公开图片",
+      value: overview.value?.publishedImages || 0,
+      tone: "neutral",
+      capability: "gallery.image.read",
+      to: "/manage/images?status=published",
+    },
+  ].filter((item) => can(item.capability)),
+);
+const priorities = computed(() =>
+  [
+    {
+      key: "submissions",
+      label: "审核新投稿",
+      description: "确认内容质量、分类与安全判断，让合格图片进入公开目录。",
+      count: overview.value?.pendingSubmissions || 0,
+      icon: "i-tabler-photo-check",
+      to: "/manage/submissions?reviewState=pending&outcome=pending",
+      action: "进入审核",
+      tone: "primary",
+      capability: "gallery.submission.review",
+    },
+    {
+      key: "cases",
+      label: "跟进信任问题",
+      description:
+        "处理举报、来源修正和安全不确定，优先解决等待时间最长的项目。",
+      count: overview.value?.openCases || 0,
+      icon: "i-tabler-shield-check",
+      to: "/manage/cases",
+      action: "查看处理单",
+      tone: "warning",
+      capability: "gallery.case.read",
+    },
+    {
+      key: "failed",
+      label: "恢复失败处理",
+      description: "检查媒体处理失败原因，保留已有投稿信息并重新推进。",
+      count: overview.value?.failedProcessing || 0,
+      icon: "i-tabler-alert-triangle",
+      to: "/manage/submissions?processingState=failed",
+      action: "检查失败项",
+      tone: "error",
+      capability: "gallery.submission.read",
+    },
+  ].filter((item) => can(item.capability)),
+);
+const workspaces = computed(() =>
+  [
+    {
+      label: "图片资产",
+      description: "浏览完整生命周期与异常状态",
+      icon: "i-tabler-photo",
+      to: "/manage/images",
+      capability: "gallery.image.read",
+    },
+    {
+      label: "专题策展",
+      description: "组织封面、成员与公开叙事",
+      icon: "i-tabler-folders",
+      to: "/manage/collections",
+      capability: "gallery.collection.read",
+    },
+    {
+      label: "目录治理",
+      description: "维护分类、维度和标签质量",
+      icon: "i-tabler-category",
+      to: "/manage/classification",
+      capability: "gallery.classification.read",
+    },
+    {
+      label: "发现策略",
+      description: "检查随机发现与排行信号",
+      icon: "i-tabler-sparkles",
+      to: "/manage/discovery",
+      capability: "gallery.discovery.read",
+    },
+  ].filter((item) => can(item.capability)),
+);
 </script>
 
 <template>
@@ -123,7 +146,7 @@ const workspaces = [
     </div>
 
     <UAlert
-      v-else-if="!isAdmin"
+      v-else-if="!can('gallery.dashboard.read')"
       color="error"
       variant="subtle"
       icon="i-tabler-lock"
@@ -147,11 +170,7 @@ const workspaces = [
         <NuxtLink
           v-for="(signal, index) in signals"
           :key="signal.label"
-          :to="
-            index === 3
-              ? '/manage/images?status=published'
-              : priorities[index]?.to
-          "
+          :to="signal.to"
           class="group min-w-0 border-default px-4 py-4 transition-colors hover:bg-elevated/60 lg:px-5"
           :class="[
             index % 2 ? '' : 'border-r',

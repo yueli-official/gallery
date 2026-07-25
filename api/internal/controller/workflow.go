@@ -10,6 +10,7 @@ import (
 	foundationauth "github.com/yueli-official/foundation/go/auth"
 	v1 "platform/products/gallery/api/api/v1"
 	galleryservice "platform/products/gallery/api/internal/gallery"
+	"platform/products/gallery/api/internal/galleryauthz"
 	"platform/products/gallery/api/internal/galleryerr"
 	"platform/products/gallery/api/internal/model"
 )
@@ -144,7 +145,7 @@ type Admin struct{ service *galleryservice.Service }
 func NewAdmin(service *galleryservice.Service) *Admin { return &Admin{service: service} }
 
 func (c *Admin) GetAdminOverview(ctx context.Context, _ *v1.GetAdminOverviewReq) (*v1.GetAdminOverviewRes, error) {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityDashboardRead); err != nil {
 		return nil, err
 	}
 	value, err := c.service.AdminOverview(ctx)
@@ -155,7 +156,7 @@ func (c *Admin) GetAdminOverview(ctx context.Context, _ *v1.GetAdminOverviewReq)
 }
 
 func (c *Admin) GetClassificationCatalog(ctx context.Context, _ *v1.GetClassificationCatalogReq) (*v1.GetClassificationCatalogRes, error) {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityClassificationRead); err != nil {
 		return nil, err
 	}
 	catalog, err := c.service.ClassificationCatalog(ctx)
@@ -166,7 +167,7 @@ func (c *Admin) GetClassificationCatalog(ctx context.Context, _ *v1.GetClassific
 }
 
 func (c *Admin) ListClassificationTags(ctx context.Context, req *v1.ListClassificationTagsReq) (*v1.ListClassificationTagsRes, error) {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityClassificationRead); err != nil {
 		return nil, err
 	}
 	page, err := c.service.ClassificationTags(ctx, req.Cursor, req.Size)
@@ -177,7 +178,7 @@ func (c *Admin) ListClassificationTags(ctx context.Context, req *v1.ListClassifi
 }
 
 func (c *Admin) ListClassificationTagProposals(ctx context.Context, req *v1.ListClassificationTagProposalsReq) (*v1.ListClassificationTagProposalsRes, error) {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityClassificationRead); err != nil {
 		return nil, err
 	}
 	proposals, total, err := c.service.ClassificationTagProposals(ctx, req.Status, req.Page, req.Size)
@@ -185,7 +186,7 @@ func (c *Admin) ListClassificationTagProposals(ctx context.Context, req *v1.List
 }
 
 func (c *Admin) ReviewClassificationTagProposal(ctx context.Context, req *v1.ReviewClassificationTagProposalReq) (*v1.ReviewClassificationTagProposalRes, error) {
-	operator, err := requireAdmin(ctx)
+	operator, err := requireCapability(ctx, galleryauthz.CapabilityClassificationProposalReview)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +198,7 @@ func (c *Admin) ReviewClassificationTagProposal(ctx context.Context, req *v1.Rev
 }
 
 func (c *Admin) PreviewClassificationGovernance(ctx context.Context, req *v1.PreviewClassificationGovernanceReq) (*v1.PreviewClassificationGovernanceRes, error) {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityClassificationGovern); err != nil {
 		return nil, err
 	}
 	preview, err := c.service.PreviewClassificationGovernance(ctx, req.ClassificationGovernancePreviewInput)
@@ -208,7 +209,7 @@ func (c *Admin) PreviewClassificationGovernance(ctx context.Context, req *v1.Pre
 }
 
 func (c *Admin) ExecuteClassificationGovernance(ctx context.Context, req *v1.ExecuteClassificationGovernanceReq) (*v1.ExecuteClassificationGovernanceRes, error) {
-	operator, err := requireAdmin(ctx)
+	operator, err := requireCapability(ctx, galleryauthz.CapabilityClassificationGovern)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +221,7 @@ func (c *Admin) ExecuteClassificationGovernance(ctx context.Context, req *v1.Exe
 }
 
 func (c *Admin) ListSubmissionReviews(ctx context.Context, req *v1.ListSubmissionReviewsReq) (*v1.ListSubmissionReviewsRes, error) {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilitySubmissionRead); err != nil {
 		return nil, err
 	}
 	page, err := c.service.ReviewQueue(ctx, model.AdminSubmissionQuery{
@@ -235,7 +236,7 @@ func (c *Admin) ListSubmissionReviews(ctx context.Context, req *v1.ListSubmissio
 }
 
 func (c *Admin) ReviewSubmission(ctx context.Context, req *v1.ReviewSubmissionReq) (*v1.ReviewSubmissionRes, error) {
-	operator, err := requireAdmin(ctx)
+	operator, err := requireCapability(ctx, galleryauthz.CapabilitySubmissionReview)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +248,7 @@ func (c *Admin) ReviewSubmission(ctx context.Context, req *v1.ReviewSubmissionRe
 }
 
 func (c *Admin) BulkReviewSubmissions(ctx context.Context, req *v1.BulkReviewSubmissionsReq) (*v1.BulkReviewSubmissionsRes, error) {
-	operator, err := requireAdmin(ctx)
+	operator, err := requireCapability(ctx, galleryauthz.CapabilitySubmissionReview)
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +260,7 @@ func (c *Admin) BulkReviewSubmissions(ctx context.Context, req *v1.BulkReviewSub
 }
 
 func (c *Admin) PreviewSubmission(ctx context.Context, req *v1.PreviewSubmissionReq) (*v1.PreviewSubmissionRes, error) {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilitySubmissionRead); err != nil {
 		return nil, err
 	}
 	previewURL, err := c.service.SubmissionPreviewURL(ctx, req.SubmissionID)
@@ -270,7 +271,7 @@ func (c *Admin) PreviewSubmission(ctx context.Context, req *v1.PreviewSubmission
 }
 
 func (c *Admin) HideImage(ctx context.Context, req *v1.HideImageReq) (*v1.HideImageRes, error) {
-	operator, err := requireAdmin(ctx)
+	operator, err := requireCapability(ctx, galleryauthz.CapabilityImageHide)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +282,7 @@ func (c *Admin) HideImage(ctx context.Context, req *v1.HideImageReq) (*v1.HideIm
 }
 
 func (c *Admin) ListAdminImages(ctx context.Context, req *v1.ListAdminImagesReq) (*v1.ListAdminImagesRes, error) {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityImageRead); err != nil {
 		return nil, err
 	}
 	page, err := c.service.AdminImages(ctx, model.AdminImageQuery{
@@ -297,7 +298,7 @@ func (c *Admin) ListAdminImages(ctx context.Context, req *v1.ListAdminImagesReq)
 }
 
 func (c *Admin) GetAdminImage(ctx context.Context, req *v1.GetAdminImageReq) (*v1.GetAdminImageRes, error) {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityImageRead); err != nil {
 		return nil, err
 	}
 	value, err := c.service.AdminImage(ctx, req.ImageID)
@@ -308,7 +309,7 @@ func (c *Admin) GetAdminImage(ctx context.Context, req *v1.GetAdminImageReq) (*v
 }
 
 func (c *Admin) UpdateAdminImage(ctx context.Context, req *v1.UpdateAdminImageReq) (*v1.UpdateAdminImageRes, error) {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityImageUpdate); err != nil {
 		return nil, err
 	}
 	value, err := c.service.UpdateAdminImage(ctx, req.ImageID, req.AdminImageUpdateInput)
@@ -319,7 +320,7 @@ func (c *Admin) UpdateAdminImage(ctx context.Context, req *v1.UpdateAdminImageRe
 }
 
 func (c *Admin) BulkHideImages(ctx context.Context, req *v1.BulkHideImagesReq) (*v1.BulkHideImagesRes, error) {
-	operator, err := requireAdmin(ctx)
+	operator, err := requireCapability(ctx, galleryauthz.CapabilityImageHide)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +328,11 @@ func (c *Admin) BulkHideImages(ctx context.Context, req *v1.BulkHideImagesReq) (
 }
 
 func (c *Admin) BulkImages(ctx context.Context, req *v1.BulkImagesReq) (*v1.BulkImagesRes, error) {
-	operator, err := requireAdmin(ctx)
+	capability := galleryauthz.CapabilityImageUpdate
+	if strings.TrimSpace(req.Action) == "hide" {
+		capability = galleryauthz.CapabilityImageHide
+	}
+	operator, err := requireCapability(ctx, capability)
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +340,7 @@ func (c *Admin) BulkImages(ctx context.Context, req *v1.BulkImagesReq) (*v1.Bulk
 }
 
 func (c *Admin) ListCases(ctx context.Context, req *v1.ListCasesReq) (*v1.ListCasesRes, error) {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityCaseRead); err != nil {
 		return nil, err
 	}
 	page, err := c.service.Cases(ctx, model.AdminCaseQuery{
@@ -348,7 +353,7 @@ func (c *Admin) ListCases(ctx context.Context, req *v1.ListCasesReq) (*v1.ListCa
 }
 
 func (c *Admin) ResolveCase(ctx context.Context, req *v1.ResolveCaseReq) (*v1.ResolveCaseRes, error) {
-	operator, err := requireAdmin(ctx)
+	operator, err := requireCapability(ctx, galleryauthz.CapabilityCaseResolve)
 	if err != nil {
 		return nil, err
 	}
@@ -360,7 +365,7 @@ func (c *Admin) ResolveCase(ctx context.Context, req *v1.ResolveCaseReq) (*v1.Re
 }
 
 func (c *Admin) CreateEditorialCollection(ctx context.Context, req *v1.CreateEditorialCollectionReq) (*v1.CreateEditorialCollectionRes, error) {
-	operator, err := requireAdmin(ctx)
+	operator, err := requireCapability(ctx, galleryauthz.CapabilityCollectionManage)
 	if err != nil {
 		return nil, err
 	}
@@ -372,7 +377,7 @@ func (c *Admin) CreateEditorialCollection(ctx context.Context, req *v1.CreateEdi
 }
 
 func (c *Admin) ListEditorialCollections(ctx context.Context, _ *v1.ListEditorialCollectionsReq) (*v1.ListEditorialCollectionsRes, error) {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityCollectionRead); err != nil {
 		return nil, err
 	}
 	values, err := c.service.AdminCollections(ctx)
@@ -380,7 +385,7 @@ func (c *Admin) ListEditorialCollections(ctx context.Context, _ *v1.ListEditoria
 }
 
 func (c *Admin) GetEditorialCollection(ctx context.Context, req *v1.GetEditorialCollectionReq) (*v1.GetEditorialCollectionRes, error) {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityCollectionRead); err != nil {
 		return nil, err
 	}
 	value, err := c.service.AdminCollection(ctx, req.CollectionID, req.Page, req.Size)
@@ -391,7 +396,7 @@ func (c *Admin) GetEditorialCollection(ctx context.Context, req *v1.GetEditorial
 }
 
 func (c *Admin) UpdateEditorialCollection(ctx context.Context, req *v1.UpdateEditorialCollectionReq) (*v1.UpdateEditorialCollectionRes, error) {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityCollectionManage); err != nil {
 		return nil, err
 	}
 	value, err := c.service.UpdateEditorialCollection(ctx, req.CollectionID, req.EditorialCollectionUpdateInput)
@@ -402,7 +407,7 @@ func (c *Admin) UpdateEditorialCollection(ctx context.Context, req *v1.UpdateEdi
 }
 
 func (c *Admin) MutateEditorialMembers(ctx context.Context, req *v1.MutateEditorialMembersReq) (*v1.MutateEditorialMembersRes, error) {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityCollectionManage); err != nil {
 		return nil, err
 	}
 	value, err := c.service.MutateEditorialMembers(ctx, req.CollectionID, req.MemberMutationInput)
@@ -413,7 +418,7 @@ func (c *Admin) MutateEditorialMembers(ctx context.Context, req *v1.MutateEditor
 }
 
 func (c *Admin) ReorderEditorialMembers(ctx context.Context, req *v1.ReorderEditorialMembersReq) (*v1.ReorderEditorialMembersRes, error) {
-	if _, err := requireAdmin(ctx); err != nil {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityCollectionManage); err != nil {
 		return nil, err
 	}
 	value, err := c.service.ReorderEditorialMembers(ctx, req.CollectionID, req.EditorialCollectionOrderInput)

@@ -17,14 +17,15 @@ database:
 gallery:
   siteSlug: "gallery-main"
   brand: "月离图库"
+  authorization:
+    bootstrapAdministratorSubs:
+      - "ac73d232-ce55-487d-bb39-fd336f1a9806"
   asset:
     baseUrl: "http://localhost:8082"
     tokenUrl: "http://localhost:8081/oauth2/token"
     clientId: "gallery-asset-svc"
     clientSecret: "" # inject via secret manager / environment
     scope: "asset:sign"
-  operatorSubs:
-    - "ac73d232-ce55-487d-bb39-fd336f1a9806"
   abuse:
     turnstile:
       secret: ""            # optional; enable challenge escalation for guest submissions

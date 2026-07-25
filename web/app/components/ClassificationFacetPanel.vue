@@ -10,7 +10,10 @@ type ManagedIdentity =
   GalleryClassificationCatalogFacet | GalleryClassificationCatalogNode;
 type Operation = "status" | "reparent" | "merge" | "delete";
 
-defineProps<{ facets: GalleryClassificationCatalogFacet[] }>();
+defineProps<{
+  facets: GalleryClassificationCatalogFacet[];
+  canGovern: boolean;
+}>();
 const emit = defineEmits<{
   action: [operation: Operation, kind: IdentityKind, item: ManagedIdentity];
 }>();
@@ -112,7 +115,7 @@ function valueMore(item: GalleryClassificationCatalogNode) {
             </p>
           </div>
           <div class="flex items-center gap-1">
-            <UDropdownMenu :items="facetMore(facet)"
+            <UDropdownMenu v-if="canGovern" :items="facetMore(facet)"
               ><UButton
                 class="min-h-11"
                 color="neutral"
@@ -149,7 +152,7 @@ function valueMore(item: GalleryClassificationCatalogNode) {
             </details>
           </div>
           <div class="flex items-center gap-1">
-            <UDropdownMenu :items="valueMore(value)"
+            <UDropdownMenu v-if="canGovern" :items="valueMore(value)"
               ><UButton
                 class="min-h-11"
                 color="neutral"

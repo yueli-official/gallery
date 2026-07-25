@@ -9,12 +9,14 @@ import (
 	"platform/gokit/healthcheck"
 	"platform/products/gallery/api/internal/controller"
 	galleryservice "platform/products/gallery/api/internal/gallery"
+	"platform/products/gallery/api/internal/galleryauthz"
 )
 
 type Deps struct {
-	Gallery     *galleryservice.Service
-	Verifier    *foundationauth.Verifier
-	ReadyChecks map[string]healthcheck.Check
+	Gallery       *galleryservice.Service
+	Verifier      *foundationauth.Verifier
+	Authorization *galleryauthz.Service
+	ReadyChecks   map[string]healthcheck.Check
 }
 
 func Configure(s *ghttp.Server, deps Deps) {
@@ -31,19 +33,29 @@ func Configure(s *ghttp.Server, deps Deps) {
 	})
 	if deps.Gallery != nil {
 		s.Group("/", func(group *ghttp.RouterGroup) {
-			group.Middleware(apiMiddleware, authhttp.Optional(deps.Verifier))
+			group.Middleware(
+				apiMiddleware,
+				authhttp.Optional(deps.Verifier),
+				controller.AuthorizationMiddleware(deps.Authorization),
+			)
 			group.Bind(controller.NewPublic(deps.Gallery))
 		})
 		s.Group("/", func(group *ghttp.RouterGroup) {
 			if deps.Verifier != nil {
-				group.Middleware(apiMiddleware, authhttp.Required(deps.Verifier))
+				group.Middleware(
+					apiMiddleware,
+					authhttp.Required(deps.Verifier),
+					controller.AuthorizationMiddleware(deps.Authorization),
+				)
 			} else {
 				// OpenAPI export has no runtime verifier, but protected route shapes
 				// still belong in the generated contract.
-				group.Middleware(apiMiddleware)
+				group.Middleware(apiMiddleware, controller.AuthorizationMiddleware(deps.Authorization))
 			}
 			group.Bind(controller.NewWorkflow(deps.Gallery))
 			group.Bind(controller.NewAdmin(deps.Gallery))
+			group.Bind(controller.NewMe())
+			group.Bind(controller.NewAuthorization())
 		})
 	}
 }

@@ -131,7 +131,7 @@
       {
         "key": "review-bulk-selection",
         "path": "/manage/submissions",
-        "readySelector": "text=已选 20",
+        "readySelector": "text=已选择 20 条投稿",
         "authenticated": true,
         "viewports": ["mobile", "desktop"],
         "actions": [

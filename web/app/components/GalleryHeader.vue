@@ -4,16 +4,35 @@ import type { AccountMenuAction } from "@yueli/ui/account-menu/pattern";
 defineProps<{ brandName?: string }>();
 
 const route = useRoute();
+const { loggedIn } = useAuth();
+const { canManage, refreshMe } = useGalleryMe();
 const nav = [
   { label: "发现", to: "/" },
   { label: "浏览", to: "/images" },
   { label: "专题", to: "/collections" },
   { label: "排行", to: "/rankings" },
 ];
-const contextActions: AccountMenuAction[] = [
+const contextActions = computed<AccountMenuAction[]>(() => [
   { label: "我的收藏", icon: "i-tabler-heart", to: "/favorites" },
   { label: "我的投稿", icon: "i-tabler-photo-up", to: "/submissions" },
-];
+  ...(canManage.value
+    ? [
+        {
+          label: "图库管理",
+          icon: "i-tabler-layout-dashboard",
+          to: "/manage",
+        },
+      ]
+    : []),
+]);
+
+watch(
+  loggedIn,
+  async (value) => {
+    if (value) await refreshMe();
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -66,11 +85,7 @@ const contextActions: AccountMenuAction[] = [
           variant="ghost"
           aria-label="切换颜色模式"
         />
-        <ConsumerAccountControl
-          :context-actions="contextActions"
-          manage-to="/manage"
-          manage-label="图库管理"
-        />
+        <ConsumerAccountControl :context-actions="contextActions" />
       </div>
     </div>
     <nav class="gallery-mobile-nav lg:hidden" aria-label="移动端主要导航">

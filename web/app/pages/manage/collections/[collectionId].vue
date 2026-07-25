@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PageHeader } from '@yueli/ui/dashboard/pattern'
+import { PageHeader } from "@yueli/ui/dashboard/pattern";
 import { SkeletonList } from "@platform/manage/components";
 import { createPlatformNotifier } from "@platform/ui/feedback";
 import type {
@@ -9,11 +9,13 @@ import type {
   GalleryImagePage,
 } from "~/types/gallery";
 
-definePageMeta({ layout: "manage", middleware: "auth" });
+definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
 const route = useRoute("/manage/collections/[collectionId]");
 const { call } = useApi();
+const { can } = useGalleryMe();
 const toast = createPlatformNotifier(useToast());
 const hydrated = useClientHydrated();
+const canManageCollections = computed(() => can("gallery.collection.manage"));
 const collectionId = computed(() => String(route.params.collectionId));
 const saving = ref(false);
 const ordering = ref(false);
@@ -87,7 +89,7 @@ function message(reason: any): string {
 }
 
 async function saveMetadata(): Promise<void> {
-  if (!collection.value || saving.value) return;
+  if (!canManageCollections.value || !collection.value || saving.value) return;
   saving.value = true;
   metadataSaved.value = false;
   try {
@@ -112,6 +114,7 @@ async function saveMetadata(): Promise<void> {
 }
 
 async function searchImages(): Promise<void> {
+  if (!canManageCollections.value) return;
   pickerPending.value = true;
   try {
     const result = await call<GalleryImagePage>(
@@ -136,7 +139,7 @@ async function mutateMembers(
   add: string[] = [],
   remove: string[] = [],
 ): Promise<void> {
-  if (!collection.value) return;
+  if (!canManageCollections.value || !collection.value) return;
   try {
     await call(
       `/api/v1/gallery/admin/collections/${encodeURIComponent(collection.value.id)}/members`,
@@ -157,6 +160,7 @@ async function mutateMembers(
 }
 
 function moveMember(index: number, direction: -1 | 1): void {
+  if (!canManageCollections.value) return;
   const target = index + direction;
   if (target < 0 || target >= orderedIds.value.length) return;
   const next = [...orderedIds.value];
@@ -166,10 +170,12 @@ function moveMember(index: number, direction: -1 | 1): void {
 }
 
 function selectCover(imageId: string): void {
+  if (!canManageCollections.value) return;
   form.coverImageId = imageId;
 }
 
 function clearCover(): void {
+  if (!canManageCollections.value) return;
   form.coverImageId = "";
 }
 
@@ -195,7 +201,13 @@ function memberMoreItems(item: GalleryImageCard) {
 }
 
 async function saveOrder(): Promise<void> {
-  if (!collection.value || !canReorder.value || ordering.value) return;
+  if (
+    !canManageCollections.value ||
+    !collection.value ||
+    !canReorder.value ||
+    ordering.value
+  )
+    return;
   ordering.value = true;
   orderSaved.value = false;
   try {
@@ -220,6 +232,7 @@ async function saveOrder(): Promise<void> {
 }
 
 async function openPicker(): Promise<void> {
+  if (!canManageCollections.value) return;
   pickerOpen.value = true;
   await searchImages();
 }
@@ -263,7 +276,8 @@ async function openPicker(): Promise<void> {
       v-else-if="collection"
       class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_23rem] xl:items-start"
     >
-      <section
+      <fieldset
+        :disabled="!canManageCollections"
         class="gallery-manage-panel order-2 space-y-5 xl:sticky xl:top-20"
       >
         <div>
@@ -335,6 +349,7 @@ async function openPicker(): Promise<void> {
           </div>
         </details>
         <UButton
+          v-if="canManageCollections"
           block
           label="保存专题设置"
           icon="i-tabler-device-floppy"
@@ -344,7 +359,10 @@ async function openPicker(): Promise<void> {
         <p v-if="metadataSaved" class="text-sm text-success" role="status">
           专题设置已保存
         </p>
-      </section>
+        <p v-if="!canManageCollections" class="text-sm text-muted" role="note">
+          当前角色可以查看专题，但不能修改专题设置。
+        </p>
+      </fieldset>
 
       <section class="gallery-manage-panel order-1">
         <div class="flex flex-wrap items-start justify-between gap-3">
@@ -354,7 +372,7 @@ async function openPicker(): Promise<void> {
               {{ collection.itemCount }} 张。顺序决定公开专题的阅读节奏。
             </p>
           </div>
-          <div class="flex gap-2">
+          <div v-if="canManageCollections" class="flex gap-2">
             <UButton
               color="neutral"
               variant="outline"
@@ -404,6 +422,7 @@ async function openPicker(): Promise<void> {
               </p>
               <div class="mt-2 flex flex-wrap gap-1">
                 <UButton
+                  v-if="canManageCollections"
                   color="neutral"
                   variant="ghost"
                   icon="i-tabler-arrow-up"
@@ -412,6 +431,7 @@ async function openPicker(): Promise<void> {
                   @click="moveMember(index, -1)"
                 />
                 <UButton
+                  v-if="canManageCollections"
                   color="neutral"
                   variant="ghost"
                   icon="i-tabler-arrow-down"
@@ -427,7 +447,10 @@ async function openPicker(): Promise<void> {
                   label="封面"
                   disabled
                 />
-                <UDropdownMenu :items="memberMoreItems(item)">
+                <UDropdownMenu
+                  v-if="canManageCollections"
+                  :items="memberMoreItems(item)"
+                >
                   <UButton
                     color="neutral"
                     variant="ghost"
@@ -448,6 +471,7 @@ async function openPicker(): Promise<void> {
     </div>
 
     <UModal
+      v-if="canManageCollections"
       v-model:open="pickerOpen"
       title="添加图片"
       description="搜索已发布且可公开收藏的图片。"

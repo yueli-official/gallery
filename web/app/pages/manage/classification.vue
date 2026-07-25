@@ -13,7 +13,7 @@ import type {
   GalleryClassificationTagProposal,
 } from "~/types/gallery";
 
-definePageMeta({ layout: "manage", middleware: "auth" });
+definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
 useSeoMeta({ title: "分类与维度 · 图库管理" });
 
 type IdentityKind = GalleryClassificationGovernanceCommand["kind"];
@@ -24,14 +24,20 @@ type ManagedIdentity =
 type IdentityOperation = "status" | "reparent" | "merge" | "delete";
 
 const { call } = useApi();
+const { can } = useGalleryMe();
 const route = useRoute();
 const router = useRouter();
 const hydrated = useClientHydrated();
+const canGovern = computed(() => can("gallery.classification.govern"));
+const canReviewProposals = computed(() =>
+  can("gallery.classification.proposal_review"),
+);
 const sectionKeys = ["categories", "facets", "tags", "proposals"] as const;
 const section = computed({
   get: () => {
     const value = String(route.query.section || "categories");
-    return sectionKeys.includes(value as (typeof sectionKeys)[number])
+    return sectionKeys.includes(value as (typeof sectionKeys)[number]) &&
+      (value !== "proposals" || canReviewProposals.value)
       ? value
       : "categories";
   },
@@ -90,10 +96,15 @@ const {
   refresh: refreshProposals,
 } = await useAsyncData(
   "gallery-manage-classification-tag-proposals",
-  () =>
-    call<{ proposals: GalleryClassificationTagProposal[]; total: number }>(
+  async () => {
+    if (!canReviewProposals.value) return { proposals: [], total: 0 };
+    return await call<{
+      proposals: GalleryClassificationTagProposal[];
+      total: number;
+    }>(
       "/api/v1/gallery/admin/classification/tag-proposals?status=pending&page=1&size=30",
-    ),
+    );
+  },
   { server: false, default: () => ({ proposals: [], total: 0 }) },
 );
 
@@ -144,36 +155,40 @@ const visibleProposals = computed(() =>
     matches(item.inputValue, item.lookupKey),
   ),
 );
-const tabs = computed(() => [
-  {
-    key: "categories",
-    label: "分类树",
-    description: "维护公开浏览的主路径",
-    icon: "i-tabler-sitemap",
-    count: catalog.value.categories.length,
-  },
-  {
-    key: "facets",
-    label: "筛选维度",
-    description: "维护结构化筛选轴和值",
-    icon: "i-tabler-adjustments-horizontal",
-    count: catalog.value.facets.length,
-  },
-  {
-    key: "tags",
-    label: "规范标签",
-    description: "治理长尾词与同义关系",
-    icon: "i-tabler-tags",
-    count: tagData.value.page.items.length,
-  },
-  {
-    key: "proposals",
-    label: "待审词",
-    description: "决定新词创建或归并",
-    icon: "i-tabler-tag-starred",
-    count: proposalData.value.total,
-  },
-]);
+const tabs = computed(() =>
+  [
+    {
+      key: "categories",
+      label: "分类树",
+      description: "维护公开浏览的主路径",
+      icon: "i-tabler-sitemap",
+      count: catalog.value.categories.length,
+    },
+    {
+      key: "facets",
+      label: "筛选维度",
+      description: "维护结构化筛选轴和值",
+      icon: "i-tabler-adjustments-horizontal",
+      count: catalog.value.facets.length,
+    },
+    {
+      key: "tags",
+      label: "规范标签",
+      description: "治理长尾词与同义关系",
+      icon: "i-tabler-tags",
+      count: tagData.value.page.items.length,
+    },
+    canReviewProposals.value
+      ? {
+          key: "proposals",
+          label: "待审词",
+          description: "决定新词创建或归并",
+          icon: "i-tabler-tag-starred",
+          count: proposalData.value.total,
+        }
+      : undefined,
+  ].filter((item): item is NonNullable<typeof item> => Boolean(item)),
+);
 const searchPlaceholder = computed(
   () =>
     ({
@@ -232,6 +247,7 @@ const editorChildCount = computed(() =>
 );
 
 async function requestPreview(command: GalleryClassificationGovernanceCommand) {
+  if (!canGovern.value) return;
   previewing.value = true;
   actionError.value = "";
   actionSuccess.value = "";
@@ -279,6 +295,7 @@ function openEditor(
   kind: IdentityKind,
   item: ManagedIdentity,
 ) {
+  if (!canGovern.value) return;
   editorMode.value = mode;
   editorKind.value = kind;
   editorIdentity.value = item;
@@ -326,7 +343,12 @@ function confirmDeleteAllRelated() {
 }
 
 async function executePreview() {
-  if (!pendingCommand.value || preview.value?.outcome !== "planned") return;
+  if (
+    !canGovern.value ||
+    !pendingCommand.value ||
+    preview.value?.outcome !== "planned"
+  )
+    return;
   executing.value = true;
   actionError.value = "";
   actionSuccess.value = "";
@@ -344,7 +366,11 @@ async function executePreview() {
     previewOpen.value = false;
     preview.value = undefined;
     pendingCommand.value = undefined;
-    await Promise.all([refresh(), refreshTags(), refreshProposals()]);
+    await Promise.all([
+      refresh(),
+      refreshTags(),
+      ...(canReviewProposals.value ? [refreshProposals()] : []),
+    ]);
     actionSuccess.value =
       operation === "delete"
         ? "分类治理已执行；相关标识和已确认依赖已删除。"
@@ -379,6 +405,7 @@ async function reviewTagProposal(
   decision: "approve" | "reject",
   targetTagId: string,
 ) {
+  if (!canReviewProposals.value) return;
   reviewingProposal.value = item.id;
   actionError.value = "";
   actionSuccess.value = "";
@@ -513,11 +540,13 @@ async function reviewTagProposal(
           <ClassificationCategoryPanel
             v-if="section === 'categories'"
             :items="visibleCategories"
+            :can-govern="canGovern"
             @action="handleIdentityAction"
           />
           <ClassificationFacetPanel
             v-else-if="section === 'facets'"
             :facets="visibleFacets"
+            :can-govern="canGovern"
             @action="handleIdentityAction"
           />
           <ClassificationProposalPanel
@@ -537,6 +566,7 @@ async function reviewTagProposal(
             :hydrated="hydrated"
             :next-cursor="tagData.page.nextCursor"
             :loading-more="loadingMoreTags"
+            :can-govern="canGovern"
             @action="handleIdentityAction"
             @load-more="loadMoreTags"
           />
@@ -545,6 +575,7 @@ async function reviewTagProposal(
     </div>
 
     <ClassificationEditorModal
+      v-if="canGovern"
       v-model:open="editorOpen"
       :mode="editorMode"
       :identity="editorIdentity"
@@ -553,6 +584,7 @@ async function reviewTagProposal(
       @preview="previewEditor"
     />
     <ClassificationPreviewModal
+      v-if="canGovern"
       v-model:open="previewOpen"
       :previewing="previewing"
       :executing="executing"

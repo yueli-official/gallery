@@ -14,6 +14,7 @@ defineProps<{
   hydrated: boolean;
   nextCursor: string;
   loadingMore: boolean;
+  canGovern: boolean;
 }>();
 const emit = defineEmits<{
   action: [
@@ -103,7 +104,7 @@ function moreItems(item: GalleryClassificationTag) {
           </details>
         </div>
         <div class="flex flex-wrap gap-2">
-          <UDropdownMenu :items="moreItems(tag)"
+          <UDropdownMenu v-if="canGovern" :items="moreItems(tag)"
             ><UButton
               class="min-h-11"
               color="neutral"

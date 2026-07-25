@@ -20,6 +20,11 @@ export default defineNuxtConfig({
   },
   buildDir: process.env.NUXT_BUILD_DIR || ".nuxt",
   devServer: { port: Number(process.env.NUXT_DEV_PORT || "3007") },
+  vite: {
+    optimizeDeps: {
+      include: ["@platform/ui > vue-picture-cropper"],
+    },
+  },
   runtimeConfig: {
     apiBase: process.env.NUXT_API_BASE || "http://127.0.0.1:8091",
     assetBase: process.env.NUXT_ASSET_BASE || "http://127.0.0.1:8082",
@@ -65,7 +70,6 @@ export default defineNuxtConfig({
       assetSpace: process.env.NUXT_PUBLIC_ASSET_SPACE || "yueli",
       assetNamespace: process.env.NUXT_PUBLIC_ASSET_NAMESPACE || "yueli",
       assetProfile: process.env.NUXT_PUBLIC_ASSET_PROFILE || "gallery-default",
-      operatorSubs: process.env.NUXT_PUBLIC_OPERATOR_SUBS || "",
     },
   },
   devtools: { enabled: true },

@@ -31,14 +31,20 @@ interface BulkResult {
   message?: string;
 }
 
-definePageMeta({ layout: "manage", middleware: "auth" });
+definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
 useSeoMeta({ title: "图片 · 图库管理" });
 
 const ALL = "__all__" as const;
 const router = useRouter();
 const { call } = useApi();
+const { can } = useGalleryMe();
 const hydrated = useClientHydrated();
 const toast = createPlatformNotifier(useToast());
+const canImageUpdate = computed(() => can("gallery.image.update"));
+const canImageHide = computed(() => can("gallery.image.hide"));
+const canBulkManage = computed(
+  () => canImageUpdate.value || canImageHide.value,
+);
 
 type ImageStatus = "" | "published" | "draft" | "hidden" | "deleted";
 type ImageSort = "created" | "updated" | "title";
@@ -158,6 +164,7 @@ const {
   initialQuery: defaultQuery,
   queryPolicy,
   keyOf: (image: GalleryAdminImage) => image.id,
+  isSelectable: () => canBulkManage.value,
   querySync,
   dataQueryKey: (query) => JSON.stringify({ ...query, view: undefined }),
   load: loadImages,
@@ -271,7 +278,7 @@ const sortOptions = [
   { label: "标题", value: "title" },
 ];
 const statusOptions = computed(() => [
-  { value: "", label: `全部 · ${counts.value.all || 0}` },
+  { value: ALL, label: `全部 · ${counts.value.all || 0}` },
   { value: "published", label: `已公开 · ${counts.value.published || 0}` },
   { value: "draft", label: `草稿 · ${counts.value.draft || 0}` },
   { value: "hidden", label: `已隐藏 · ${counts.value.hidden || 0}` },
@@ -282,7 +289,7 @@ const controls = computed<CollectionControl[]>(() => [
     kind: "select",
     id: "status",
     label: "公开状态",
-    value: status.value,
+    value: status.value || ALL,
     options: statusOptions.value,
     class: "w-32",
   },
@@ -335,8 +342,11 @@ function clearFilters() {
 }
 function changeControl(id: string, value: CollectionControlValue) {
   if (typeof value !== "string") return;
-  if (id === "status" && statuses.includes(value as ImageStatus))
-    status.value = value as ImageStatus;
+  if (id === "status") {
+    const nextStatus = value === ALL ? "" : value;
+    if (statuses.includes(nextStatus as ImageStatus))
+      status.value = nextStatus as ImageStatus;
+  }
   if (id === "category") category.value = value;
   if (id === "facet") facet.value = value;
   if (id === "sort" && sorts.includes(value as ImageSort))
@@ -431,6 +441,7 @@ function hydrateEditForm(item: GalleryAdminImage) {
   });
 }
 async function openEdit(item: GalleryAdminImage) {
+  if (!canImageUpdate.value) return;
   hydrateEditForm(item);
   editLoading.value = true;
   try {
@@ -452,6 +463,7 @@ async function openEdit(item: GalleryAdminImage) {
 }
 async function saveEdit() {
   if (
+    !canImageUpdate.value ||
     !editing.value?.updatedAt ||
     !editForm.title.trim() ||
     !editForm.altText.trim() ||
@@ -500,18 +512,30 @@ const batchPending = ref(false);
 const batchCategory = ref(ALL);
 const batchReason = ref("");
 const batchResult = ref<BulkResult>();
-const batchOptions = [
-  { label: "设置主分类", value: "set_primary_category" },
-  { label: "下架", value: "hide" },
-];
+const batchOptions = computed(() => [
+  ...(canImageUpdate.value
+    ? [{ label: "设置主分类", value: "set_primary_category" }]
+    : []),
+  ...(canImageHide.value ? [{ label: "下架", value: "hide" }] : []),
+]);
 function prepareBatch() {
-  if (batchAction.value && selectionCount.value) batchOpen.value = true;
+  if (
+    batchAction.value &&
+    batchOptions.value.some((item) => item.value === batchAction.value) &&
+    selectionCount.value
+  )
+    batchOpen.value = true;
 }
 function cancelBatch() {
   batchOpen.value = false;
 }
 async function runBatch() {
-  if (!batchAction.value || !selectedIds.value.length) return;
+  if (
+    !batchAction.value ||
+    !batchOptions.value.some((item) => item.value === batchAction.value) ||
+    !selectedIds.value.length
+  )
+    return;
   batchPending.value = true;
   try {
     const response = await call<{
@@ -603,7 +627,7 @@ function moreItems(image: GalleryAdminImage) {
       :page-indeterminate="isPageIndeterminate"
       :is-selected="imageWorkflow.isSelected"
       label="图片列表"
-      selectable
+      :selectable="canBulkManage"
       @search="submitSearch"
       @control-change="changeControl"
       @clear-filters="clearFilters"
@@ -633,6 +657,7 @@ function moreItems(image: GalleryAdminImage) {
 
       <template #bulk-actions>
         <USelect
+          v-if="canBulkManage"
           v-model="batchAction"
           :items="batchOptions"
           placeholder="批量操作"
@@ -698,6 +723,7 @@ function moreItems(image: GalleryAdminImage) {
           </div>
           <div class="flex justify-end gap-1">
             <UButton
+              v-if="canImageUpdate"
               color="primary"
               variant="soft"
               size="xs"
@@ -729,6 +755,7 @@ function moreItems(image: GalleryAdminImage) {
               class="size-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
             />
             <UButton
+              v-if="canImageUpdate"
               class="absolute right-2 top-2"
               color="primary"
               variant="solid"
@@ -798,7 +825,7 @@ function moreItems(image: GalleryAdminImage) {
     </div>
 
     <UModal
-      :open="Boolean(editing)"
+      :open="canImageUpdate && Boolean(editing)"
       title="编辑图片"
       description="统一维护目录文案、主分类、维度和标签。"
       @update:open="
@@ -894,6 +921,7 @@ function moreItems(image: GalleryAdminImage) {
     </UModal>
 
     <UModal
+      v-if="canBulkManage"
       v-model:open="batchOpen"
       :title="batchAction === 'hide' ? '批量下架' : '批量设置主分类'"
       :description="`将处理选中的 ${selectionCount} 张图片；失败项目会保留选择。`"

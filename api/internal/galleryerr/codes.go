@@ -9,17 +9,18 @@ import (
 )
 
 var (
-	CodeNotFound          = errs.Register("gallery.not_found", http.StatusNotFound)
-	CodeGone              = errs.Register("gallery.gone", 410)
-	CodeNotInitialized    = errs.Register("gallery.not_initialized", 503)
-	CodeForbidden         = errs.Register("gallery.forbidden", http.StatusForbidden)
-	CodeConflict          = errs.Register("gallery.conflict", http.StatusConflict)
-	CodeInvalidState      = errs.Register("gallery.invalid_state", http.StatusConflict)
-	CodeUpstreamFailed    = errs.Register("gallery.upstream_failed", http.StatusBadGateway)
-	CodeRateLimited       = errs.Register("gallery.rate_limited", http.StatusTooManyRequests)
-	CodeChallengeRequired = errs.Register("gallery.challenge_required", http.StatusForbidden)
-	CodeAbuseUnavailable  = errs.Register("gallery.abuse_unavailable", http.StatusServiceUnavailable)
-	CodeAbuseReplay       = errs.Register("gallery.abuse_attempt_replayed", http.StatusConflict)
+	CodeNotFound                 = errs.Register("gallery.not_found", http.StatusNotFound)
+	CodeGone                     = errs.Register("gallery.gone", 410)
+	CodeNotInitialized           = errs.Register("gallery.not_initialized", 503)
+	CodeForbidden                = errs.Register("gallery.forbidden", http.StatusForbidden)
+	CodeConflict                 = errs.Register("gallery.conflict", http.StatusConflict)
+	CodeInvalidState             = errs.Register("gallery.invalid_state", http.StatusConflict)
+	CodeUpstreamFailed           = errs.Register("gallery.upstream_failed", http.StatusBadGateway)
+	CodeRateLimited              = errs.Register("gallery.rate_limited", http.StatusTooManyRequests)
+	CodeChallengeRequired        = errs.Register("gallery.challenge_required", http.StatusForbidden)
+	CodeAbuseUnavailable         = errs.Register("gallery.abuse_unavailable", http.StatusServiceUnavailable)
+	CodeAbuseReplay              = errs.Register("gallery.abuse_attempt_replayed", http.StatusConflict)
+	CodeAuthorizationUnavailable = errs.Register("gallery.authorization_unavailable", http.StatusServiceUnavailable)
 )
 
 func NotFound(resource, id string) *errs.Coded {
@@ -28,6 +29,10 @@ func NotFound(resource, id string) *errs.Coded {
 
 func Forbidden() *errs.Coded {
 	return errs.New(CodeForbidden, "gallery operation is forbidden", nil)
+}
+
+func AuthorizationUnavailable() *errs.Coded {
+	return errs.New(CodeAuthorizationUnavailable, "authorization is temporarily unavailable", nil)
 }
 
 func Conflict(resource string) *errs.Coded {

@@ -3,7 +3,7 @@ import { PageHeader } from '@yueli/ui/dashboard/pattern'
 import { SkeletonList } from "@platform/manage/components";
 import type { GalleryDiscovery } from "~/types/gallery";
 
-definePageMeta({ layout: "manage", middleware: "auth" });
+definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
 useSeoMeta({ title: "发现策略 · 图库管理" });
 const { call } = useApi();
 const hydrated = useClientHydrated();
