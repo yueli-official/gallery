@@ -30,8 +30,11 @@ export function useGalleryMe() {
   async function refreshMe() {
     try {
       me.value = await call<GalleryMeResponse>("/api/v1/me");
-    } catch {
-      me.value = null;
+    } catch (error: unknown) {
+      const status =
+        (error as { failure?: { status?: number } })?.failure?.status ??
+        (error as { statusCode?: number })?.statusCode;
+      if (status === 401 || status === 403) me.value = null;
     }
   }
 

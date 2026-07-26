@@ -1,4 +1,5 @@
 import type { GalleryUploadedAsset } from "~/types/gallery";
+import { waitForGalleryAssetReady } from "~/utils/galleryAssetReadiness";
 
 interface UploadInit {
   uploadUrl: string;
@@ -50,5 +51,23 @@ export function useGalleryAssetUpload() {
     return finalized.asset;
   }
 
-  return { upload };
+  async function waitUntilReady(
+    assetId: string,
+    initial?: GalleryUploadedAsset,
+  ) {
+    let first = initial;
+    return waitForGalleryAssetReady(assetId, async (id) => {
+      if (first) {
+        const asset = first;
+        first = undefined;
+        return asset;
+      }
+      const response = await call<{ asset: GalleryUploadedAsset }>(
+        `/api/v1/assets/${encodeURIComponent(id)}`,
+      );
+      return response.asset;
+    });
+  }
+
+  return { upload, waitUntilReady };
 }

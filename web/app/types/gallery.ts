@@ -327,4 +327,7 @@ export interface GalleryUploadedAsset {
   size: number;
   width?: number;
   height?: number;
+  securityState?: string;
+  scanStatus?: string;
+  scanFailureCode?: string;
 }

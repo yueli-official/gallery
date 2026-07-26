@@ -6,7 +6,9 @@ import type {
   GalleryUploadedAsset,
 } from "~/types/gallery";
 import {
+  GALLERY_UPLOAD_ACCEPT,
   GALLERY_UPLOAD_BATCH_LIMIT,
+  GALLERY_UPLOAD_FORMAT_LABEL,
   galleryUploadAnimationError,
   galleryUploadFileError,
 } from "~/utils/galleryUpload";
@@ -14,9 +16,15 @@ import {
   applyGallerySubmissionDefaults,
   gallerySubmissionMetadataValid,
 } from "~/utils/gallerySubmissionBatch";
+import { gallerySubmissionErrorMessage } from "~/utils/galleryAssetReadiness";
 
 type QueueStatus =
-  "ready" | "uploading" | "submitting" | "completed" | "failed";
+  | "ready"
+  | "uploading"
+  | "checking"
+  | "submitting"
+  | "completed"
+  | "failed";
 interface QueueItem {
   id: string;
   file: File;
@@ -37,7 +45,7 @@ interface QueueItem {
 
 const { loggedIn, login } = useAuth();
 const { call } = useApi();
-const { upload } = useGalleryAssetUpload();
+const { upload, waitUntilReady } = useGalleryAssetUpload();
 const toast = createPlatformNotifier(useToast());
 const { data: submissionOptions } = await useFetch<GallerySubmissionOptions>(
   "/api/gallery/submission-options",
@@ -81,9 +89,6 @@ const validMetadata = computed(() =>
     .filter((item) => item.status !== "completed")
     .every(gallerySubmissionMetadataValid),
 );
-const accepted =
-  ".jpg,.jpeg,.png,.webp,.avif,.heic,.heif,image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif";
-
 useSeoMeta({
   title: "批量投稿图片",
   description: "一次提交多张静态图片，每张图片独立处理，失败项目可以单独重试。",
@@ -196,14 +201,17 @@ function submissionBody(item: QueueItem) {
 async function submitItem(item: QueueItem) {
   item.error = "";
   try {
+    let uploaded: GalleryUploadedAsset | undefined;
     if (!item.assetId) {
       item.status = "uploading";
       item.progress = 1;
-      const asset = (await upload(item.file, (value) => {
+      uploaded = (await upload(item.file, (value) => {
         item.progress = value;
       })) as GalleryUploadedAsset;
-      item.assetId = asset.id;
+      item.assetId = uploaded.id;
     }
+    item.status = "checking";
+    await waitUntilReady(item.assetId, uploaded);
     item.status = "submitting";
     const response = await call<{ submission: GallerySubmission }>(
       "/api/v1/gallery/submissions",
@@ -217,7 +225,7 @@ async function submitItem(item: QueueItem) {
     item.progress = 100;
   } catch (reason: any) {
     item.status = "failed";
-    item.error = reason?.data?.message || reason?.message || "请稍后重试";
+    item.error = gallerySubmissionErrorMessage(reason);
   }
 }
 
@@ -300,7 +308,7 @@ onBeforeUnmount(() =>
               type="file"
               class="sr-only"
               multiple
-              :accept="accepted"
+              :accept="GALLERY_UPLOAD_ACCEPT"
               :disabled="running || queue.length >= GALLERY_UPLOAD_BATCH_LIMIT"
               @change="chooseFiles"
             />
@@ -319,7 +327,7 @@ onBeforeUnmount(() =>
             type="file"
             class="sr-only"
             multiple
-            :accept="accepted"
+            :accept="GALLERY_UPLOAD_ACCEPT"
             @change="chooseFiles"
           />
           <span class="max-w-md px-6 text-center">
@@ -331,7 +339,7 @@ onBeforeUnmount(() =>
               >选择一组静态图片</span
             >
             <span class="mt-2 block text-sm leading-6 text-muted"
-              >支持 JPEG、PNG、WebP、AVIF、HEIC/HEIF，单张最大 20
+              >支持 {{ GALLERY_UPLOAD_FORMAT_LABEL }}，单张最大 20
               MiB。动画与重复文件会在上传前拦截。</span
             >
           </span>
@@ -364,6 +372,7 @@ onBeforeUnmount(() =>
                     {
                       ready: '待上传',
                       uploading: '上传中',
+                      checking: '安全检查',
                       submitting: '创建记录',
                       completed: '已完成',
                       failed: '失败',
@@ -372,7 +381,9 @@ onBeforeUnmount(() =>
                 "
               />
               <UButton
-                v-if="!['uploading', 'submitting'].includes(item.status)"
+                v-if="
+                  !['uploading', 'checking', 'submitting'].includes(item.status)
+                "
                 class="absolute right-2 top-2"
                 color="neutral"
                 variant="solid"

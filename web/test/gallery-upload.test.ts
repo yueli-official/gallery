@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  GALLERY_UPLOAD_ACCEPT,
+  GALLERY_UPLOAD_FORMAT_LABEL,
   GALLERY_UPLOAD_MAX_BYTES,
   galleryUploadAnimationError,
   galleryUploadFileError,
@@ -31,6 +33,20 @@ describe("gallery upload preflight", () => {
         type: "image/svg+xml",
       }),
     ).toContain("仅支持");
+    expect(
+      galleryUploadFileError({
+        name: "camera.heic",
+        size: 1024,
+        type: "image/heic",
+      }),
+    ).toContain("仅支持");
+  });
+
+  it("shares one truthful format contract with the file picker", () => {
+    expect(GALLERY_UPLOAD_ACCEPT).toBe(
+      ".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp",
+    );
+    expect(GALLERY_UPLOAD_FORMAT_LABEL).toBe("JPEG、PNG 和 WebP");
   });
 
   it("detects APNG and animated WebP markers", async () => {
