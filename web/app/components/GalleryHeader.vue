@@ -60,11 +60,8 @@ watch(
         />
       </nav>
 
-      <GalleryGlobalSearch class="ml-auto hidden xl:flex" />
-
-      <div class="ml-auto flex items-center gap-1 sm:gap-1.5 xl:ml-0">
+      <div class="ml-auto flex items-center gap-1 sm:gap-1.5">
         <UButton
-          class="xl:hidden"
           to="/images"
           color="neutral"
           variant="ghost"
