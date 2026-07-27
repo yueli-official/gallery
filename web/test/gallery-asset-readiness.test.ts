@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  gallerySubmissionFailure,
   gallerySubmissionErrorMessage,
   waitForGalleryAssetReady,
 } from "../app/utils/galleryAssetReadiness";
@@ -63,5 +64,33 @@ describe("Gallery asset readiness", () => {
         failure: { kind: "network", code: "foundation.network.failed" },
       }),
     ).toBe("网络连接失败，请检查网络后重试。");
+  });
+
+  it("treats duplicate submissions as already submitted instead of retryable", () => {
+    expect(
+      gallerySubmissionFailure({
+        data: {
+          failure: {
+            kind: "conflict",
+            code: "gallery.conflict",
+          },
+        },
+      }),
+    ).toEqual({
+      kind: "already-submitted",
+      message: "这张图片已经投稿，无需重复提交。",
+    });
+
+    expect(
+      gallerySubmissionFailure({
+        failure: {
+          kind: "network",
+          code: "foundation.network.failed",
+        },
+      }),
+    ).toEqual({
+      kind: "retryable",
+      message: "网络连接失败，请检查网络后重试。",
+    });
   });
 });

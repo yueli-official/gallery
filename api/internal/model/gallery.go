@@ -1,6 +1,8 @@
 package model
 
 import (
+	"time"
+
 	"github.com/gogf/gf/v2/os/gtime"
 )
 
@@ -96,7 +98,7 @@ type AdminImage struct {
 	Facets               []FacetValueAssignment `json:"facets" orm:"-"`
 	Tags                 []AdminImageTag        `json:"tags" orm:"-"`
 	CreatedAt            *gtime.Time            `json:"createdAt" orm:"created_at"`
-	UpdatedAt            *gtime.Time            `json:"updatedAt" orm:"updated_at"`
+	UpdatedAt            *time.Time             `json:"updatedAt" orm:"updated_at"`
 }
 
 type AdminImageTag struct {
@@ -530,7 +532,7 @@ type Case struct {
 	ProposedSourceURL string      `json:"proposedSourceUrl" orm:"proposed_source_url"`
 	ResolutionNote    string      `json:"resolutionNote" orm:"resolution_note"`
 	CreatedAt         *gtime.Time `json:"createdAt" orm:"created_at"`
-	UpdatedAt         *gtime.Time `json:"updatedAt" orm:"updated_at"`
+	UpdatedAt         *time.Time  `json:"updatedAt" orm:"updated_at"`
 }
 
 type AdminCaseQuery struct {

@@ -16,7 +16,7 @@ import {
   applyGallerySubmissionDefaults,
   gallerySubmissionMetadataValid,
 } from "~/utils/gallerySubmissionBatch";
-import { gallerySubmissionErrorMessage } from "~/utils/galleryAssetReadiness";
+import { gallerySubmissionFailure } from "~/utils/galleryAssetReadiness";
 
 type QueueStatus =
   | "ready"
@@ -24,6 +24,7 @@ type QueueStatus =
   | "checking"
   | "submitting"
   | "completed"
+  | "duplicate"
   | "failed";
 interface QueueItem {
   id: string;
@@ -58,6 +59,7 @@ const sceneValueIds = ref<string[]>([]);
 const tags = ref("");
 const sharedTitle = ref("");
 const running = ref(false);
+const runningAction = ref<"submit" | "retry" | "">("");
 const editingId = ref("");
 
 const categoryItems = computed(() =>
@@ -78,6 +80,9 @@ const sceneItems = computed(() =>
 const completedCount = computed(
   () => queue.value.filter((item) => item.status === "completed").length,
 );
+const duplicateCount = computed(
+  () => queue.value.filter((item) => item.status === "duplicate").length,
+);
 const failedCount = computed(
   () => queue.value.filter((item) => item.status === "failed").length,
 );
@@ -86,7 +91,7 @@ const readyCount = computed(
 );
 const validMetadata = computed(() =>
   queue.value
-    .filter((item) => item.status !== "completed")
+    .filter((item) => !isTerminalStatus(item.status))
     .every(gallerySubmissionMetadataValid),
 );
 useSeoMeta({
@@ -141,6 +146,7 @@ async function chooseFiles(event: Event) {
 }
 
 function applyDefaultsToItem(item: QueueItem, preserveTitle = false) {
+  if (isTerminalStatus(item.status)) return;
   applyGallerySubmissionDefaults(
     item,
     {
@@ -159,12 +165,16 @@ function applyDefaults() {
   queue.value.forEach((item) => applyDefaultsToItem(item));
 }
 
+function isTerminalStatus(status: QueueStatus) {
+  return status === "completed" || status === "duplicate";
+}
+
 function restoreDefaults(item: QueueItem) {
   applyDefaultsToItem(item);
 }
 
 function markCustomized(item: QueueItem) {
-  if (item.status !== "completed") item.customized = true;
+  if (!isTerminalStatus(item.status)) item.customized = true;
 }
 
 function toggleItemEditor(item: QueueItem) {
@@ -223,17 +233,22 @@ async function submitItem(item: QueueItem) {
     item.submission = response.submission;
     item.status = "completed";
     item.progress = 100;
-  } catch (reason: any) {
-    item.status = "failed";
-    item.error = gallerySubmissionErrorMessage(reason);
+  } catch (reason: unknown) {
+    const failure = gallerySubmissionFailure(reason);
+    item.status =
+      failure.kind === "already-submitted" ? "duplicate" : "failed";
+    item.error = failure.message;
+    if (item.status === "duplicate") item.progress = 100;
   }
 }
 
-async function run(items: QueueItem[]) {
+async function run(items: QueueItem[], action: "submit" | "retry") {
   if (running.value || !validMetadata.value || !items.length) return;
   running.value = true;
+  runningAction.value = action;
   for (const item of items) await submitItem(item);
   running.value = false;
+  runningAction.value = "";
   if (failedCount.value) {
     toast.add({
       title: "部分投稿没有完成",
@@ -244,10 +259,16 @@ async function run(items: QueueItem[]) {
 }
 
 function submitReady() {
-  return run(queue.value.filter((item) => item.status === "ready"));
+  return run(
+    queue.value.filter((item) => item.status === "ready"),
+    "submit",
+  );
 }
 function retryFailed() {
-  return run(queue.value.filter((item) => item.status === "failed"));
+  return run(
+    queue.value.filter((item) => item.status === "failed"),
+    "retry",
+  );
 }
 
 onBeforeUnmount(() =>
@@ -362,6 +383,8 @@ onBeforeUnmount(() =>
                 :color="
                   item.status === 'completed'
                     ? 'success'
+                    : item.status === 'duplicate'
+                      ? 'success'
                     : item.status === 'failed'
                       ? 'error'
                       : 'neutral'
@@ -375,6 +398,7 @@ onBeforeUnmount(() =>
                       checking: '安全检查',
                       submitting: '创建记录',
                       completed: '已完成',
+                      duplicate: '已投稿',
                       failed: '失败',
                     } as const
                   )[item.status]
@@ -398,7 +422,7 @@ onBeforeUnmount(() =>
                 v-model="item.title"
                 maxlength="160"
                 aria-label="图片标题"
-                :disabled="item.status === 'completed'"
+                :disabled="isTerminalStatus(item.status)"
                 @update:model-value="markCustomized(item)"
               />
               <div class="flex items-center justify-between gap-2">
@@ -410,7 +434,7 @@ onBeforeUnmount(() =>
                 />
                 <span v-else class="text-xs text-dimmed">使用批量默认值</span>
                 <UButton
-                  v-if="item.status !== 'completed'"
+                  v-if="!isTerminalStatus(item.status)"
                   type="button"
                   color="neutral"
                   variant="ghost"
@@ -494,7 +518,13 @@ onBeforeUnmount(() =>
                 size="xs"
                 :model-value="item.progress"
               />
-              <p v-if="item.error" class="text-xs leading-5 text-error">
+              <p
+                v-if="item.error"
+                class="text-xs leading-5"
+                :class="
+                  item.status === 'duplicate' ? 'text-success' : 'text-error'
+                "
+              >
                 {{ item.error }}
               </p>
               <p v-else class="truncate text-xs text-muted">
@@ -560,33 +590,41 @@ onBeforeUnmount(() =>
           color="primary"
           variant="soft"
           icon="i-tabler-copy-check"
-          :label="`应用到队列中的 ${queue.filter((item) => item.status !== 'completed').length} 张`"
-          :disabled="!queue.some((item) => item.status !== 'completed')"
+          :label="`应用到队列中的 ${queue.filter((item) => !isTerminalStatus(item.status)).length} 张`"
+          :disabled="!queue.some((item) => !isTerminalStatus(item.status))"
           @click="applyDefaults"
         />
-        <div class="border-t border-default pt-5">
+        <div class="grid gap-3 border-t border-default pt-5">
           <UButton
+            v-if="readyCount || runningAction === 'submit'"
             type="submit"
             block
             size="lg"
             icon="i-tabler-send"
             :label="readyCount > 1 ? `投稿 ${readyCount} 张图片` : '开始投稿'"
-            :loading="running"
-            :disabled="!readyCount || !validMetadata"
+            :loading="runningAction === 'submit'"
+            :disabled="!validMetadata"
           />
           <UButton
-            v-if="failedCount"
+            v-if="failedCount || runningAction === 'retry'"
             type="button"
             block
             color="error"
             variant="soft"
             icon="i-tabler-refresh"
-            :label="`重试失败的 ${failedCount} 张`"
+            :label="
+              runningAction === 'retry'
+                ? '正在重试'
+                : `重试失败的 ${failedCount} 张`
+            "
+            :loading="runningAction === 'retry'"
             :disabled="running || !validMetadata"
             @click="retryFailed"
           />
           <UButton
-            v-if="completedCount && !readyCount && !failedCount"
+            v-if="
+              (completedCount || duplicateCount) && !readyCount && !failedCount
+            "
             to="/submissions"
             block
             color="neutral"

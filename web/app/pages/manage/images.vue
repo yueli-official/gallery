@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { galleryAdminMutationErrorMessage } from "~/utils/galleryAdminErrors";
 import { PageHeader } from "@yueli/ui/dashboard/pattern";
 import { createPlatformNotifier } from "@platform/ui/feedback";
 import {
@@ -497,7 +498,7 @@ async function saveEdit() {
   } catch (reason: any) {
     toast.add({
       title: "图片信息没有保存",
-      description: reason?.data?.message || "记录可能已被其他人更新",
+      description: galleryAdminMutationErrorMessage(reason),
       color: "error",
     });
     await refresh();

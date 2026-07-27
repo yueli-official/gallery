@@ -51,7 +51,7 @@ function stableCode(value: unknown): string {
     : "";
 }
 
-export function gallerySubmissionErrorMessage(reason: unknown): string {
+function gallerySubmissionError(reason: unknown) {
   const error = record(reason);
   const nestedData = record(error?.data);
   const failure = record(error?.failure) ?? record(nestedData?.failure);
@@ -61,6 +61,13 @@ export function gallerySubmissionErrorMessage(reason: unknown): string {
     stableCode(error?.code) ||
     stableCode(error?.message);
   const upstreamCode = stableCode(params?.upstreamCode);
+
+  return { code, error, failure, upstreamCode };
+}
+
+export function gallerySubmissionErrorMessage(reason: unknown): string {
+  const { code, error, failure, upstreamCode } =
+    gallerySubmissionError(reason);
 
   if (
     upstreamCode === "asset.security.not_ready" ||
@@ -76,6 +83,7 @@ export function gallerySubmissionErrorMessage(reason: unknown): string {
   }
 
   const messages: Record<string, string> = {
+    "gallery.conflict": "这张图片已经投稿，无需重复提交。",
     "gallery.upstream_failed": "图片处理服务暂时不可用，请稍后重试。",
     "gallery.rate_limited": "投稿过于频繁，请稍后再试。",
     "gallery.challenge_required": "需要先完成安全验证，请按提示操作。",
@@ -88,4 +96,17 @@ export function gallerySubmissionErrorMessage(reason: unknown): string {
 
   const message = typeof error?.message === "string" ? error.message.trim() : "";
   return message && !stableCode(message) ? message : "投稿未完成，请稍后重试。";
+}
+
+export function gallerySubmissionFailure(reason: unknown): {
+  kind: "already-submitted" | "retryable";
+  message: string;
+} {
+  return {
+    kind:
+      gallerySubmissionError(reason).code === "gallery.conflict"
+        ? "already-submitted"
+        : "retryable",
+    message: gallerySubmissionErrorMessage(reason),
+  };
 }

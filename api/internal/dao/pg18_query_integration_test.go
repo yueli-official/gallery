@@ -307,7 +307,7 @@ INSERT INTO gallery_cases (id, image_id, kind, status, reason, description, reso
 	if adminCaseTotal != 1 || len(adminCases) != 1 || adminCases[0].Reason != "版权争议" || adminCases[0].UpdatedAt == nil {
 		t.Fatalf("admin case queue = total %d values %#v", adminCaseTotal, adminCases)
 	}
-	caseVersion := adminCases[0].UpdatedAt.Time.Format(time.RFC3339Nano)
+	caseVersion := adminCases[0].UpdatedAt.Format(time.RFC3339Nano)
 	if _, err := fixture.Store.ResolveCase(context.Background(), "operator-1", "01990000-0000-7000-8d00-000000000001", model.CaseResolutionInput{
 		ExpectedUpdatedAt: caseVersion, Status: "reviewing",
 	}); err != nil {
@@ -346,7 +346,7 @@ INSERT INTO gallery_cases (id, image_id, kind, status, reason, description, reso
 	if adminImages[0].UpdatedAt == nil {
 		t.Fatal("admin image must carry an optimistic concurrency timestamp")
 	}
-	expectedUpdatedAt := adminImages[0].UpdatedAt.Time.Format(time.RFC3339Nano)
+	expectedUpdatedAt := adminImages[0].UpdatedAt.Format(time.RFC3339Nano)
 	updated, err := fixture.Store.UpdateAdminImage(context.Background(), "01990000-0000-7000-8a00-000000000003", model.AdminImageUpdateInput{
 		ExpectedUpdatedAt: expectedUpdatedAt,
 		Title:             "Hidden revised",

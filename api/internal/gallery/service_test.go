@@ -2,6 +2,7 @@ package gallery
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strconv"
@@ -598,6 +599,53 @@ func TestUpdateAdminImageValidatesAndNormalizesMetadata(t *testing.T) {
 	}
 	_, err = service.UpdateAdminImage(context.Background(), PublicID(testCategoryID), model.AdminImageUpdateInput{ExpectedUpdatedAt: "stale", Title: "雨夜", AltText: "雨夜"})
 	assertCode(t, err, "common.validation_failed")
+}
+
+func TestAdminImageUpdatedAtRoundTripsIntoOptimisticUpdate(t *testing.T) {
+	updatedAt := time.Date(2026, time.July, 27, 5, 33, 0, 123456000, time.FixedZone("CST", 8*60*60))
+	payload, err := json.Marshal(model.AdminImage{UpdatedAt: &updatedAt})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var response struct {
+		UpdatedAt string `json:"updatedAt"`
+	}
+	if err := json.Unmarshal(payload, &response); err != nil {
+		t.Fatal(err)
+	}
+
+	store := validSubmissionStore()
+	_, err = New(store).UpdateAdminImage(context.Background(), PublicID(testCategoryID), model.AdminImageUpdateInput{
+		ExpectedUpdatedAt: response.UpdatedAt,
+		Title:             "雨夜",
+		AltText:           "雨夜街道",
+	})
+	if err != nil {
+		t.Fatalf("serialized updatedAt %q must be accepted for optimistic update: %v", response.UpdatedAt, err)
+	}
+}
+
+func TestAdminCaseUpdatedAtRoundTripsIntoOptimisticUpdate(t *testing.T) {
+	updatedAt := time.Date(2026, time.July, 27, 5, 33, 0, 123456000, time.FixedZone("CST", 8*60*60))
+	payload, err := json.Marshal(model.Case{UpdatedAt: &updatedAt})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var response struct {
+		UpdatedAt string `json:"updatedAt"`
+	}
+	if err := json.Unmarshal(payload, &response); err != nil {
+		t.Fatal(err)
+	}
+
+	store := &fakeStore{adminCases: []model.Case{{ID: testCategoryID, ImageID: testFacetID, SubmissionID: testValueID}}}
+	_, err = New(store).ResolveCase(context.Background(), "operator", PublicID(testCategoryID), model.CaseResolutionInput{
+		ExpectedUpdatedAt: response.UpdatedAt,
+		Status:            "reviewing",
+	})
+	if err != nil {
+		t.Fatalf("serialized updatedAt %q must be accepted for case update: %v", response.UpdatedAt, err)
+	}
 }
 
 func TestBulkHideImagesReportsPerItemOutcomes(t *testing.T) {
