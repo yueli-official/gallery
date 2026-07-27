@@ -13,7 +13,7 @@
     "@fontsource-variable/space-grotesk": "catalog:",
     "@nuxt/ui": "catalog:",
     "@platform/asset": "workspace:*",
-    "@platform/auth": "workspace:*",
+    "@yueli/identity-nuxt": "workspace:*",
     "@platform/manage": "workspace:*",
     "@platform/site": "workspace:*",
     "@platform/ui": "workspace:*",
