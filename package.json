@@ -1,0 +1,15 @@
+{
+  "name": "@yueli/gallery-repository",
+  "private": true,
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": "24.18.x",
+    "pnpm": "10.28.x"
+  },
+  "scripts": {
+    "web:dev": "pnpm --dir web dev",
+    "web:test": "pnpm --dir web test",
+    "web:typecheck": "pnpm --dir web typecheck",
+    "web:build": "pnpm --dir web build"
+  }
+}
