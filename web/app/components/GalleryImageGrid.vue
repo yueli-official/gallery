@@ -36,47 +36,52 @@ function openPreview(event: MouseEvent, imageId: string): void {
 
 <template>
   <div class="gallery-grid">
-    <NuxtLink
+    <article
       v-for="(image, index) in items"
       :key="image.id"
-      :to="`/images/${encodeURIComponent(image.id)}`"
       class="gallery-tile group"
-      :aria-haspopup="quickView ? 'dialog' : undefined"
-      @click="openPreview($event, image.id)"
     >
-      <div
-        class="gallery-tile-media"
-        :style="{ backgroundColor: image.dominantColor || undefined }"
+      <NuxtLink
+        :to="`/images/${encodeURIComponent(image.id)}`"
+        class="gallery-tile-link"
+        :aria-haspopup="quickView ? 'dialog' : undefined"
+        @click="openPreview($event, image.id)"
       >
-        <img
-          v-bind="sourcePolicy(image.assetId, index)"
-          :alt="image.altText || image.title"
-          :width="image.width || undefined"
-          :height="image.height || undefined"
-          class="size-full object-cover transition duration-500 group-hover:scale-[1.025] group-hover:saturate-[1.04]"
-        />
-      </div>
-      <div class="gallery-tile-copy">
-        <div class="min-w-0">
-          <h2 class="truncate text-sm font-semibold text-highlighted">
-            {{ image.title }}
-          </h2>
-          <p
-            v-if="image.primaryCategory"
-            class="mt-0.5 truncate text-xs text-muted"
-          >
-            {{ image.primaryCategory }}
-          </p>
-        </div>
-        <span
-          class="flex shrink-0 items-center gap-1 text-xs text-muted"
-          :aria-label="`${image.metrics.favorites} 次收藏`"
+        <div
+          class="gallery-tile-media"
+          :style="{ backgroundColor: image.dominantColor || undefined }"
         >
-          <UIcon name="i-tabler-heart" class="size-3.5" />{{
-            compactMetric(image.metrics.favorites)
-          }}
-        </span>
-      </div>
-    </NuxtLink>
+          <img
+            v-bind="sourcePolicy(image.assetId, index)"
+            :alt="image.altText || image.title"
+            :width="image.width || undefined"
+            :height="image.height || undefined"
+            class="size-full object-cover"
+          />
+        </div>
+        <div class="gallery-tile-copy">
+          <div class="min-w-0">
+            <h2 class="truncate text-sm font-semibold text-highlighted">
+              {{ image.title }}
+            </h2>
+            <p
+              v-if="image.primaryCategory"
+              class="mt-0.5 truncate text-xs text-muted"
+            >
+              {{ image.primaryCategory }}
+            </p>
+          </div>
+          <span
+            class="flex shrink-0 items-center gap-1 text-xs text-muted"
+            :aria-label="`${image.metrics.favorites} 次收藏`"
+          >
+            <UIcon name="i-tabler-heart" class="size-3.5" />{{
+              compactMetric(image.metrics.favorites)
+            }}
+          </span>
+        </div>
+      </NuxtLink>
+      <GalleryFavoriteButton :image-id="image.id" :title="image.title" />
+    </article>
   </div>
 </template>

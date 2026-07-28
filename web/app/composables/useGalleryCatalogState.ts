@@ -83,6 +83,17 @@ export function useGalleryCatalogState() {
     return pushState({ ...state.value, preview });
   }
 
+  function setTag(tag: string) {
+    searchDraft.value = "";
+    return pushState({
+      ...state.value,
+      q: "",
+      tag: tag.trim(),
+      page: 1,
+      preview: "",
+    });
+  }
+
   function removeSearch() {
     searchDraft.value = "";
     return apply();
@@ -122,6 +133,7 @@ export function useGalleryCatalogState() {
     setSort,
     setView,
     setPreview,
+    setTag,
     removeSearch,
     removeCategory,
     removeFacet,

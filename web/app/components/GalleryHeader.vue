@@ -43,7 +43,7 @@ watch(
         <span>{{ brandName || "月离图库" }}</span>
       </NuxtLink>
 
-      <nav class="hidden items-center gap-1 lg:flex" aria-label="主要导航">
+      <nav class="gallery-desktop-nav hidden items-center gap-1 xl:flex" aria-label="主要导航">
         <UButton
           v-for="item in nav"
           :key="item.to"
@@ -60,14 +60,9 @@ watch(
         />
       </nav>
 
-      <div class="ml-auto flex items-center gap-1 sm:gap-1.5">
-        <UButton
-          to="/images"
-          color="neutral"
-          variant="ghost"
-          icon="i-tabler-search"
-          aria-label="搜索图库"
-        />
+      <GalleryGlobalSearch class="gallery-header-search" compact />
+
+      <div class="gallery-header-actions flex items-center gap-1 sm:gap-1.5">
         <UButton
           class="gallery-submit-button"
           to="/submit"
@@ -84,6 +79,12 @@ watch(
         />
         <ConsumerAccountControl :context-actions="contextActions" />
       </div>
+    </div>
+    <div
+      v-if="route.path !== '/images'"
+      class="gallery-header-mobile-search lg:hidden"
+    >
+      <GalleryGlobalSearch compact />
     </div>
     <nav class="gallery-mobile-nav lg:hidden" aria-label="移动端主要导航">
       <NuxtLink

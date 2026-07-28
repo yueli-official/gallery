@@ -8,11 +8,10 @@ useSeoMeta({ title: "专题集合", description: "由运营方整理的公开图
 </script>
 
 <template>
-  <div class="gallery-page max-w-7xl">
+  <div class="gallery-page">
     <header class="gallery-page-header max-w-3xl">
       <div>
-        <p class="gallery-eyebrow">运营精选</p>
-        <h1 class="gallery-page-title mt-3">专题集合</h1>
+        <h1 class="gallery-page-title">专题集合</h1>
         <p class="gallery-page-copy">
           围绕一个主题重新整理图片，让浏览更有方向。
         </p>
@@ -30,7 +29,7 @@ useSeoMeta({ title: "专题集合", description: "由运营方整理的公开图
     ></UAlert>
     <div
       v-else-if="data?.collections.length"
-      class="grid gap-x-6 gap-y-10 sm:grid-cols-2"
+      class="grid gap-x-5 gap-y-9 sm:grid-cols-2 lg:grid-cols-3"
     >
       <NuxtLink
         v-for="collection in data.collections"

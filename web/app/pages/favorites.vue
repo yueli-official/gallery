@@ -84,7 +84,6 @@ useSeoMeta({ title: "我的收藏", robots: "noindex,nofollow" });
   <div class="gallery-page">
     <header class="gallery-page-header">
       <div>
-        <p class="gallery-eyebrow mb-3">个人图片库</p>
         <h1 class="gallery-page-title">我的收藏</h1>
         <p class="gallery-page-copy">
           只对你可见。按收藏时间或标题整理，点击图片可快速预览。

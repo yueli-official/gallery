@@ -8,6 +8,7 @@ import type {
 
 const route = useRoute();
 const router = useRouter();
+const isSyntheticPreview = import.meta.dev;
 const seed = computed(() => String(route.query.seed || ""));
 const [
   { data, error, status, refresh },
@@ -29,7 +30,22 @@ const [
 ]);
 
 const featuredCategories = computed(
-  () => data.value?.categories.slice(0, 8) || [],
+  () => data.value?.categories.slice(0, 5) || [],
+);
+const featuredFacets = computed(() =>
+  (data.value?.facets || [])
+    .flatMap((facet) =>
+      facet.values.slice(0, 2).map((value) => ({
+        key: `${facet.slug}:${value.slug}`,
+        label: value.name,
+        context: facet.name,
+        to: {
+          path: "/images",
+          query: { facets: `${facet.slug}:${value.slug}` },
+        },
+      })),
+    )
+    .slice(0, 5),
 );
 const featuredCollections = computed(
   () => collections.value?.collections.slice(0, 4) || [],
@@ -53,61 +69,71 @@ function nextBatch() {
 </script>
 
 <template>
+  <!--
+  THESIS: 图片优先的公共资料库；拒绝让大段介绍和第二个搜索框挡在图片之前。
+  OWN-WORLD: 近白画布、矿物蓝索引线、无边框图片、切角筛选标签与 14px 图像圆角。
+  STORY: 搜索与细化，连续发现，打开、收藏或进入专题。
+  FIRST VIEWPORT: 紧凑顶部搜索、单行细化工具、标题作为瀑布流首块，图片立即出现。
+  FORM: 图库标准答案，图片优先构图，Pinterest 式发现叠加 Pexels 式搜索，选择方案 B，seed b0a2f453。
+  FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+  -->
   <div class="gallery-page gallery-home">
-    <section class="gallery-home-intro" aria-labelledby="gallery-home-title">
-      <div class="gallery-home-intro-copy">
-        <p class="gallery-eyebrow">公共图片资料库</p>
-        <h1 id="gallery-home-title">寻找下一张值得使用的图片</h1>
-        <p>
-          从运营整理的分类、专题和多维标签中发现图片，也可以直接搜索标题与说明。
-        </p>
-      </div>
-      <GalleryGlobalSearch />
-      <nav
-        v-if="featuredCategories.length"
-        class="gallery-category-rail"
-        aria-label="热门分类"
-      >
+    <section class="gallery-discovery-tools" aria-label="快速筛选图片">
+      <span v-if="isSyntheticPreview" class="gallery-demo-label">演示数据</span>
+      <div class="gallery-discovery-group">
+        <span>分类</span>
         <NuxtLink
           v-for="category in featuredCategories"
           :key="category.id"
           :to="{ path: '/images', query: { categories: category.slug } }"
-          class="gallery-category-link"
         >
-          <span>{{ category.name }}</span>
-          <span>{{ category.count }}</span>
+          {{ category.name }}
+          <small>{{ category.count }}</small>
         </NuxtLink>
-      </nav>
+      </div>
+      <div v-if="featuredFacets.length" class="gallery-discovery-group">
+        <span>维度</span>
+        <NuxtLink
+          v-for="facet in featuredFacets"
+          :key="facet.key"
+          :to="facet.to"
+          :title="facet.context"
+        >
+          {{ facet.label }}
+        </NuxtLink>
+      </div>
+      <NuxtLink
+        class="gallery-tag-search-hint"
+        to="/images"
+      >
+        <UIcon name="i-tabler-hash" />
+        输入标签搜索
+      </NuxtLink>
+      <UButton
+        class="gallery-next-batch"
+        color="neutral"
+        variant="ghost"
+        icon="i-tabler-refresh"
+        label="换一批"
+        :loading="status === 'pending'"
+        @click="nextBatch"
+      />
     </section>
 
-    <section class="gallery-section">
-      <GallerySectionHeader
-        eyebrow="随机发现"
-        title="换一个角度浏览"
-        description="不依赖热度排序，从不同主题中重新组合一批图片。"
-      >
-        <template #action>
-          <UButton
-            class="shrink-0"
-            color="neutral"
-            variant="outline"
-            icon="i-tabler-refresh"
-            label="换一批"
-            :loading="status === 'pending'"
-            @click="nextBatch"
-          />
-        </template>
-      </GallerySectionHeader>
-
+    <section class="gallery-home-discovery" aria-labelledby="gallery-home-title">
       <div
         v-if="status === 'pending'"
         class="gallery-masonry gallery-home-stream"
         aria-label="正在加载随机图片"
       >
+        <div class="gallery-home-lead gallery-home-lead--loading">
+          <USkeleton class="h-8 w-3/4" />
+          <USkeleton class="mt-4 h-16 w-full" />
+        </div>
         <USkeleton
-          v-for="index in 20"
+          v-for="index in 19"
           :key="index"
-          class="mb-3 h-64 break-inside-avoid rounded-lg"
+          class="gallery-stream-skeleton"
           :style="{ height: `${180 + (index % 4) * 46}px` }"
         />
       </div>
@@ -133,7 +159,15 @@ function nextBatch() {
         v-else-if="data?.images.length"
         :items="data.images"
         priority
-      />
+        class="gallery-home-stream"
+      >
+        <template #lead>
+          <section class="gallery-home-lead">
+            <h1 id="gallery-home-title">找到值得使用的图片</h1>
+            <p>公共图片资料库</p>
+          </section>
+        </template>
+      </GalleryMasonry>
 
       <div v-else class="gallery-empty gallery-home-empty">
         <div class="gallery-empty-visual" aria-hidden="true">
@@ -164,7 +198,6 @@ function nextBatch() {
 
     <section v-if="featuredCollections.length" class="gallery-section">
       <GallerySectionHeader
-        eyebrow="运营精选"
         title="从专题进入"
         description="沿着一个清晰主题，查看经过整理的图片集合。"
         to="/collections"
@@ -188,7 +221,6 @@ function nextBatch() {
 
     <section v-if="latest?.items.length" class="gallery-section">
       <GallerySectionHeader
-        eyebrow="持续更新"
         title="最新入库"
         description="最近完成处理和审核的公开图片。"
         to="/images"
@@ -198,7 +230,6 @@ function nextBatch() {
 
     <section v-if="trendingImages.length" class="gallery-section">
       <GallerySectionHeader
-        eyebrow="近 7 天"
         title="正在被发现"
         description="近期获得更多有效浏览的图片。"
         to="/rankings?kind=trending&window=7d"

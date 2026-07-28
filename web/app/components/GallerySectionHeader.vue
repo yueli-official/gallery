@@ -11,7 +11,6 @@ defineProps<{
 <template>
   <header class="gallery-section-header">
     <div>
-      <p v-if="eyebrow" class="gallery-eyebrow">{{ eyebrow }}</p>
       <h2>{{ title }}</h2>
       <p v-if="description">{{ description }}</p>
     </div>

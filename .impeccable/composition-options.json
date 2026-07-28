@@ -1,0 +1,72 @@
+{
+  "title": "选择月离图库首页构图",
+  "question": "三张方案共用 Pinterest 式连续发现与 Pexels 式增强搜索；请选择首屏层级，或写明希望如何组合。",
+  "options": [
+    {
+      "id": "search-ribbon",
+      "label": "A · 搜索带优先",
+      "kicker": "搜索最完整",
+      "lineage": "宽搜索栏 + 分类与 Tag 精炼带 + 立即进入瀑布流",
+      "thesis": "先把搜索能力讲清，再让图片承担连续发现。",
+      "palette": [
+        "#FFFFFF",
+        "#171717",
+        "#2458FF",
+        "#F4F5F7"
+      ],
+      "materials": [
+        "无边框图片流",
+        "矿物蓝索引线",
+        "切角筛选标签"
+      ],
+      "viewport": "顶栏中央是唯一搜索，下一行合并 Category 与 Tag，图片流从首屏中部开始。",
+      "risk": "功能最稳，但如果细节不够克制，会接近常规图库模板。",
+      "hero": ".impeccable/mocks/home-search-ribbon.webp"
+    },
+    {
+      "id": "image-first",
+      "label": "B · 图片优先",
+      "kicker": "连续发现最强",
+      "lineage": "搜索吸顶 + 标题嵌入图片流 + 大小图连续接力",
+      "thesis": "让第一张图比产品介绍更早出现，同时保留完整筛选工具带。",
+      "palette": [
+        "#FFFFFF",
+        "#171717",
+        "#2458FF",
+        "#F4F5F7"
+      ],
+      "materials": [
+        "Pinterest 式密度",
+        "矿物蓝索引线",
+        "内容块嵌入图片流"
+      ],
+      "viewport": "图片从顶栏下立即开始，标题是瀑布流第一块，Category、Facet 和 Tag 形成薄工具带。",
+      "risk": "需要精确控制首列标题块和大图，避免移动端产生断层。",
+      "hero": ".impeccable/mocks/home-image-first.webp"
+    },
+    {
+      "id": "discovery-board",
+      "label": "C · 专题发现板",
+      "kicker": "品牌表达最强",
+      "lineage": "短搜索首屏 + 运营专题拼贴 + 瀑布流",
+      "thesis": "用一个真实专题给随机发现定调，再进入持续图片流。",
+      "palette": [
+        "#FFFFFF",
+        "#171717",
+        "#2458FF",
+        "#F4F5F7"
+      ],
+      "materials": [
+        "三联图片拼贴",
+        "矿物蓝索引线",
+        "无容器专题入口"
+      ],
+      "viewport": "左侧是标题和搜索，右侧是“安静的蓝色时刻”三联图，下一行直接进入分类与瀑布流。",
+      "risk": "专题占据首屏面积，纯粹找图的用户会晚半屏进入连续浏览。",
+      "hero": ".impeccable/mocks/home-discovery-board.webp"
+    }
+  ],
+  "reroll": false,
+  "canon": false,
+  "steer": true
+}

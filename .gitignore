@@ -10,3 +10,4 @@ web/.turbo/
 web/test-results/
 web/playwright-report/
 web/*.log
+.impeccable/qa/

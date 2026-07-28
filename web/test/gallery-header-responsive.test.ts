@@ -13,6 +13,10 @@ const header = readFileSync(
   ),
   "utf8",
 );
+const home = readFileSync(
+  fileURLToPath(new URL("../app/pages/index.vue", import.meta.url)),
+  "utf8",
+);
 
 describe("Gallery mobile header", () => {
   it("renders the primary navigation as one equal-width mobile track", () => {
@@ -24,13 +28,19 @@ describe("Gallery mobile header", () => {
     );
   });
 
-  it("keeps the header search as a single icon at every breakpoint", () => {
-    expect(header).not.toContain("<GalleryGlobalSearch");
+  it("keeps one responsive search surface in the header and none in the home body", () => {
+    expect(header).toContain(
+      '<GalleryGlobalSearch class="gallery-header-search" compact />',
+    );
     expect(header).toMatch(
-      /to="\/images"[\s\S]*icon="i-tabler-search"[\s\S]*aria-label="搜索图库"/,
+      /v-if="route\.path !== '\/images'"[\s\S]*class="gallery-header-mobile-search lg:hidden"[\s\S]*<GalleryGlobalSearch compact \/>/,
     );
-    expect(header).not.toMatch(
-      /class="xl:hidden"[\s\S]*to="\/images"[\s\S]*icon="i-tabler-search"/,
+    expect(stylesheet).toMatch(
+      /\.gallery-header-search\s*\{[\s\S]*display:\s*none/,
     );
+    expect(stylesheet).toMatch(
+      /@media \(min-width:\s*64rem\)[\s\S]*\.gallery-header-search\s*\{[\s\S]*display:\s*flex[\s\S]*\.gallery-header-mobile-search\s*\{[\s\S]*display:\s*none/,
+    );
+    expect(home).not.toContain("<GalleryGlobalSearch");
   });
 });

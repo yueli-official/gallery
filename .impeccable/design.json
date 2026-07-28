@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-28T23:00:00+08:00",
+  "title": "Design System: 月离图库",
+  "extensions": {
+    "colorMeta": {
+      "mineral-blue": {
+        "role": "primary",
+        "displayName": "矿物蓝",
+        "canonical": "#2458ff",
+        "tonalRamp": ["#071d6b", "#0e2da3", "#1741d6", "#2458ff", "#597cff", "#8ba7ff", "#bdccff", "#edf1ff"]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "纸张白",
+        "canonical": "#fdfdfb",
+        "tonalRamp": ["#20211f", "#41423f", "#64655f", "#888984", "#adaea9", "#d1d2cd", "#eeeeea", "#fdfdfb"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "紧凑标题",
+        "purpose": "页面主标题与首页瀑布流首块。"
+      },
+      "body": {
+        "displayName": "资料正文",
+        "purpose": "说明、筛选解释与辅助信息。"
+      }
+    },
+    "shadows": [
+      {
+        "name": "viewer-image",
+        "value": "0 28px 60px rgb(0 0 0 / 0.35)",
+        "purpose": "仅用于 Viewer 中脱离画布的图片。"
+      }
+    ],
+    "motion": [
+      {
+        "name": "media-response",
+        "value": "260ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "图片 hover 的轻微缩放响应。"
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "40rem" },
+      { "name": "lg", "value": "64rem" },
+      { "name": "wide", "value": "90rem" }
+    ]
+  },
+  "components": [
+    {
+      "name": "主要按钮",
+      "kind": "button",
+      "refersTo": "primary-button",
+      "description": "投稿和确认动作使用的单一强调按钮。",
+      "html": "<button class=\"ds-primary\">投稿</button>",
+      "css": ".ds-primary{border:0;border-radius:.55rem;background:var(--gallery-accent,#2458ff);color:#fff;padding:.55rem .9rem;font:650 .84rem 'DM Sans Variable',sans-serif;transition:filter 160ms ease,transform 160ms ease}.ds-primary:hover{filter:brightness(.94)}.ds-primary:focus-visible{outline:2px solid var(--gallery-accent,#2458ff);outline-offset:3px}.ds-primary:active{transform:translateY(1px)}"
+    },
+    {
+      "name": "图库搜索",
+      "kind": "input",
+      "refersTo": "search",
+      "description": "顶栏唯一宽搜索，支持普通关键词与 #标签。",
+      "html": "<label class=\"ds-search\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"11\" cy=\"11\" r=\"6.5\"/><path d=\"m16 16 4 4\"/></svg><input placeholder=\"搜索图片、主题或标签\"></label>",
+      "css": ".ds-search{display:flex;align-items:center;gap:.45rem;border:1px solid rgb(23 24 23/.12);border-radius:.75rem;background:var(--gallery-panel,#f4f4f0);padding:.5rem .7rem;color:#171817}.ds-search:focus-within{border-color:#2458ff;outline:2px solid rgb(36 88 255/.12)}.ds-search svg{width:17px;fill:none;stroke:currentColor;stroke-width:1.8}.ds-search input{min-width:16rem;border:0;outline:0;background:transparent;font:400 .84rem 'DM Sans Variable',sans-serif}"
+    },
+    {
+      "name": "切角筛选",
+      "kind": "chip",
+      "description": "首页 refinement 和活动筛选的签名几何。",
+      "html": "<button class=\"ds-refinement\">横图 <small>84</small></button>",
+      "css": ".ds-refinement{border:0;background:var(--gallery-panel,#f4f4f0);color:#565853;padding:.4rem .7rem;clip-path:polygon(0 0,calc(100% - .42rem) 0,100% .42rem,100% 100%,0 100%);font:600 .76rem 'DM Sans Variable',sans-serif}.ds-refinement:hover,.ds-refinement:focus-visible{background:#edf1ff;color:#171817;outline:none}.ds-refinement small{margin-left:.3rem;color:#848680}"
+    },
+    {
+      "name": "图片卡",
+      "kind": "card",
+      "refersTo": "media-card",
+      "description": "无边框、无常驻阴影的图片流单元。",
+      "html": "<article class=\"ds-media\"><div></div><strong>海岸晨光</strong><small>摄影</small></article>",
+      "css": ".ds-media{width:220px;color:#171817;font-family:'DM Sans Variable',sans-serif}.ds-media div{aspect-ratio:4/3;border-radius:.9rem;background:#d8ddd5;overflow:hidden}.ds-media strong,.ds-media small{display:block;margin:.5rem .15rem 0}.ds-media small{margin-top:.15rem;color:#777973}.ds-media:hover div{filter:saturate(.94) brightness(.96)}.ds-media:focus-within{outline:2px solid #2458ff;outline-offset:4px}"
+    },
+    {
+      "name": "折面标记",
+      "kind": "custom",
+      "description": "由两个蓝色切面组成的月离图库识别标记。",
+      "html": "<span class=\"ds-mark\"><i></i></span>",
+      "css": ".ds-mark{position:relative;display:block;width:1.9rem;height:1.9rem}.ds-mark:before,.ds-mark i{position:absolute;content:'';clip-path:polygon(12% 4%,82% 0,100% 28%,84% 96%,8% 86%,0 22%)}.ds-mark:before{inset:.05rem .15rem .15rem .05rem;background:#2458ff;transform:rotate(-7deg)}.ds-mark i{inset:.42rem .05rem .02rem .45rem;background:#8ba7ff;transform:rotate(8deg)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "公共图片索引",
+    "overview": "图片先于说明；成熟图库结构承载可预期操作，折面标记、切角 refinement 和嵌入瀑布流的标题块形成自己的识别度。",
+    "keyCharacteristics": ["图片优先", "单一矿物蓝强调", "无边框媒体", "移动双列不降级"],
+    "rules": [
+      { "name": "One Blue", "body": "同一视口只允许矿物蓝成为强调色。", "section": "colors" },
+      { "name": "No Eyebrow", "body": "不在每个区段标题上重复装饰性小眉题。", "section": "typography" },
+      { "name": "Flat by Default", "body": "图片流和专题卡片静止时不使用悬浮阴影。", "section": "elevation" }
+    ],
+    "dos": ["让首屏立即出现图片。", "用分类、Facet 和 #标签增强搜索。", "在移动端保持双列发现。"],
+    "donts": ["不要在首页正文重复大型搜索。", "不要用长介绍重新制造 Hero。", "不要把渐变演示素材记录为摄影规范。"]
+  }
+}

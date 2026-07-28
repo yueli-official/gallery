@@ -36,37 +36,43 @@ function openPreview(event: MouseEvent, imageId: string): void {
 
 <template>
   <div class="gallery-masonry">
-    <NuxtLink
+    <slot name="lead" />
+    <article
       v-for="(image, index) in items"
       :key="image.id"
-      :to="`/images/${encodeURIComponent(image.id)}`"
       class="gallery-masonry-item group"
-      :aria-haspopup="quickView ? 'dialog' : undefined"
-      @click="openPreview($event, image.id)"
     >
-      <div
-        class="relative overflow-hidden bg-elevated"
-        :style="{
-          aspectRatio: imageAspect(image.width, image.height, '4 / 5'),
-          backgroundColor: image.dominantColor || undefined,
-        }"
+      <NuxtLink
+        :to="`/images/${encodeURIComponent(image.id)}`"
+        class="gallery-masonry-link"
+        :aria-haspopup="quickView ? 'dialog' : undefined"
+        @click="openPreview($event, image.id)"
       >
-        <img
-          v-bind="sourcePolicy(image.assetId, index)"
-          :alt="image.altText || image.title"
-          :width="image.width || undefined"
-          :height="image.height || undefined"
-          class="size-full object-cover transition duration-500 group-hover:scale-[1.025] group-hover:brightness-[.94]"
-        />
-        <div class="gallery-masonry-caption">
-          <p class="truncate text-sm font-semibold text-white">
-            {{ image.title }}
-          </p>
-          <p v-if="image.primaryCategory" class="mt-1 text-xs text-white/75">
-            {{ image.primaryCategory }}
-          </p>
+        <div
+          class="gallery-masonry-media"
+          :style="{
+            aspectRatio: imageAspect(image.width, image.height, '4 / 5'),
+            backgroundColor: image.dominantColor || undefined,
+          }"
+        >
+          <img
+            v-bind="sourcePolicy(image.assetId, index)"
+            :alt="image.altText || image.title"
+            :width="image.width || undefined"
+            :height="image.height || undefined"
+            class="size-full object-cover"
+          />
+          <div class="gallery-masonry-caption">
+            <p class="truncate text-sm font-semibold text-white">
+              {{ image.title }}
+            </p>
+            <p v-if="image.primaryCategory" class="mt-1 text-xs text-white/75">
+              {{ image.primaryCategory }}
+            </p>
+          </div>
         </div>
-      </div>
-    </NuxtLink>
+      </NuxtLink>
+      <GalleryFavoriteButton :image-id="image.id" :title="image.title" />
+    </article>
   </div>
 </template>

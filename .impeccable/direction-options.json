@@ -1,0 +1,120 @@
+{
+  "title": "为月离图库选择新的视觉世界",
+  "question": "保留“图像地形图册”，选择一个替代方向，或重新抽取。",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "图像地形图册",
+      "kicker": "本轮方向",
+      "lineage": "野外图鉴、地形测绘图与路线索引",
+      "thesis": "把找图变成读图：图片是地貌，分类是坐标，专题是一条可继续行走的路线。",
+      "palette": [
+        "#F2F1E9",
+        "#151714",
+        "#2146FF",
+        "#A8C65B"
+      ],
+      "materials": [
+        "哑光测绘纸",
+        "等高线与索引标",
+        "矿物蓝定位墨"
+      ],
+      "viewport": "首屏是一张由真实图片拼成的开放地形，标题和唯一搜索入口压在左侧坐标栏，随机发现路线从第一屏向下延伸。",
+      "risk": "如果坐标与线条失去功能，只剩装饰，就会退化成普通杂志版式。",
+      "sketch": ".impeccable/sketches/assigned.webp"
+    },
+    {
+      "id": "challenger-miura",
+      "label": "可展开索引",
+      "kicker": "替代方向",
+      "lineage": "Miura 折纸结构与航天展开图",
+      "thesis": "图库像一张可折叠索引：搜索、分类和图片在同一张连续结构中展开与收拢。",
+      "palette": [
+        "#F7F7F3",
+        "#191A1C",
+        "#D5A72A",
+        "#C8DAE5"
+      ],
+      "materials": [
+        "压痕白纸",
+        "金色封套",
+        "山折与谷折标记"
+      ],
+      "viewport": "紧凑导航像封套停在左上，图片单元沿斜向折线展开成首屏，搜索会展开新的结果带。",
+      "risk": "过强的折线可能破坏照片裁切和移动端阅读。",
+      "case": "融合较好：结构化筛选天然对应展开与收拢，但图库的观看舒适度略逊于地形图册。",
+      "sketch": ".impeccable/sketches/challenger-miura.webp",
+      "hero": "https://impeccable.style/worlds/cards/paper-folds-pleats-deployable-miura-orbit-sheet-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/paper-folds-pleats-deployable-miura-orbit-sheet.webp"
+    },
+    {
+      "id": "challenger-multiplane",
+      "label": "多层景深",
+      "kicker": "替代方向",
+      "lineage": "手绘动画的多平面摄影台",
+      "thesis": "每次发现都是一次穿过前景、主体与远景的镜头推进，图片在深度中接力出现。",
+      "palette": [
+        "#18251F",
+        "#61756C",
+        "#C7D3CF",
+        "#E7A94A"
+      ],
+      "materials": [
+        "透明赛璐珞层",
+        "雾面蓝灰",
+        "灯窗琥珀"
+      ],
+      "viewport": "三组真实图片以不同景深占据首屏，搜索和标题停在最前方透明层，滚动时焦点交给下一组。",
+      "risk": "强烈氛围容易给题材各异的图片强加同一种情绪。",
+      "case": "观赏辨识度最高，但产品清晰度次于地形图册，且对性能和图片题材一致性要求更高。",
+      "sketch": ".impeccable/sketches/challenger-multiplane.webp",
+      "hero": "https://impeccable.style/worlds/cards/cinema-cinematography-editing-multiplane-cel-dawn-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/cinema-cinematography-editing-multiplane-cel-dawn.webp"
+    },
+    {
+      "id": "challenger-screenprint",
+      "label": "套色游行",
+      "kicker": "替代方向",
+      "lineage": "透明宣纸上的丝网套印",
+      "thesis": "专题、分类和图片像三次透明色版套印，在重合处形成新的发现线索。",
+      "palette": [
+        "#F5F1E6",
+        "#00A8C6",
+        "#F3A712",
+        "#D84A3A"
+      ],
+      "materials": [
+        "桑皮纸",
+        "透明套色墨",
+        "套准十字"
+      ],
+      "viewport": "图片与分类色版错位穿过首屏，唯一搜索入口像套准标固定在页边，滚动让色版逐渐对齐。",
+      "risk": "品牌色层可能污染照片原色，管理界面也较难保持克制。",
+      "case": "记忆点非常强，但产品清晰度和跨页面扩展性均弱于地形图册。",
+      "sketch": ".impeccable/sketches/challenger-screenprint.webp",
+      "hero": "https://impeccable.style/worlds/cards/ink-pigment-printmaking-screenprint-transparent-overlap-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/ink-pigment-printmaking-screenprint-transparent-overlap.webp"
+    }
+  ],
+  "reroll": true,
+  "canon": true,
+  "canonCard": {
+    "label": "图库标准答案",
+    "thesis": "极简顶栏、中央搜索和规整瀑布流，以成熟图库范式做到最高完成度。",
+    "palette": [
+      "#FFFFFF",
+      "#141414",
+      "#F1F1F1",
+      "#2563EB"
+    ],
+    "materials": [
+      "无衬线界面",
+      "中性卡片",
+      "图片瀑布流"
+    ],
+    "viewport": "宽阔标题与搜索位于首屏中央，下方立即进入无边框图片瀑布流。",
+    "risk": "最容易使用，也最难形成月离图库自己的记忆点。",
+    "sketch": ".impeccable/sketches/canon.webp"
+  },
+  "steer": true
+}

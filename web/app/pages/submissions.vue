@@ -173,7 +173,6 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
   <div class="gallery-page max-w-6xl">
     <header class="gallery-page-header">
       <div>
-        <p class="gallery-eyebrow mb-3">投稿工作台</p>
         <h1 class="gallery-page-title">我的投稿</h1>
         <p class="gallery-page-copy">
           跟踪每张图片的处理、审核与最终结果，失败原因会保留在对应记录中。

@@ -22,6 +22,7 @@ const {
   setSort,
   setView,
   setPreview,
+  setTag,
   removeSearch,
   removeCategory,
   removeFacet,
@@ -123,9 +124,17 @@ const activeRefinements = computed(() => {
   return items;
 });
 const searchSuggestions = computed<GallerySearchSuggestion[]>(() => {
-  const term = searchDraft.value.trim().toLocaleLowerCase();
+  const rawTerm = searchDraft.value.trim();
+  const tagTerm = rawTerm.startsWith("#") ? rawTerm.slice(1).trim() : rawTerm;
+  const term = tagTerm.toLocaleLowerCase();
   if (!term) return [];
-  const suggestions: GallerySearchSuggestion[] = [];
+  const suggestions: GallerySearchSuggestion[] = [
+    {
+      key: `tag:${tagTerm}`,
+      label: `#${tagTerm}`,
+      context: "按标签精确搜索",
+    },
+  ];
   for (const category of categoryCandidates.value) {
     if (
       `${category.name} ${category.slug}`.toLocaleLowerCase().includes(term)
@@ -148,7 +157,7 @@ const searchSuggestions = computed<GallerySearchSuggestion[]>(() => {
       }
     }
   }
-  return suggestions.slice(0, 6);
+  return suggestions.slice(0, 7);
 });
 
 function openMobileFilters() {
@@ -188,6 +197,10 @@ function removeRefinement(item: (typeof activeRefinements.value)[number]) {
   if (item.kind === "tag") void removeTag();
 }
 function selectSuggestion(key: string) {
+  if (key.startsWith("tag:")) {
+    void setTag(key.slice("tag:".length));
+    return;
+  }
   if (key.startsWith("category:")) {
     const slug = key.slice("category:".length);
     if (!selectedCategories.value.includes(slug)) toggleCategory(slug);
@@ -239,7 +252,7 @@ useSeoMeta({
         v-model="searchDraft"
         class="min-w-0 flex-1"
         icon="i-tabler-search"
-        placeholder="搜索标题或说明"
+        placeholder="搜索标题、说明或标签"
         @keyup.enter="applyFilters"
       />
       <UButton
@@ -271,7 +284,7 @@ useSeoMeta({
           <UInput
             v-model="searchDraft"
             icon="i-tabler-search"
-            placeholder="搜索图片"
+            placeholder="搜索标题、说明或标签"
             @keyup.enter="applyFilters"
           />
           <GallerySearchSuggestions
@@ -339,22 +352,22 @@ useSeoMeta({
               <UButton
                 color="neutral"
                 :variant="view === 'grid' ? 'soft' : 'ghost'"
-                icon="i-tabler-layout-grid"
-                aria-label="网格布局"
+                label="网格"
+                aria-label="切换到网格布局"
                 @click="changeView('grid')"
               />
               <UButton
                 color="neutral"
                 :variant="view === 'masonry' ? 'soft' : 'ghost'"
-                icon="i-tabler-layout-columns"
-                aria-label="瀑布流布局"
+                label="瀑布"
+                aria-label="切换到瀑布流布局"
                 @click="changeView('masonry')"
               />
             </div>
           </div>
         </div>
         <p v-if="catalogState.q && pageData" class="gallery-search-explanation">
-          标题或说明中包含“{{ catalogState.q }}”的结果，共
+          标题、说明、替代文本或标签中包含“{{ catalogState.q }}”的结果，共
           {{ pageData.total }} 张。
         </p>
 

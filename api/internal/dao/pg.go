@@ -453,9 +453,19 @@ func publicImagePredicates(input model.ImageQuery, plan classification.FilterPla
 	where := []string{eligibleImage}
 	args := make([]any, 0)
 	if input.Search != "" {
-		where = append(where, `(i.title ILIKE ? OR i.description ILIKE ?)`)
+		where = append(where, `(i.title ILIKE ?
+			OR i.description ILIKE ?
+			OR i.alt_text ILIKE ?
+			OR EXISTS (
+				SELECT 1
+				FROM gallery_image_tag_assignments search_assignment
+				JOIN gallery_tags search_tag ON search_tag.id = search_assignment.tag_id
+				WHERE search_assignment.image_id = i.id
+				  AND search_tag.status = 'active'
+				  AND (search_tag.current_name ILIKE ? OR search_tag.current_slug ILIKE ?)
+			))`)
 		term := "%" + input.Search + "%"
-		args = append(args, term, term)
+		args = append(args, term, term, term, term, term)
 	}
 	if input.Tag != "" {
 		where = append(where, `EXISTS (
