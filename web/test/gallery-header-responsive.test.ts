@@ -19,6 +19,20 @@ const home = readFileSync(
 );
 
 describe("Gallery mobile header", () => {
+  it("keeps the home image stream free of a non-image lead tile", () => {
+    expect(home).not.toContain("gallery-home-lead");
+    expect(home).toMatch(/<h1[^>]*class="sr-only"[^>]*>/);
+  });
+
+  it("keeps random discovery controls simple on the home page", () => {
+    expect(home).toContain(">随机看看</h2>");
+    expect(home).toContain('label="换一批"');
+    expect(home).not.toContain("featuredCategories");
+    expect(home).not.toContain("featuredFacets");
+    expect(home).not.toContain("gallery-discovery-group");
+    expect(home).not.toContain("gallery-tag-search-hint");
+  });
+
   it("moves the primary navigation below the header only under 768px", () => {
     expect(header).toContain(
       'class="gallery-desktop-nav hidden items-center gap-1 md:flex"',

@@ -29,24 +29,6 @@ const [
   }),
 ]);
 
-const featuredCategories = computed(
-  () => data.value?.categories.slice(0, 5) || [],
-);
-const featuredFacets = computed(() =>
-  (data.value?.facets || [])
-    .flatMap((facet) =>
-      facet.values.slice(0, 2).map((value) => ({
-        key: `${facet.slug}:${value.slug}`,
-        label: value.name,
-        context: facet.name,
-        to: {
-          path: "/images",
-          query: { facets: `${facet.slug}:${value.slug}` },
-        },
-      })),
-    )
-    .slice(0, 5),
-);
 const featuredCollections = computed(
   () => collections.value?.collections.slice(0, 4) || [],
 );
@@ -70,45 +52,20 @@ function nextBatch() {
 
 <template>
   <!--
-  THESIS: 图片优先的公共资料库；拒绝让大段介绍和第二个搜索框挡在图片之前。
+  THESIS: 图片优先的公共资料库；拒绝让非图片内容占据瀑布流位置。
   OWN-WORLD: 近白画布、矿物蓝索引线、无边框图片、切角筛选标签与 14px 图像圆角。
   STORY: 搜索与细化，连续发现，打开、收藏或进入专题。
-  FIRST VIEWPORT: 紧凑顶部搜索、单行细化工具、标题作为瀑布流首块，图片立即出现。
-  FORM: 图库标准答案，图片优先构图，Pinterest 式发现叠加 Pexels 式搜索，选择方案 B，seed b0a2f453。
+  FIRST VIEWPORT: 紧凑顶部搜索、“随机看看 / 换一批”控制行，随后是无干扰的连续图片流。
+  FORM: 图库标准答案，纯图片优先构图，Pinterest 式发现叠加 Pexels 式搜索，方案 B 的精简版，seed b0a2f453。
   FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
   -->
   <div class="gallery-page gallery-home">
-    <section class="gallery-discovery-tools" aria-label="快速筛选图片">
-      <span v-if="isSyntheticPreview" class="gallery-demo-label">演示数据</span>
-      <div class="gallery-discovery-group">
-        <span>分类</span>
-        <NuxtLink
-          v-for="category in featuredCategories"
-          :key="category.id"
-          :to="{ path: '/images', query: { categories: category.slug } }"
-        >
-          {{ category.name }}
-          <small>{{ category.count }}</small>
-        </NuxtLink>
+    <h1 id="gallery-home-title" class="sr-only">月离图库公共图片资料库</h1>
+    <section class="gallery-discovery-tools" aria-labelledby="random-title">
+      <div class="gallery-random-heading">
+        <h2 id="random-title">随机看看</h2>
+        <span v-if="isSyntheticPreview" class="gallery-demo-label">演示数据</span>
       </div>
-      <div v-if="featuredFacets.length" class="gallery-discovery-group">
-        <span>维度</span>
-        <NuxtLink
-          v-for="facet in featuredFacets"
-          :key="facet.key"
-          :to="facet.to"
-          :title="facet.context"
-        >
-          {{ facet.label }}
-        </NuxtLink>
-      </div>
-      <NuxtLink
-        class="gallery-tag-search-hint"
-        to="/images"
-      >
-        <UIcon name="i-tabler-hash" />
-        输入标签搜索
-      </NuxtLink>
       <UButton
         class="gallery-next-batch"
         color="neutral"
@@ -126,12 +83,8 @@ function nextBatch() {
         class="gallery-masonry gallery-home-stream"
         aria-label="正在加载随机图片"
       >
-        <div class="gallery-home-lead gallery-home-lead--loading">
-          <USkeleton class="h-8 w-3/4" />
-          <USkeleton class="mt-4 h-16 w-full" />
-        </div>
         <USkeleton
-          v-for="index in 19"
+          v-for="index in 20"
           :key="index"
           class="gallery-stream-skeleton"
           :style="{ height: `${180 + (index % 4) * 46}px` }"
@@ -160,14 +113,7 @@ function nextBatch() {
         :items="data.images"
         priority
         class="gallery-home-stream"
-      >
-        <template #lead>
-          <section class="gallery-home-lead">
-            <h1 id="gallery-home-title">找到值得使用的图片</h1>
-            <p>公共图片资料库</p>
-          </section>
-        </template>
-      </GalleryMasonry>
+      />
 
       <div v-else class="gallery-empty gallery-home-empty">
         <div class="gallery-empty-visual" aria-hidden="true">
