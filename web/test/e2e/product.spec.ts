@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-import { productSites } from "../../../../../tests/e2e/contracts";
-import { registerProductSuite } from "../../../../../tests/e2e/product-suite";
+import { productSites } from "./contracts";
+import { registerProductSuite } from "./product-suite";
 
 registerProductSuite("gallery");
 

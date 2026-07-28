@@ -1,9 +1,8 @@
 # 图片站产品
 
 - 生命周期：活跃的中型产品实现
-- 权威来源：Catalog 产品类型 `gallery`、[领域语言](./CONTEXT.md)、[公开图片站契约](../../flightdeck/knowledge/gallery/public-image-site-contract.md)和代码
+- 权威来源：[领域语言](./CONTEXT.md)、产品 E2E 契约和代码
 - 当前实例：`gallery-main`；后续 Gallery 实例复用同一产品源码和独立实例库
-- 当前工作记录：[Gallery 中大型图片库升级](../../flightdeck/work/2026-07-16-gallery-medium-large-upgrade/index.md)
 
 Gallery 是运营方维护的公开图片发现站，支持稳定 URL 的目录搜索/分类/Facet/Tag 筛选、Grid/Masonry、共享 Quick View/详情 Viewer、相关图片、专题、排行、私人收藏、投稿记录和批量投稿。它不建立创作者主页、关注、评论或多图帖子。
 
@@ -72,21 +71,31 @@ doctor down
 Gallery API 默认监听 `8091`，Web 默认监听 `3007`。Web 显式使用 `--host 0.0.0.0`，
 同一局域网内的手机和 Windows 设备可通过开发机 IP 访问。
 
-Platform 现有的产品 E2E harness 仍待解耦迁入 Gallery 仓；生产 migration 不包含演示业务数据。
-
 Gallery 开发数据已由 `api/cmd/devseed` 自持，并在一个事务中幂等对账站点分类、128 张图片、48 条投稿、
 20 个处理单和 4 个专题。它只写 `GALLERY_DATABASE_URL` 指向的 Gallery 数据库；248 个实际图片对象及
 Asset 记录由 Asset 仓的 `fixtureSet: gallery` 准备任务创建。任何产品 seed 都不得跨库写 Asset 表。
 
-## 验证
+## 产品 E2E
 
-```bash
-go test ./api/...
-pnpm --dir web test
-pnpm --dir web typecheck
+产品自己的浏览器契约、旅程、视觉、无障碍和性能测试均位于 `web/test/e2e`，不再依赖 Platform
+根目录的 Playwright harness。默认目标为 Gallery `http://127.0.0.1:3007`、Identity
+`http://127.0.0.1:8081` 和 Account `http://127.0.0.1:3000`。
 
-go run ./cmd/platformctl verify e2e \
-  --file catalog/overlays/local.yaml --root . gallery-main
+先由 Workspace 的 `gallery-local` 环境启动完整依赖，再运行：
+
+```powershell
+cd web
+$env:PLATFORMCTL_E2E_EMAIL = "本地测试账号"
+$env:PLATFORMCTL_E2E_PASSWORD = "本地测试密码"
+corepack pnpm test:e2e
 ```
 
-产品 browser contract、journey adapter 和 light/dark mobile/desktop 基准都在 [`web/test/e2e`](./web/test/e2e/)；根 Playwright harness 从 Catalog 展开 visual、WCAG 2.2 AA、双向键盘焦点、performance 和 Asset settings 合同。
+只检查测试发现而不打开浏览器：
+
+```powershell
+corepack pnpm exec playwright test --config test/e2e/playwright.config.ts --list
+```
+
+可通过 `PLATFORMCTL_E2E_SUITE` 选择 `journeys`、`visual`、`accessibility` 或
+`performance`；默认运行 `all`。实际执行会写入 `web/test-results/e2e`，视觉基准由
+`web/test/e2e/screenshots` 自持。
