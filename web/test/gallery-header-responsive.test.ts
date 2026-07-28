@@ -28,18 +28,32 @@ describe("Gallery mobile header", () => {
     );
   });
 
-  it("keeps one responsive search surface in the header and none in the home body", () => {
+  it("keeps desktop navigation visible from 1024px", () => {
+    expect(header).toContain(
+      'class="gallery-desktop-nav hidden items-center gap-1 lg:flex"',
+    );
+    expect(header).not.toContain("xl:flex");
+  });
+
+  it("pins compact actions right and collapses search to an icon below 1024px", () => {
     expect(header).toContain(
       '<GalleryGlobalSearch class="gallery-header-search" compact />',
     );
-    expect(header).toMatch(
-      /v-if="route\.path !== '\/images'"[\s\S]*class="gallery-header-mobile-search lg:hidden"[\s\S]*<GalleryGlobalSearch compact \/>/,
+    expect(header).toContain(
+      'class="gallery-header-search-trigger"',
+    );
+    expect(header).not.toContain("gallery-header-mobile-search");
+    expect(stylesheet).toMatch(
+      /\.gallery-header-actions\s*\{[\s\S]*margin-left:\s*auto/,
     );
     expect(stylesheet).toMatch(
       /\.gallery-header-search\s*\{[\s\S]*display:\s*none/,
     );
     expect(stylesheet).toMatch(
-      /@media \(min-width:\s*64rem\)[\s\S]*\.gallery-header-search\s*\{[\s\S]*display:\s*flex[\s\S]*\.gallery-header-mobile-search\s*\{[\s\S]*display:\s*none/,
+      /\.gallery-header-search-trigger\s*\{[\s\S]*display:\s*grid/,
+    );
+    expect(stylesheet).toMatch(
+      /@media \(min-width:\s*64rem\)[\s\S]*\.gallery-header-search\s*\{[\s\S]*display:\s*flex[\s\S]*\.gallery-header-search-trigger\s*\{[\s\S]*display:\s*none/,
     );
     expect(home).not.toContain("<GalleryGlobalSearch");
   });
