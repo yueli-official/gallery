@@ -49,7 +49,7 @@ jobs:
       - name: 构建命令
         env:
           GOWORK: "off"
-        run: go build ./cmd/gallery ./cmd/errorcatalog
+        run: go build ./cmd/gallery ./cmd/errorcatalog ./cmd/devseed
 
   web:
     runs-on: ubuntu-latest

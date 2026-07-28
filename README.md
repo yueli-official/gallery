@@ -72,8 +72,11 @@ doctor down
 Gallery API 默认监听 `8091`，Web 默认监听 `3007`。Web 显式使用 `--host 0.0.0.0`，
 同一局域网内的手机和 Windows 设备可通过开发机 IP 访问。
 
-Platform 现有的 `provision:gallery` 演示数据和产品 E2E 脚本将在保留历史提取阶段一起迁入
-Gallery 仓；生产 migration 不包含演示业务数据。
+Platform 现有的产品 E2E harness 仍待解耦迁入 Gallery 仓；生产 migration 不包含演示业务数据。
+
+Gallery 开发数据已由 `api/cmd/devseed` 自持，并在一个事务中幂等对账站点分类、128 张图片、48 条投稿、
+20 个处理单和 4 个专题。它只写 `GALLERY_DATABASE_URL` 指向的 Gallery 数据库；248 个实际图片对象及
+Asset 记录由 Asset 仓的 `fixtureSet: gallery` 准备任务创建。任何产品 seed 都不得跨库写 Asset 表。
 
 ## 验证
 

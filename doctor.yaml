@@ -35,6 +35,10 @@ tasks:
     phase: prepare
     cwd: web
     command: [pnpm, install, --frozen-lockfile]
+  - name: development-seed
+    phase: prepare
+    cwd: api
+    command: [go, run, ./cmd/devseed]
   - name: api-error-catalog
     phase: check
     cwd: api
