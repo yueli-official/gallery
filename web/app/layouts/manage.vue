@@ -96,11 +96,11 @@ const navigation = computed<readonly AdminNavigationItem[]>(() => [
         },
       ]
     : []),
-  ...(can("gallery.discovery.read")
+  ...(can("gallery.discovery.read") || can("gallery.discovery.manage")
     ? [
         {
-          label: "发现策略",
-          icon: "i-tabler-sparkles",
+          label: "站点与首页",
+          icon: "i-tabler-layout-dashboard",
           to: "/manage/discovery",
           active: active("/manage/discovery"),
           onSelect: closeSidebar,

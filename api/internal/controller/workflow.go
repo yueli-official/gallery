@@ -155,6 +155,28 @@ func (c *Admin) GetAdminOverview(ctx context.Context, _ *v1.GetAdminOverviewReq)
 	return &v1.GetAdminOverviewRes{Overview: *value}, nil
 }
 
+func (c *Admin) GetAdminSiteSettings(ctx context.Context, _ *v1.GetAdminSiteSettingsReq) (*v1.GetAdminSiteSettingsRes, error) {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityDiscoveryRead); err != nil {
+		return nil, err
+	}
+	value, err := c.service.SiteSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.GetAdminSiteSettingsRes{Site: *value}, nil
+}
+
+func (c *Admin) UpdateAdminSiteSettings(ctx context.Context, req *v1.UpdateAdminSiteSettingsReq) (*v1.UpdateAdminSiteSettingsRes, error) {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityAssetSettingsManage); err != nil {
+		return nil, err
+	}
+	value, err := c.service.UpdateSiteSettings(ctx, req.SiteSettingsUpdateInput)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.UpdateAdminSiteSettingsRes{Site: *value}, nil
+}
+
 func (c *Admin) GetClassificationCatalog(ctx context.Context, _ *v1.GetClassificationCatalogReq) (*v1.GetClassificationCatalogRes, error) {
 	if _, err := requireCapability(ctx, galleryauthz.CapabilityClassificationRead); err != nil {
 		return nil, err

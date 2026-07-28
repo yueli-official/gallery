@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import type { AccountMenuAction } from "@yueli/ui/account-menu/pattern";
 
-defineProps<{ brandName?: string }>();
+const props = defineProps<{
+  brandName?: string;
+  searchPlaceholder?: string;
+}>();
 
 const route = useRoute();
 const { loggedIn } = useAuth();
@@ -38,9 +41,13 @@ watch(
 <template>
   <header class="gallery-header">
     <div class="gallery-header-inner">
-      <NuxtLink to="/" class="gallery-wordmark" aria-label="月离图库首页">
+      <NuxtLink
+        to="/"
+        class="gallery-wordmark"
+        :aria-label="`${props.brandName || '图库'}首页`"
+      >
         <span class="gallery-mark" aria-hidden="true"><span /></span>
-        <span>{{ brandName || "月离图库" }}</span>
+        <span>{{ props.brandName || "图库" }}</span>
       </NuxtLink>
 
       <nav class="gallery-desktop-nav hidden items-center gap-1 md:flex" aria-label="主要导航">
@@ -60,7 +67,11 @@ watch(
         />
       </nav>
 
-      <GalleryGlobalSearch class="gallery-header-search" compact />
+      <GalleryGlobalSearch
+        class="gallery-header-search"
+        compact
+        :placeholder="props.searchPlaceholder"
+      />
 
       <div class="gallery-header-actions flex items-center gap-1 sm:gap-1.5">
         <NuxtLink

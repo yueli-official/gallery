@@ -6,12 +6,18 @@ const props = withDefaults(
   }>(),
   {
     compact: false,
-    placeholder: "搜索图片、主题或标签",
   },
 );
 const route = useRoute();
 const router = useRouter();
+const gallerySite = useGallerySiteSettings();
 const query = ref("");
+const resolvedPlaceholder = computed(
+  () =>
+    props.placeholder ||
+    gallerySite.value?.searchPlaceholder ||
+    "搜索图库",
+);
 
 watch(
   () => [route.query.q, route.query.tag],
@@ -55,7 +61,7 @@ async function submit(): Promise<void> {
     <input
       v-model="query"
       class="gallery-search-input"
-      :placeholder="placeholder"
+      :placeholder="resolvedPlaceholder"
       aria-label="搜索图库"
     />
     <button

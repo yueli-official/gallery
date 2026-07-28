@@ -24,6 +24,14 @@ func (c *Public) GetDiscovery(ctx context.Context, req *v1.GetDiscoveryReq) (*v1
 	}, nil
 }
 
+func (c *Public) GetSiteSettings(ctx context.Context, _ *v1.GetSiteSettingsReq) (*v1.GetSiteSettingsRes, error) {
+	value, err := c.service.SiteSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.GetSiteSettingsRes{Site: *value}, nil
+}
+
 func (c *Public) GetSubmissionOptions(ctx context.Context, _ *v1.GetSubmissionOptionsReq) (*v1.GetSubmissionOptionsRes, error) {
 	value, err := c.service.SubmissionOptions(ctx)
 	if err != nil {

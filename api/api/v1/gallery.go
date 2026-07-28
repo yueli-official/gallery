@@ -18,6 +18,13 @@ type GetDiscoveryRes struct {
 	Facets     []model.ClassificationFacet `json:"facets"`
 }
 
+type GetSiteSettingsReq struct {
+	g.Meta `path:"/api/v1/gallery/site" method:"GET" tags:"Gallery discovery" summary:"Get public Gallery site and homepage settings"`
+}
+type GetSiteSettingsRes struct {
+	Site model.SiteSettings `json:"site"`
+}
+
 type GetSubmissionOptionsReq struct {
 	g.Meta `path:"/api/v1/gallery/submission-options" method:"GET" tags:"Gallery submissions" summary:"Get active classification choices for a submission"`
 }

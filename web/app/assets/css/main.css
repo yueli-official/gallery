@@ -320,6 +320,12 @@ h3 {
   font-weight: 680;
   letter-spacing: -0.02em;
 }
+.gallery-random-heading p {
+  margin-top: 0.15rem;
+  color: var(--ui-text-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
 .gallery-demo-label {
   flex: none;
   color: var(--gallery-accent);

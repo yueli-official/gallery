@@ -1,10 +1,30 @@
 <script setup lang="ts">
+import type { GallerySite } from "~/types/gallery";
+
 const { brand } = useSiteRuntime();
+const gallerySite = useGallerySiteSettings();
+const { data: siteResponse } = await useFetch<{ site: GallerySite }>(
+  "/api/gallery/site",
+  { key: "gallery-public-site-settings" },
+);
+
+watch(
+  () => siteResponse.value?.site,
+  (value) => {
+    if (value) gallerySite.value = value;
+  },
+  { immediate: true },
+);
+
+const siteName = computed(() => gallerySite.value?.name || brand.value);
 </script>
 
 <template>
   <div class="yueli-app-shell flex min-h-dvh flex-col text-default">
-    <GalleryHeader :brand-name="brand" />
+    <GalleryHeader
+      :brand-name="siteName"
+      :search-placeholder="gallerySite?.searchPlaceholder"
+    />
     <main
       id="public-main"
       tabindex="-1"
@@ -16,10 +36,13 @@ const { brand } = useSiteRuntime();
       <div class="gallery-footer-inner">
         <div>
           <p class="font-display text-sm font-semibold text-highlighted">
-            月离图库
+            {{ siteName }}
           </p>
-          <p class="mt-1 max-w-md text-xs leading-5 text-muted">
-            公开图片的发现、收藏与整理。投稿者身份不会出现在公开页面。
+          <p
+            v-if="gallerySite?.footerTagline"
+            class="mt-1 max-w-md text-xs leading-5 text-muted"
+          >
+            {{ gallerySite.footerTagline }}
           </p>
         </div>
         <nav

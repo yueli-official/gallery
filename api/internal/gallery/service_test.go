@@ -145,6 +145,7 @@ func TestClaimGuestSubmissionsTransfersOwnership(t *testing.T) {
 
 type fakeStore struct {
 	settings               *model.SiteSettings
+	settingsUpdateSeen     model.SiteSettingsUpdateInput
 	candidates             []model.ImageCard
 	image                  *model.ImageDetail
 	relatedImages          []model.RelatedImage
@@ -183,6 +184,25 @@ type fakeStore struct {
 }
 
 func (f *fakeStore) SiteSettings(context.Context) (*model.SiteSettings, error) {
+	return f.settings, nil
+}
+func (f *fakeStore) UpdateSiteSettings(_ context.Context, input model.SiteSettingsUpdateInput) (*model.SiteSettings, error) {
+	f.settingsUpdateSeen = input
+	f.settings = &model.SiteSettings{
+		Name:                input.Name,
+		Title:               input.Title,
+		Description:         input.Description,
+		SearchPlaceholder:   input.SearchPlaceholder,
+		FooterTagline:       input.FooterTagline,
+		RandomCandidateSize: input.RandomCandidateSize,
+		HomeSections:        append([]model.HomeSectionSettings(nil), input.HomeSections...),
+	}
+	for _, section := range input.HomeSections {
+		if section.Key == "random" {
+			f.settings.RandomBatchSize = section.ItemLimit
+			break
+		}
+	}
 	return f.settings, nil
 }
 func (f *fakeStore) ClassificationRevision(context.Context) (uint64, error) {
@@ -439,6 +459,47 @@ func TestReconcilePublishedImagesBackfillsLegacyApprovals(t *testing.T) {
 func TestDiscoveryRequiresSettings(t *testing.T) {
 	_, err := New(&fakeStore{}).Discovery(context.Background(), "seed")
 	assertCode(t, err, "gallery.not_initialized")
+}
+
+func TestUpdateSiteSettingsPersistsOperatorManagedHomepage(t *testing.T) {
+	store := &fakeStore{}
+	input := model.SiteSettingsUpdateInput{
+		Name:                " 月离图库 ",
+		Title:               " 找到值得使用的图片 ",
+		Description:         " 首页说明 ",
+		SearchPlaceholder:   " 搜索图片、分类或标签 ",
+		FooterTagline:       " 页脚说明 ",
+		RandomCandidateSize: 240,
+		HomeSections: []model.HomeSectionSettings{
+			{Key: "random", Enabled: true, Position: 0, Title: "随机看看", ActionLabel: "换一批", ItemLimit: 24},
+			{Key: "collections", Enabled: true, Position: 1, Title: "专题", ActionLabel: "查看专题", ItemLimit: 4},
+			{Key: "latest", Enabled: true, Position: 2, Title: "最新", ActionLabel: "查看图片", ItemLimit: 8},
+			{Key: "trending", Enabled: true, Position: 3, Title: "趋势", ActionLabel: "查看排行", ItemLimit: 8},
+		},
+	}
+	settings, err := New(store).UpdateSiteSettings(context.Background(), input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.Name != "月离图库" || settings.RandomBatchSize != 24 {
+		t.Fatalf("settings = %#v", settings)
+	}
+	if store.settingsUpdateSeen.Title != "找到值得使用的图片" {
+		t.Fatalf("update input was not normalized: %#v", store.settingsUpdateSeen)
+	}
+}
+
+func TestUpdateSiteSettingsRequiresCompleteUniqueSectionOrder(t *testing.T) {
+	input := model.SiteSettingsUpdateInput{
+		Name: "Gallery", Title: "Gallery", SearchPlaceholder: "Search",
+		RandomCandidateSize: 240,
+		HomeSections: []model.HomeSectionSettings{
+			{Key: "random", Position: 0, Title: "Random", ItemLimit: 24},
+			{Key: "collections", Position: 0, Title: "Collections", ItemLimit: 4},
+		},
+	}
+	_, err := New(&fakeStore{}).UpdateSiteSettings(context.Background(), input)
+	assertCode(t, err, "common.validation_failed")
 }
 
 func TestSubmissionOptionsKeepActiveClassificationOnEmptyGallery(t *testing.T) {

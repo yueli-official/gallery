@@ -7,13 +7,34 @@ import (
 )
 
 type SiteSettings struct {
-	Name                string `json:"name" orm:"name"`
-	Title               string `json:"title" orm:"title"`
-	Description         string `json:"description" orm:"description"`
-	SearchPlaceholder   string `json:"searchPlaceholder" orm:"search_placeholder"`
-	FooterTagline       string `json:"footerTagline" orm:"footer_tagline"`
-	RandomBatchSize     int    `json:"randomBatchSize" orm:"random_batch_size"`
-	RandomCandidateSize int    `json:"randomCandidateSize" orm:"random_candidate_size"`
+	Name                string                `json:"name" orm:"name"`
+	Title               string                `json:"title" orm:"title"`
+	Description         string                `json:"description" orm:"description"`
+	SearchPlaceholder   string                `json:"searchPlaceholder" orm:"search_placeholder"`
+	FooterTagline       string                `json:"footerTagline" orm:"footer_tagline"`
+	RandomBatchSize     int                   `json:"randomBatchSize" orm:"random_batch_size"`
+	RandomCandidateSize int                   `json:"randomCandidateSize" orm:"random_candidate_size"`
+	HomeSections        []HomeSectionSettings `json:"homeSections" orm:"-"`
+}
+
+type HomeSectionSettings struct {
+	Key         string `json:"key" orm:"section_key"`
+	Enabled     bool   `json:"enabled" orm:"enabled"`
+	Position    int    `json:"position" orm:"position"`
+	Title       string `json:"title" orm:"title"`
+	Description string `json:"description" orm:"description"`
+	ActionLabel string `json:"actionLabel" orm:"action_label"`
+	ItemLimit   int    `json:"itemLimit" orm:"item_limit"`
+}
+
+type SiteSettingsUpdateInput struct {
+	Name                string                `json:"name"`
+	Title               string                `json:"title"`
+	Description         string                `json:"description"`
+	SearchPlaceholder   string                `json:"searchPlaceholder"`
+	FooterTagline       string                `json:"footerTagline"`
+	RandomCandidateSize int                   `json:"randomCandidateSize"`
+	HomeSections        []HomeSectionSettings `json:"homeSections"`
 }
 
 type Metrics struct {

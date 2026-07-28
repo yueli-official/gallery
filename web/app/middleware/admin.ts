@@ -12,7 +12,7 @@ const routeCapabilities: Array<{
   },
   {
     matches: (path) => path === "/manage/discovery",
-    capabilities: ["gallery.discovery.read"],
+    capabilities: ["gallery.discovery.read", "gallery.discovery.manage"],
   },
   {
     matches: (path) => path === "/manage/cases",
@@ -78,7 +78,10 @@ const managementLandingPages = [
     path: "/manage/cases",
     capabilities: ["gallery.case.read", "gallery.case.resolve"],
   },
-  { path: "/manage/discovery", capabilities: ["gallery.discovery.read"] },
+  {
+    path: "/manage/discovery",
+    capabilities: ["gallery.discovery.read", "gallery.discovery.manage"],
+  },
   {
     path: "/manage/assets",
     capabilities: ["gallery.asset_settings.manage"],

@@ -626,6 +626,19 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.api.v1.GetAdminSiteSettingsReq": {
+        "properties": {},
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.GetAdminSiteSettingsRes": {
+        "properties": {
+          "site": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.SiteSettings",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.api.v1.GetAuthorizationConsoleReq": {
         "properties": {},
         "type": "object"
@@ -902,6 +915,19 @@
         "properties": {
           "ranking": {
             "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.Ranking",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.GetSiteSettingsReq": {
+        "properties": {},
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.GetSiteSettingsRes": {
+        "properties": {
+          "site": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.SiteSettings",
             "description": ""
           }
         },
@@ -1978,6 +2004,52 @@
         "properties": {
           "image": {
             "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.AdminImage",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.UpdateAdminSiteSettingsReq": {
+        "properties": {
+          "description": {
+            "format": "string",
+            "type": "string"
+          },
+          "footerTagline": {
+            "format": "string",
+            "type": "string"
+          },
+          "homeSections": {
+            "format": "[]model.HomeSectionSettings",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.HomeSectionSettings",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "name": {
+            "format": "string",
+            "type": "string"
+          },
+          "randomCandidateSize": {
+            "format": "int",
+            "type": "integer"
+          },
+          "searchPlaceholder": {
+            "format": "string",
+            "type": "string"
+          },
+          "title": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.UpdateAdminSiteSettingsRes": {
+        "properties": {
+          "site": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.SiteSettings",
             "description": ""
           }
         },
@@ -3081,6 +3153,39 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.internal.model.HomeSectionSettings": {
+        "properties": {
+          "actionLabel": {
+            "format": "string",
+            "type": "string"
+          },
+          "description": {
+            "format": "string",
+            "type": "string"
+          },
+          "enabled": {
+            "format": "bool",
+            "type": "boolean"
+          },
+          "itemLimit": {
+            "format": "int",
+            "type": "integer"
+          },
+          "key": {
+            "format": "string",
+            "type": "string"
+          },
+          "position": {
+            "format": "int",
+            "type": "integer"
+          },
+          "title": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.internal.model.ImageCard": {
         "properties": {
           "altText": {
@@ -3332,6 +3437,14 @@
           "footerTagline": {
             "format": "string",
             "type": "string"
+          },
+          "homeSections": {
+            "format": "[]model.HomeSectionSettings",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.HomeSectionSettings",
+              "description": ""
+            },
+            "type": "array"
           },
           "name": {
             "format": "string",
@@ -5075,6 +5188,56 @@
         ]
       }
     },
+    "/api/v1/gallery/admin/site-settings": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.GetAdminSiteSettingsRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Get editable Gallery site and homepage settings",
+        "tags": [
+          "Gallery admin"
+        ]
+      },
+      "patch": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.UpdateAdminSiteSettingsReq",
+                "description": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.UpdateAdminSiteSettingsRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Update Gallery site and homepage settings",
+        "tags": [
+          "Gallery admin"
+        ]
+      }
+    },
     "/api/v1/gallery/admin/submissions": {
       "get": {
         "parameters": [
@@ -5947,6 +6110,27 @@
         "summary": "Get a cached or aggregated public image ranking",
         "tags": [
           "Gallery rankings"
+        ]
+      }
+    },
+    "/api/v1/gallery/site": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.GetSiteSettingsRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Get public Gallery site and homepage settings",
+        "tags": [
+          "Gallery discovery"
         ]
       }
     },

@@ -24,9 +24,14 @@ describe("Gallery mobile header", () => {
     expect(home).toMatch(/<h1[^>]*class="sr-only"[^>]*>/);
   });
 
-  it("keeps random discovery controls simple on the home page", () => {
-    expect(home).toContain(">随机看看</h2>");
-    expect(home).toContain('label="换一批"');
+  it("renders home discovery copy from operator-managed settings", () => {
+    expect(home).toContain("homeSection.title");
+    expect(home).toContain(":label=\"homeSection.actionLabel\"");
+    expect(home).not.toContain(">随机看看</h2>");
+    expect(home).not.toContain('label="换一批"');
+    expect(home).not.toContain('title="从专题进入"');
+    expect(home).not.toContain('title="最新入库"');
+    expect(home).not.toContain('title="正在被发现"');
     expect(home).not.toContain("featuredCategories");
     expect(home).not.toContain("featuredFacets");
     expect(home).not.toContain("gallery-discovery-group");
@@ -56,8 +61,8 @@ describe("Gallery mobile header", () => {
   });
 
   it("pins compact actions right and collapses search to an icon below 1024px", () => {
-    expect(header).toContain(
-      '<GalleryGlobalSearch class="gallery-header-search" compact />',
+    expect(header).toMatch(
+      /<GalleryGlobalSearch[\s\S]*class="gallery-header-search"[\s\S]*compact[\s\S]*:placeholder="props\.searchPlaceholder"/,
     );
     expect(header).toContain(
       'class="gallery-header-search-trigger"',

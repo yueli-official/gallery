@@ -26,6 +26,7 @@ import (
 
 type Store interface {
 	SiteSettings(context.Context) (*model.SiteSettings, error)
+	UpdateSiteSettings(context.Context, model.SiteSettingsUpdateInput) (*model.SiteSettings, error)
 	ClassificationRevision(context.Context) (uint64, error)
 	ClassificationSnapshot(context.Context) (classification.Snapshot, error)
 	ClassificationTagMatches(context.Context, []classification.TagLookupRequest) ([]classification.TagMatch, string, error)
@@ -297,6 +298,95 @@ func (s *Service) Discovery(ctx context.Context, seed string) (*model.Discovery,
 		Categories: categoryCandidates(discovery.Candidates.Categories),
 		Facets:     facetCandidates(discovery.Candidates.Facets),
 	}, nil
+}
+
+func (s *Service) SiteSettings(ctx context.Context) (*model.SiteSettings, error) {
+	if s.store == nil {
+		return nil, galleryerr.NotInitialized("store")
+	}
+	settings, err := s.store.SiteSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if settings == nil {
+		return nil, galleryerr.NotInitialized("site_settings")
+	}
+	return settings, nil
+}
+
+func (s *Service) UpdateSiteSettings(ctx context.Context, input model.SiteSettingsUpdateInput) (*model.SiteSettings, error) {
+	if s.store == nil {
+		return nil, galleryerr.NotInitialized("store")
+	}
+	input.Name = strings.TrimSpace(input.Name)
+	input.Title = strings.TrimSpace(input.Title)
+	input.Description = strings.TrimSpace(input.Description)
+	input.SearchPlaceholder = strings.TrimSpace(input.SearchPlaceholder)
+	input.FooterTagline = strings.TrimSpace(input.FooterTagline)
+	if input.Name == "" || len([]rune(input.Name)) > 80 {
+		return nil, galleryerr.Validation("name", "name is required and must be at most 80 characters")
+	}
+	if input.Title == "" || len([]rune(input.Title)) > 120 {
+		return nil, galleryerr.Validation("title", "title is required and must be at most 120 characters")
+	}
+	if len([]rune(input.Description)) > 320 {
+		return nil, galleryerr.Validation("description", "description must be at most 320 characters")
+	}
+	if input.SearchPlaceholder == "" || len([]rune(input.SearchPlaceholder)) > 120 {
+		return nil, galleryerr.Validation("searchPlaceholder", "search placeholder is required and must be at most 120 characters")
+	}
+	if len([]rune(input.FooterTagline)) > 240 {
+		return nil, galleryerr.Validation("footerTagline", "footer tagline must be at most 240 characters")
+	}
+	if input.RandomCandidateSize < 40 || input.RandomCandidateSize > 2000 {
+		return nil, galleryerr.Validation("randomCandidateSize", "random candidate size must be between 40 and 2000")
+	}
+
+	expected := map[string]struct{}{
+		"random":      {},
+		"collections": {},
+		"latest":      {},
+		"trending":    {},
+	}
+	seenPositions := make(map[int]struct{}, len(expected))
+	for index := range input.HomeSections {
+		section := &input.HomeSections[index]
+		section.Key = strings.TrimSpace(section.Key)
+		section.Title = strings.TrimSpace(section.Title)
+		section.Description = strings.TrimSpace(section.Description)
+		section.ActionLabel = strings.TrimSpace(section.ActionLabel)
+		if _, ok := expected[section.Key]; !ok {
+			return nil, galleryerr.Validation("homeSections", "unsupported or duplicate home section")
+		}
+		delete(expected, section.Key)
+		if section.Position < 0 || section.Position > 3 {
+			return nil, galleryerr.Validation("homeSections", "home section position must be between 0 and 3")
+		}
+		if _, exists := seenPositions[section.Position]; exists {
+			return nil, galleryerr.Validation("homeSections", "home section positions must be unique")
+		}
+		seenPositions[section.Position] = struct{}{}
+		if section.Title == "" || len([]rune(section.Title)) > 80 {
+			return nil, galleryerr.Validation("homeSections", "section title is required and must be at most 80 characters")
+		}
+		if len([]rune(section.Description)) > 240 || len([]rune(section.ActionLabel)) > 40 {
+			return nil, galleryerr.Validation("homeSections", "section description or action label is too long")
+		}
+		minimum, maximum := 1, 24
+		if section.Key == "random" {
+			minimum, maximum = 12, 60
+		}
+		if section.Key == "collections" {
+			maximum = 12
+		}
+		if section.ItemLimit < minimum || section.ItemLimit > maximum {
+			return nil, galleryerr.Validation("homeSections", "section item limit is outside the supported range")
+		}
+	}
+	if len(input.HomeSections) != 4 || len(expected) != 0 {
+		return nil, galleryerr.Validation("homeSections", "all four home sections are required")
+	}
+	return s.store.UpdateSiteSettings(ctx, input)
 }
 
 func (s *Service) SubmissionOptions(ctx context.Context) (*model.SubmissionOptions, error) {

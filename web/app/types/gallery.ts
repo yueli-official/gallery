@@ -6,6 +6,23 @@ export interface GallerySite {
   footerTagline: string;
   randomBatchSize: number;
   randomCandidateSize: number;
+  homeSections: GalleryHomeSection[];
+}
+
+export type GalleryHomeSectionKey =
+  | "random"
+  | "collections"
+  | "latest"
+  | "trending";
+
+export interface GalleryHomeSection {
+  key: GalleryHomeSectionKey;
+  enabled: boolean;
+  position: number;
+  title: string;
+  description: string;
+  actionLabel: string;
+  itemLimit: number;
 }
 
 export interface GalleryMetrics {

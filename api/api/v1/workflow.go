@@ -83,6 +83,21 @@ type GetAdminOverviewRes struct {
 	Overview model.AdminOverview `json:"overview"`
 }
 
+type GetAdminSiteSettingsReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/site-settings" method:"GET" tags:"Gallery admin" summary:"Get editable Gallery site and homepage settings"`
+}
+type GetAdminSiteSettingsRes struct {
+	Site model.SiteSettings `json:"site"`
+}
+
+type UpdateAdminSiteSettingsReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/site-settings" method:"PATCH" tags:"Gallery admin" summary:"Update Gallery site and homepage settings"`
+	model.SiteSettingsUpdateInput
+}
+type UpdateAdminSiteSettingsRes struct {
+	Site model.SiteSettings `json:"site"`
+}
+
 type GetClassificationCatalogReq struct {
 	g.Meta `path:"/api/v1/gallery/admin/classification" method:"GET" tags:"Gallery admin" summary:"Get the authoritative classification catalog including inactive identities"`
 }

@@ -162,7 +162,106 @@ func (p *PG) SiteSettings(ctx context.Context) (*model.SiteSettings, error) {
 	if err := p.db.Model("gallery_site_settings").Ctx(ctx).Order("site_key ASC").Limit(1).Scan(&value); err != nil {
 		return nil, gerror.Wrap(err, "query gallery site settings")
 	}
+	if value == nil {
+		return nil, nil
+	}
+	if err := p.db.Model("gallery_home_sections").
+		Ctx(ctx).
+		Where("site_key", "gallery").
+		Order("position ASC").
+		Scan(&value.HomeSections); err != nil {
+		return nil, gerror.Wrap(err, "query gallery home sections")
+	}
+	for _, section := range value.HomeSections {
+		if section.Key == "random" {
+			value.RandomBatchSize = section.ItemLimit
+			break
+		}
+	}
 	return value, nil
+}
+
+func (p *PG) UpdateSiteSettings(ctx context.Context, input model.SiteSettingsUpdateInput) (*model.SiteSettings, error) {
+	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		tx = tx.Ctx(ctx)
+		randomBatchSize := 24
+		for _, section := range input.HomeSections {
+			if section.Key == "random" {
+				randomBatchSize = section.ItemLimit
+				break
+			}
+		}
+		result, err := tx.Exec(`
+UPDATE gallery_site_settings
+SET name = ?,
+    title = ?,
+    description = ?,
+    search_placeholder = ?,
+    footer_tagline = ?,
+    random_batch_size = ?,
+    random_candidate_size = ?,
+    updated_at = NOW()
+WHERE site_key = 'gallery'`,
+			input.Name,
+			input.Title,
+			input.Description,
+			input.SearchPlaceholder,
+			input.FooterTagline,
+			randomBatchSize,
+			input.RandomCandidateSize,
+		)
+		if err != nil {
+			return gerror.Wrap(err, "update gallery site settings")
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return gerror.Wrap(err, "count updated gallery site settings")
+		}
+		if affected == 0 {
+			return galleryerr.NotInitialized("site_settings")
+		}
+		if _, err := tx.Exec(`
+UPDATE gallery_home_sections
+SET position = position + 10
+WHERE site_key = 'gallery'`); err != nil {
+			return gerror.Wrap(err, "prepare gallery home section reorder")
+		}
+		for _, section := range input.HomeSections {
+			result, err := tx.Exec(`
+UPDATE gallery_home_sections
+SET enabled = ?,
+    position = ?,
+    title = ?,
+    description = ?,
+    action_label = ?,
+    item_limit = ?,
+    updated_at = NOW()
+WHERE site_key = 'gallery' AND section_key = ?`,
+				section.Enabled,
+				section.Position,
+				section.Title,
+				section.Description,
+				section.ActionLabel,
+				section.ItemLimit,
+				section.Key,
+			)
+			if err != nil {
+				return gerror.Wrap(err, "update gallery home section")
+			}
+			affected, err := result.RowsAffected()
+			if err != nil {
+				return gerror.Wrap(err, "count updated gallery home section")
+			}
+			if affected == 0 {
+				return galleryerr.NotInitialized("home_section_" + section.Key)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return p.SiteSettings(ctx)
 }
 
 func (p *PG) ClassificationRevision(ctx context.Context) (uint64, error) {

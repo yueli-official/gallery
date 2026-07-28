@@ -116,9 +116,9 @@ const workspaces = computed(() =>
       capability: "gallery.classification.read",
     },
     {
-      label: "发现策略",
-      description: "检查随机发现与排行信号",
-      icon: "i-tabler-sparkles",
+      label: "站点与首页",
+      description: "发布前台文案、板块顺序与展示数量",
+      icon: "i-tabler-layout-dashboard",
       to: "/manage/discovery",
       capability: "gallery.discovery.read",
     },
