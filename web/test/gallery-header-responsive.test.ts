@@ -19,7 +19,11 @@ const home = readFileSync(
 );
 
 describe("Gallery mobile header", () => {
-  it("renders the primary navigation as one equal-width mobile track", () => {
+  it("moves the primary navigation below the header only under 768px", () => {
+    expect(header).toContain(
+      'class="gallery-desktop-nav hidden items-center gap-1 md:flex"',
+    );
+    expect(header).toContain('class="gallery-mobile-nav md:hidden"');
     expect(stylesheet).toMatch(
       /\.gallery-mobile-nav\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/,
     );
@@ -28,11 +32,13 @@ describe("Gallery mobile header", () => {
     );
   });
 
-  it("keeps desktop navigation visible from 1024px", () => {
-    expect(header).toContain(
-      'class="gallery-desktop-nav hidden items-center gap-1 lg:flex"',
+  it("places a quiet submit link immediately before account controls", () => {
+    expect(header).not.toMatch(
+      /class="gallery-submit-button"[\s\S]*color="primary"/,
     );
-    expect(header).not.toContain("xl:flex");
+    expect(header).toMatch(
+      /<UColorModeButton[\s\S]*class="gallery-submit-link"[\s\S]*>投稿<\/NuxtLink>[\s\S]*<ConsumerAccountControl/,
+    );
   });
 
   it("pins compact actions right and collapses search to an icon below 1024px", () => {

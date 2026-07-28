@@ -43,7 +43,7 @@ watch(
         <span>{{ brandName || "月离图库" }}</span>
       </NuxtLink>
 
-      <nav class="gallery-desktop-nav hidden items-center gap-1 lg:flex" aria-label="主要导航">
+      <nav class="gallery-desktop-nav hidden items-center gap-1 md:flex" aria-label="主要导航">
         <UButton
           v-for="item in nav"
           :key="item.to"
@@ -87,24 +87,16 @@ watch(
             />
           </svg>
         </NuxtLink>
-        <UButton
-          class="gallery-submit-button"
-          to="/submit"
-          icon="i-tabler-plus"
-          label="投稿"
-          color="primary"
-          variant="solid"
-          size="sm"
-        />
         <UColorModeButton
           color="neutral"
           variant="ghost"
           aria-label="切换颜色模式"
         />
+        <NuxtLink to="/submit" class="gallery-submit-link">投稿</NuxtLink>
         <ConsumerAccountControl :context-actions="contextActions" />
       </div>
     </div>
-    <nav class="gallery-mobile-nav lg:hidden" aria-label="移动端主要导航">
+    <nav class="gallery-mobile-nav md:hidden" aria-label="移动端主要导航">
       <NuxtLink
         v-for="item in nav"
         :key="item.to"
