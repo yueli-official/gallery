@@ -6,7 +6,7 @@ import (
 
 	foundationauth "github.com/yueli-official/foundation/go/auth"
 	"github.com/yueli-official/foundation/go/authorization"
-	"platform/products/gallery/api/internal/galleryauthz"
+	"github.com/yueli-official/gallery/api/internal/galleryauthz"
 )
 
 func newGalleryAuthorization(t *testing.T) (*galleryauthz.Service, authorization.SubjectRef) {

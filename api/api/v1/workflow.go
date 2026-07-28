@@ -3,7 +3,7 @@ package v1
 import (
 	"github.com/gogf/gf/v2/frame/g"
 
-	"platform/products/gallery/api/internal/model"
+	"github.com/yueli-official/gallery/api/internal/model"
 )
 
 type CreateSubmissionReq struct {

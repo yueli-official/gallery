@@ -3,16 +3,15 @@ package gallery
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"reflect"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/yueli-official/foundation/go/classification"
-	"platform/gokit/errs"
-	"platform/products/gallery/api/internal/collection"
-	"platform/products/gallery/api/internal/model"
+	"github.com/yueli-official/gallery/api/internal/collection"
+	"github.com/yueli-official/gallery/api/internal/galleryerr"
+	"github.com/yueli-official/gallery/api/internal/model"
 )
 
 const (
@@ -1062,8 +1061,8 @@ func TestDefaultDiscoverySeedUsesUTCDate(t *testing.T) {
 
 func assertCode(t *testing.T, err error, want string) {
 	t.Helper()
-	var coded *errs.Coded
-	if !errors.As(err, &coded) || coded.Code != want {
+	value, ok := galleryerr.Resolve(err)
+	if !ok || value.Code != want {
 		t.Fatalf("expected %s, got %v", want, err)
 	}
 }

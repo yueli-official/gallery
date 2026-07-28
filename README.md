@@ -18,25 +18,69 @@ Gallery 是运营方维护的公开图片发现站，支持稳定 URL 的目录�
 - Identity：OIDC User/Guest 与权限；Gallery 不复制临时身份系统。
 - PostgreSQL 18 + pgvector：Gallery 事实源和当前搜索 Adapter。外部搜索与 Redis 的触发器见工作主题的 [`scale.md`](../../flightdeck/work/2026-07-16-gallery-medium-large-upgrade/scale.md)。
 
+## 仓库自治
+
+Gallery 正在从 Platform 拆分为独立业务服务。当前目录已经具备独立 Go module、独立 pnpm
+依赖与锁文件，并通过 `doctor.yaml` 声明 Identity、Asset、PostgreSQL/pgvector、检查任务和
+本地进程。API 和 Web 不再依赖 Platform 私有 Go 包、`@platform/*`、pnpm catalog 或
+workspace link。
+
+工具链：
+
+- Go `1.25.12`
+- Node.js `24.18.x`
+- pnpm `10.28.x`
+
+前端首次安装必须忽略上级 Platform workspace，确保验证的是 Gallery 自己的锁文件：
+
+```powershell
+cd web
+corepack pnpm install --ignore-workspace --frozen-lockfile
+```
+
+## 聚焦验证
+
+```powershell
+cd api
+$env:GOWORK = "off"
+go test -timeout 60s ./...
+
+cd ../web
+corepack pnpm test
+corepack pnpm typecheck
+$env:NODE_OPTIONS = "--max-old-space-size=4096"
+corepack pnpm build
+```
+
+生产构建可能超过一分钟；本地自动化必须设置超时并在超时后清理 Nuxt/esbuild 子进程，不能让
+后台构建占用内存。开发服务不使用生产构建流程。
+
 ## 本地运行
 
 ```bash
-pnpm provision:gallery
-pnpm dev:gallery
+doctor check
+doctor test
+doctor up --detach
+doctor status --check
+doctor logs gallery-api
+doctor logs gallery-web
+doctor down
 ```
 
-Local provision 幂等生成 248 个真实 Asset 对象、128 张图片、48 条投稿、20 个处理单和 4 个专题，并只重置共享 E2E 账户的 Gallery 可变工作区。生产 migration 不包含演示业务数据。
+运行前将 `api/manifest/config/config.example.yaml` 复制为被 Git 忽略的 `config.yaml`，提供
+`GALLERY_DATABASE_URL`，并由统筹仓库注入 `IDENTITY_BASE_URL` 与 `ASSET_BASE_URL`。
+Gallery API 默认监听 `8091`，Web 默认监听 `3007`。Web 显式使用 `--host 0.0.0.0`，
+同一局域网内的手机和 Windows 设备可通过开发机 IP 访问。
+
+Platform 现有的 `provision:gallery` 演示数据和产品 E2E 脚本将在保留历史提取阶段一起迁入
+Gallery 仓；生产 migration 不包含演示业务数据。
 
 ## 验证
 
 ```bash
-go test ./products/gallery/api/...
-pnpm --dir products/gallery/web test
-pnpm --dir products/gallery/web typecheck
-pnpm --dir products/gallery/web build
-pnpm contracts:check
-pnpm migration:check
-pnpm performance:check
+go test ./api/...
+pnpm --dir web test
+pnpm --dir web typecheck
 
 go run ./cmd/platformctl verify e2e \
   --file catalog/overlays/local.yaml --root . gallery-main

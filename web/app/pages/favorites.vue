@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { createPlatformNotifier } from "@platform/ui/feedback";
+import { createGalleryNotifier } from "~/utils/feedback";
 import type { GalleryCollectionDetail } from "~/types/gallery";
 
 definePageMeta({ middleware: "auth" });
@@ -7,7 +7,7 @@ const route = useRoute();
 const router = useRouter();
 const hydrated = useClientHydrated();
 const { call } = useApi();
-const toast = createPlatformNotifier(useToast());
+const toast = createGalleryNotifier(useToast());
 const page = computed(() => Math.max(1, Number(route.query.page) || 1));
 const sort = computed(() =>
   ["newest", "oldest", "title_asc", "title_desc"].includes(

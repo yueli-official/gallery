@@ -18,28 +18,24 @@ import (
 
 	_ "github.com/gogf/gf/contrib/drivers/pgsql/v2"
 
-	"platform/gokit/authsetup"
-	"platform/gokit/observability"
-	"platform/gokit/openapiexport"
-	"platform/gokit/postgresdb"
-	"platform/gokit/webhooksetup"
-	"platform/products/gallery/api/internal/appconfig"
-	"platform/products/gallery/api/internal/assetclient"
-	"platform/products/gallery/api/internal/dao"
-	galleryservice "platform/products/gallery/api/internal/gallery"
-	"platform/products/gallery/api/internal/galleryabuse"
-	"platform/products/gallery/api/internal/galleryauthz"
-	"platform/products/gallery/api/internal/gallerywebhook"
-	"platform/products/gallery/api/internal/server"
+	"github.com/yueli-official/gallery/api/internal/appconfig"
+	"github.com/yueli-official/gallery/api/internal/assetclient"
+	"github.com/yueli-official/gallery/api/internal/dao"
+	galleryservice "github.com/yueli-official/gallery/api/internal/gallery"
+	"github.com/yueli-official/gallery/api/internal/galleryabuse"
+	"github.com/yueli-official/gallery/api/internal/galleryauthz"
+	"github.com/yueli-official/gallery/api/internal/gallerywebhook"
+	"github.com/yueli-official/gallery/api/internal/runtime"
+	"github.com/yueli-official/gallery/api/internal/server"
 )
 
 func main() {
 	ctx := gctx.New()
-	shutdown, err := observability.StartFromEnvironment(ctx, "gallery-api")
+	shutdown, err := runtime.StartTelemetry(ctx, "gallery-api")
 	if err != nil {
 		panic(err)
 	}
-	defer observability.ShutdownWithTimeout(shutdown)
+	defer runtime.ShutdownTelemetry(shutdown)
 
 	httpServer := g.Server()
 	authorizationDefinition, err := authorization.Compile(galleryauthz.Definition())
@@ -60,7 +56,7 @@ func main() {
 		server.Configure(httpServer, server.Deps{
 			Gallery: galleryservice.New(nil), Authorization: galleryauthz.New(authz),
 		})
-		if handled, exportErr := openapiexport.ExportIfRequested(httpServer); handled {
+		if handled, exportErr := runtime.ExportOpenAPIIfRequested(httpServer); handled {
 			if exportErr != nil {
 				panic(exportErr)
 			}
@@ -68,7 +64,7 @@ func main() {
 		}
 	}
 
-	workDB, err := postgresdb.OpenDefault(ctx)
+	workDB, err := runtime.OpenDefaultPostgres(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -108,9 +104,9 @@ func main() {
 		panic(err)
 	}
 	store := dao.NewPG(g.DB(), workAdapter)
-	var webhookRuntime *webhooksetup.Runtime
+	var webhookRuntime *runtime.WebhookRuntime
 	if g.Cfg().MustGet(ctx, "gallery.webhook.enabled").Bool() {
-		masterKey, err := webhooksetup.DecodeMasterKey(
+		masterKey, err := runtime.DecodeWebhookMasterKey(
 			g.Cfg().MustGet(ctx, "gallery.webhook.masterKey").String(),
 		)
 		if err != nil {
@@ -120,7 +116,7 @@ func main() {
 		if hostname, hostErr := os.Hostname(); hostErr == nil && hostname != "" {
 			webhookWorkerID += ":" + hostname
 		}
-		webhookRuntime, err = webhooksetup.New(ctx, webhooksetup.Options{
+		webhookRuntime, err = runtime.NewWebhook(ctx, runtime.WebhookOptions{
 			DB: workDB, InstanceKey: "gallery:" + appconfig.SiteSlug(ctx) + ":webhook",
 			Definition: gallerywebhook.Definition(appconfig.SiteSlug(ctx)),
 			MasterKey:  masterKey, WorkerID: webhookWorkerID,
@@ -182,6 +178,7 @@ func main() {
 	assetPort, err := assetclient.NewHTTP(assetclient.Config{
 		BaseURL: assetCfg.BaseURL, TokenURL: assetCfg.TokenURL, ClientID: assetCfg.ClientID,
 		ClientSecret: assetCfg.ClientSecret, Scope: assetCfg.Scope, SiteKey: appconfig.SiteSlug(ctx),
+		HTTPClient: runtime.TelemetryHTTPClient(nil),
 	})
 	if err != nil {
 		panic(fmt.Sprintf("gallery asset client: %v", err))
@@ -211,7 +208,7 @@ func main() {
 		}
 	}()
 	jwks := appconfig.LoadJWKS(ctx)
-	verifier, err := authsetup.NewRemoteVerifier(authsetup.RemoteVerifierConfig{
+	verifier, err := runtime.NewRemoteVerifier(runtime.RemoteVerifierConfig{
 		JWKSURL: jwks.URL, Issuer: jwks.Issuer, Audience: jwks.Audience,
 		AllowLoopbackHTTP: jwks.AllowLoopbackHTTP,
 	})

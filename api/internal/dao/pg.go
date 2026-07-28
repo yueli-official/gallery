@@ -21,10 +21,10 @@ import (
 	workpostgres "github.com/yueli-official/foundation/go/work/postgres"
 
 	"github.com/yueli-official/foundation/go/classification"
-	"platform/products/gallery/api/internal/collection"
-	"platform/products/gallery/api/internal/galleryerr"
-	"platform/products/gallery/api/internal/gallerywebhook"
-	"platform/products/gallery/api/internal/model"
+	"github.com/yueli-official/gallery/api/internal/collection"
+	"github.com/yueli-official/gallery/api/internal/galleryerr"
+	"github.com/yueli-official/gallery/api/internal/gallerywebhook"
+	"github.com/yueli-official/gallery/api/internal/model"
 )
 
 type PG struct {

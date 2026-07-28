@@ -4,7 +4,7 @@ import {
   ManageEmpty,
   ManageTabs,
   SkeletonList,
-} from "@platform/manage/components";
+} from "~/utils/manageComponents";
 import { CollectionToolbar } from "@yueli/ui/collection/pattern";
 import type { GalleryAdminCasePage, GalleryCase } from "~/types/gallery";
 

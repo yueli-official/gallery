@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { createPlatformNotifier } from "@platform/ui/feedback";
+import { createGalleryNotifier } from "~/utils/feedback";
 import type {
   GallerySubmission,
   GallerySubmissionOptions,
@@ -47,7 +47,7 @@ interface QueueItem {
 const { loggedIn, login } = useAuth();
 const { call } = useApi();
 const { upload, waitUntilReady } = useGalleryAssetUpload();
-const toast = createPlatformNotifier(useToast());
+const toast = createGalleryNotifier(useToast());
 const { data: submissionOptions } = await useFetch<GallerySubmissionOptions>(
   "/api/gallery/submission-options",
 );

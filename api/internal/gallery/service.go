@@ -18,10 +18,10 @@ import (
 	"github.com/yueli-official/foundation/go/abuse"
 
 	"github.com/yueli-official/foundation/go/classification"
-	"platform/products/gallery/api/internal/collection"
-	"platform/products/gallery/api/internal/galleryabuse"
-	"platform/products/gallery/api/internal/galleryerr"
-	"platform/products/gallery/api/internal/model"
+	"github.com/yueli-official/gallery/api/internal/collection"
+	"github.com/yueli-official/gallery/api/internal/galleryabuse"
+	"github.com/yueli-official/gallery/api/internal/galleryerr"
+	"github.com/yueli-official/gallery/api/internal/model"
 )
 
 type Store interface {

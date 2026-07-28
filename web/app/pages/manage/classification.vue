@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PageHeader } from "@yueli/ui/dashboard/pattern";
-import { SkeletonList } from "@platform/manage/components";
+import { SkeletonList } from "~/utils/manageComponents";
 import { CollectionToolbar } from "@yueli/ui/collection/pattern";
 import type {
   GalleryClassificationCatalog,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SkeletonList } from "@platform/manage/components";
+import { SkeletonList } from "~/utils/manageComponents";
 import type { GalleryClassificationGovernancePreview } from "~/types/gallery";
 
 const open = defineModel<boolean>("open", { required: true });

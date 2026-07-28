@@ -8,11 +8,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/yueli-official/foundation/go/abuse"
 	foundationauth "github.com/yueli-official/foundation/go/auth"
-	v1 "platform/products/gallery/api/api/v1"
-	galleryservice "platform/products/gallery/api/internal/gallery"
-	"platform/products/gallery/api/internal/galleryauthz"
-	"platform/products/gallery/api/internal/galleryerr"
-	"platform/products/gallery/api/internal/model"
+	v1 "github.com/yueli-official/gallery/api/api/v1"
+	galleryservice "github.com/yueli-official/gallery/api/internal/gallery"
+	"github.com/yueli-official/gallery/api/internal/galleryauthz"
+	"github.com/yueli-official/gallery/api/internal/galleryerr"
+	"github.com/yueli-official/gallery/api/internal/model"
 )
 
 type Workflow struct{ service *galleryservice.Service }

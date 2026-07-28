@@ -4,38 +4,36 @@ import (
 	"github.com/gogf/gf/v2/net/ghttp"
 
 	foundationauth "github.com/yueli-official/foundation/go/auth"
-	"platform/gokit/authhttp"
-	"platform/gokit/ghttpx"
-	"platform/gokit/healthcheck"
-	"platform/products/gallery/api/internal/controller"
-	galleryservice "platform/products/gallery/api/internal/gallery"
-	"platform/products/gallery/api/internal/galleryauthz"
+	"github.com/yueli-official/gallery/api/internal/controller"
+	galleryservice "github.com/yueli-official/gallery/api/internal/gallery"
+	"github.com/yueli-official/gallery/api/internal/galleryauthz"
+	"github.com/yueli-official/gallery/api/internal/runtime"
 )
 
 type Deps struct {
 	Gallery       *galleryservice.Service
 	Verifier      *foundationauth.Verifier
 	Authorization *galleryauthz.Service
-	ReadyChecks   map[string]healthcheck.Check
+	ReadyChecks   map[string]runtime.ReadinessCheck
 }
 
 func Configure(s *ghttp.Server, deps Deps) {
-	apiMiddleware := ghttpx.NewMiddleware(ghttpx.MustRateLimiterFromEnvironment(), ghttpx.ForwardedClientIPKey)
+	apiMiddleware := runtime.MustAPIMiddleware(runtime.MustRateLimiterFromEnvironment()).Handle
 	checks := deps.ReadyChecks
 	if checks == nil {
-		checks = map[string]healthcheck.Check{"database": healthcheck.Database}
+		checks = map[string]runtime.ReadinessCheck{"database": runtime.DatabaseReadiness}
 	}
-	s.Use(ghttpx.TraceRouteMiddleware)
+	s.Use(runtime.TraceRouteMiddleware)
 	s.Group("/", func(group *ghttp.RouterGroup) {
 		group.Middleware(apiMiddleware)
 		group.GET("/healthz", controller.Healthz)
-		group.GET("/readyz", healthcheck.Handler(checks))
+		group.GET("/readyz", runtime.ReadinessHandler(checks))
 	})
 	if deps.Gallery != nil {
 		s.Group("/", func(group *ghttp.RouterGroup) {
 			group.Middleware(
 				apiMiddleware,
-				authhttp.Optional(deps.Verifier),
+				runtime.OptionalAuth(deps.Verifier),
 				controller.AuthorizationMiddleware(deps.Authorization),
 			)
 			group.Bind(controller.NewPublic(deps.Gallery))
@@ -44,7 +42,7 @@ func Configure(s *ghttp.Server, deps Deps) {
 			if deps.Verifier != nil {
 				group.Middleware(
 					apiMiddleware,
-					authhttp.Required(deps.Verifier),
+					runtime.RequiredAuth(deps.Verifier),
 					controller.AuthorizationMiddleware(deps.Authorization),
 				)
 			} else {

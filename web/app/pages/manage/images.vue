@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { galleryAdminMutationErrorMessage } from "~/utils/galleryAdminErrors";
 import { PageHeader } from "@yueli/ui/dashboard/pattern";
-import { createPlatformNotifier } from "@platform/ui/feedback";
+import { createGalleryNotifier } from "~/utils/feedback";
 import {
   createCollectionRouteQueryCodec,
   createJsonCollectionQueryPolicy,
@@ -17,7 +17,7 @@ import {
   CollectionPanel,
   CollectionViewToggle,
 } from "@yueli/ui/collection/pattern";
-import { ManageTaxonomyChips } from "@platform/manage/components";
+import { ManageTaxonomyChips } from "~/utils/manageComponents";
 import type {
   GalleryAdminImage,
   GalleryAdminImagePage,
@@ -40,7 +40,7 @@ const router = useRouter();
 const { call } = useApi();
 const { can } = useGalleryMe();
 const hydrated = useClientHydrated();
-const toast = createPlatformNotifier(useToast());
+const toast = createGalleryNotifier(useToast());
 const canImageUpdate = computed(() => can("gallery.image.update"));
 const canImageHide = computed(() => can("gallery.image.hide"));
 const canBulkManage = computed(

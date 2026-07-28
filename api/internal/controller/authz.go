@@ -8,9 +8,9 @@ import (
 
 	foundationauth "github.com/yueli-official/foundation/go/auth"
 	"github.com/yueli-official/foundation/go/authorization"
-	"platform/products/gallery/api/internal/galleryauthz"
-	"platform/products/gallery/api/internal/galleryerr"
-	"platform/products/gallery/api/internal/model"
+	"github.com/yueli-official/gallery/api/internal/galleryauthz"
+	"github.com/yueli-official/gallery/api/internal/galleryerr"
+	"github.com/yueli-official/gallery/api/internal/model"
 )
 
 type authorizationContextKey struct{}

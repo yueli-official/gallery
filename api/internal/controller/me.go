@@ -3,8 +3,8 @@ package controller
 import (
 	"context"
 
-	v1 "platform/products/gallery/api/api/v1"
-	"platform/products/gallery/api/internal/galleryerr"
+	v1 "github.com/yueli-official/gallery/api/api/v1"
+	"github.com/yueli-official/gallery/api/internal/galleryerr"
 )
 
 type Me struct{}

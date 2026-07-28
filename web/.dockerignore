@@ -1,0 +1,8 @@
+node_modules
+.nuxt
+.nuxt-instances
+.output
+.turbo
+test-results
+playwright-report
+*.log

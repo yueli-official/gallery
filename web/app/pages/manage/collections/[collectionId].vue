@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { PageHeader } from "@yueli/ui/dashboard/pattern";
-import { SkeletonList } from "@platform/manage/components";
-import { createPlatformNotifier } from "@platform/ui/feedback";
+import { SkeletonList } from "~/utils/manageComponents";
+import { createGalleryNotifier } from "~/utils/feedback";
 import type {
   GalleryCollection,
   GalleryCollectionDetail,
@@ -13,7 +13,7 @@ definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
 const route = useRoute("/manage/collections/[collectionId]");
 const { call } = useApi();
 const { can } = useGalleryMe();
-const toast = createPlatformNotifier(useToast());
+const toast = createGalleryNotifier(useToast());
 const hydrated = useClientHydrated();
 const canManageCollections = computed(() => can("gallery.collection.manage"));
 const collectionId = computed(() => String(route.params.collectionId));

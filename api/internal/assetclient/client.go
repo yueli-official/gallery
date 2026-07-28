@@ -14,8 +14,8 @@ import (
 	"time"
 
 	foundationhttpclient "github.com/yueli-official/foundation/go/httpclient"
-	"platform/products/gallery/api/internal/galleryerr"
-	"platform/products/gallery/api/internal/model"
+	"github.com/yueli-official/gallery/api/internal/galleryerr"
+	"github.com/yueli-official/gallery/api/internal/model"
 )
 
 type Config struct {

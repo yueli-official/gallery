@@ -8,8 +8,8 @@ import (
 	"github.com/gogf/gf/v2/database/gdb"
 	"github.com/yueli-official/foundation/go/webhook"
 
-	"platform/products/gallery/api/internal/gallerywebhook"
-	"platform/products/gallery/api/internal/model"
+	"github.com/yueli-official/gallery/api/internal/gallerywebhook"
+	"github.com/yueli-official/gallery/api/internal/model"
 )
 
 func (p *PG) publishSubmissionReviewedTx(

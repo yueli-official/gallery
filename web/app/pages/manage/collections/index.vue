@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PageHeader } from "@yueli/ui/dashboard/pattern";
-import { ManageEmpty, SkeletonList } from "@platform/manage/components";
+import { ManageEmpty, SkeletonList } from "~/utils/manageComponents";
 import type { GalleryCollection } from "~/types/gallery";
 
 definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });

@@ -3,14 +3,39 @@ const siteBrand = process.env.NUXT_PUBLIC_SITE_BRAND || "月离图库";
 export default defineNuxtConfig({
   extends: [
     "@yueli/identity-nuxt",
-    "@platform/site",
-    "@platform/manage",
     "@yueli/asset-nuxt",
   ],
-  modules: ["@nuxt/ui", "@yueli/ui"],
+  modules: ["@nuxt/ui", "@yueli/ui", "@yueli/nuxt-runtime"],
+  yueliRuntime: {
+    defaultTarget: "platform",
+    targets: {
+      platform: {
+        path: "/",
+        ssr: {
+          cookies: ["rs_session", "yueli_guest", "__Host-yueli_guest"],
+          headers: ["accept-language", "user-agent"],
+        },
+      },
+      asset: {
+        path: "/asset-api",
+        ssr: {
+          cookies: ["rs_session", "yueli_guest", "__Host-yueli_guest"],
+          headers: ["accept-language", "user-agent"],
+        },
+      },
+      identity: {
+        path: "/identity-api",
+        ssr: {
+          cookies: ["rs_session"],
+          headers: ["accept-language", "user-agent"],
+        },
+      },
+    },
+  },
   css: ["~/assets/css/main.css"],
   app: {
     head: {
+      htmlAttrs: { lang: "zh-CN" },
       meta: [
         { property: "og:site_name", content: siteBrand },
         { property: "og:type", content: "website" },
@@ -19,10 +44,26 @@ export default defineNuxtConfig({
     },
   },
   buildDir: process.env.NUXT_BUILD_DIR || ".nuxt",
-  devServer: { port: Number(process.env.NUXT_DEV_PORT || "3007") },
-  vite: {
-    optimizeDeps: {
-      include: ["@platform/ui > vue-picture-cropper"],
+  devServer: {
+    host: "127.0.0.1",
+    port: Number(process.env.NUXT_DEV_PORT || "3007"),
+  },
+  fonts: {
+    providers: {
+      google: false,
+      googleicons: false,
+      bunny: false,
+      fontshare: false,
+      fontsource: false,
+    },
+  },
+  nitro: {
+    esbuild: {
+      options: {
+        // 当前 @yueli 正式包仍包含供 Nuxt/Nitro 消费的 TypeScript 源码。
+        // 只放行该作用域，其余 node_modules 继续保持 Nitro 默认的外部依赖处理。
+        exclude: /node_modules(?!.*(?:@yueli\+|@yueli[\\/]))/,
+      },
     },
   },
   runtimeConfig: {

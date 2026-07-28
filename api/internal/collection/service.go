@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"platform/products/gallery/api/internal/model"
+	"github.com/yueli-official/gallery/api/internal/model"
 )
 
 const (

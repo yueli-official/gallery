@@ -9,8 +9,8 @@ import (
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/lib/pq"
 
-	"platform/products/gallery/api/internal/galleryerr"
-	"platform/products/gallery/api/internal/model"
+	"github.com/yueli-official/gallery/api/internal/galleryerr"
+	"github.com/yueli-official/gallery/api/internal/model"
 )
 
 func (p *PG) ClassificationTags(ctx context.Context, cursor model.ClassificationTagCursor, limit int) ([]model.ClassificationTag, bool, error) {

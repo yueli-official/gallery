@@ -14,7 +14,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/yueli-official/foundation/go/classification"
-	"platform/products/gallery/api/internal/galleryerr"
+	"github.com/yueli-official/gallery/api/internal/galleryerr"
 )
 
 type governanceRaw func(string, ...any) *gdb.Model

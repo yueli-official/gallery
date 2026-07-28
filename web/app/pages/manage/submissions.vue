@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PageHeader } from "@yueli/ui/dashboard/pattern";
-import { ManageTabs } from "@platform/manage/components";
+import { ManageTabs } from "~/utils/manageComponents";
 import {
   createCollectionRouteQueryCodec,
   createJsonCollectionQueryPolicy,

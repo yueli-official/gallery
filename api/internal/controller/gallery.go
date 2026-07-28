@@ -4,9 +4,9 @@ import (
 	"context"
 	"strings"
 
-	v1 "platform/products/gallery/api/api/v1"
-	galleryservice "platform/products/gallery/api/internal/gallery"
-	"platform/products/gallery/api/internal/model"
+	v1 "github.com/yueli-official/gallery/api/api/v1"
+	galleryservice "github.com/yueli-official/gallery/api/internal/gallery"
+	"github.com/yueli-official/gallery/api/internal/model"
 )
 
 type Public struct{ service *galleryservice.Service }

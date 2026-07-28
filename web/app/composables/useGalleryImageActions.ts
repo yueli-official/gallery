@@ -1,4 +1,4 @@
-import { createPlatformNotifier } from "@platform/ui/feedback";
+import { createGalleryNotifier } from "~/utils/feedback";
 import type { ComputedRef } from "vue";
 import type { GalleryImage } from "~/types/gallery";
 
@@ -7,7 +7,7 @@ export function useGalleryImageActions(
 ) {
   const { loggedIn, login } = useAuth();
   const { call } = useApi();
-  const toast = createPlatformNotifier(useToast());
+  const toast = createGalleryNotifier(useToast());
   const favoritePending = ref(false);
 
   async function track(type: "qualified_view" | "share"): Promise<void> {

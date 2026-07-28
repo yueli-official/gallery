@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "gallery.yueli.dev/error-catalog/v1",
+  "errors": [
+    {
+      "code": "gallery.abuse_attempt_replayed",
+      "status": 409
+    },
+    {
+      "code": "gallery.abuse_unavailable",
+      "status": 503
+    },
+    {
+      "code": "gallery.authorization_unavailable",
+      "status": 503
+    },
+    {
+      "code": "gallery.challenge_required",
+      "status": 403
+    },
+    {
+      "code": "gallery.conflict",
+      "status": 409
+    },
+    {
+      "code": "gallery.forbidden",
+      "status": 403
+    },
+    {
+      "code": "gallery.gone",
+      "status": 410
+    },
+    {
+      "code": "gallery.invalid_state",
+      "status": 409
+    },
+    {
+      "code": "gallery.not_found",
+      "status": 404
+    },
+    {
+      "code": "gallery.not_initialized",
+      "status": 503
+    },
+    {
+      "code": "gallery.rate_limited",
+      "status": 429
+    },
+    {
+      "code": "gallery.upstream_failed",
+      "status": 502
+    }
+  ]
+}

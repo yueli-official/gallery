@@ -1,80 +1,153 @@
+// Package galleryerr 声明 Gallery 不可变的公共 Problem 错误合同。
 package galleryerr
 
 import (
+	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/yueli-official/foundation/go/problem"
-	"platform/gokit/errs"
+)
+
+const (
+	CodeNotFound                 = "gallery.not_found"
+	CodeGone                     = "gallery.gone"
+	CodeNotInitialized           = "gallery.not_initialized"
+	CodeForbidden                = "gallery.forbidden"
+	CodeConflict                 = "gallery.conflict"
+	CodeInvalidState             = "gallery.invalid_state"
+	CodeUpstreamFailed           = "gallery.upstream_failed"
+	CodeRateLimited              = "gallery.rate_limited"
+	CodeChallengeRequired        = "gallery.challenge_required"
+	CodeAbuseUnavailable         = "gallery.abuse_unavailable"
+	CodeAbuseReplay              = "gallery.abuse_attempt_replayed"
+	CodeAuthorizationUnavailable = "gallery.authorization_unavailable"
 )
 
 var (
-	CodeNotFound                 = errs.Register("gallery.not_found", http.StatusNotFound)
-	CodeGone                     = errs.Register("gallery.gone", 410)
-	CodeNotInitialized           = errs.Register("gallery.not_initialized", 503)
-	CodeForbidden                = errs.Register("gallery.forbidden", http.StatusForbidden)
-	CodeConflict                 = errs.Register("gallery.conflict", http.StatusConflict)
-	CodeInvalidState             = errs.Register("gallery.invalid_state", http.StatusConflict)
-	CodeUpstreamFailed           = errs.Register("gallery.upstream_failed", http.StatusBadGateway)
-	CodeRateLimited              = errs.Register("gallery.rate_limited", http.StatusTooManyRequests)
-	CodeChallengeRequired        = errs.Register("gallery.challenge_required", http.StatusForbidden)
-	CodeAbuseUnavailable         = errs.Register("gallery.abuse_unavailable", http.StatusServiceUnavailable)
-	CodeAbuseReplay              = errs.Register("gallery.abuse_attempt_replayed", http.StatusConflict)
-	CodeAuthorizationUnavailable = errs.Register("gallery.authorization_unavailable", http.StatusServiceUnavailable)
+	DescriptorRateLimited = descriptor("common.rate_limited", http.StatusTooManyRequests)
+	DescriptorValidation  = descriptor("common.validation_failed", http.StatusBadRequest)
+	DescriptorInternal    = descriptor("common.internal", http.StatusInternalServerError)
+
+	descriptors = map[string]problem.Descriptor{
+		CodeNotFound:                 descriptor(CodeNotFound, http.StatusNotFound),
+		CodeGone:                     descriptor(CodeGone, http.StatusGone),
+		CodeNotInitialized:           descriptor(CodeNotInitialized, http.StatusServiceUnavailable),
+		CodeForbidden:                descriptor(CodeForbidden, http.StatusForbidden),
+		CodeConflict:                 descriptor(CodeConflict, http.StatusConflict),
+		CodeInvalidState:             descriptor(CodeInvalidState, http.StatusConflict),
+		CodeUpstreamFailed:           descriptor(CodeUpstreamFailed, http.StatusBadGateway),
+		CodeRateLimited:              descriptor(CodeRateLimited, http.StatusTooManyRequests),
+		CodeChallengeRequired:        descriptor(CodeChallengeRequired, http.StatusForbidden),
+		CodeAbuseUnavailable:         descriptor(CodeAbuseUnavailable, http.StatusServiceUnavailable),
+		CodeAbuseReplay:              descriptor(CodeAbuseReplay, http.StatusConflict),
+		CodeAuthorizationUnavailable: descriptor(CodeAuthorizationUnavailable, http.StatusServiceUnavailable),
+	}
 )
 
-func NotFound(resource, id string) *errs.Coded {
-	return errs.New(CodeNotFound, "gallery resource not found", map[string]any{"resource": resource, "id": id})
+func descriptor(code string, status int) problem.Descriptor {
+	return problem.MustDescriptor(
+		problem.MustKind(code, status),
+		"https://errors.yueli.dev/problems/"+code,
+	)
 }
 
-func Forbidden() *errs.Coded {
-	return errs.New(CodeForbidden, "gallery operation is forbidden", nil)
+func DescriptorForCode(code string) (problem.Descriptor, bool) {
+	value, ok := descriptors[code]
+	return value, ok
 }
 
-func AuthorizationUnavailable() *errs.Coded {
-	return errs.New(CodeAuthorizationUnavailable, "authorization is temporarily unavailable", nil)
+type CatalogEntry struct {
+	Code   string `json:"code"`
+	Status int    `json:"status"`
 }
 
-func Conflict(resource string) *errs.Coded {
-	return errs.New(CodeConflict, "gallery resource conflicts with an existing record", map[string]any{"resource": resource})
+func Catalog() []CatalogEntry {
+	result := make([]CatalogEntry, 0, len(descriptors))
+	for code, value := range descriptors {
+		result = append(result, CatalogEntry{Code: code, Status: value.Kind().Status()})
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Code < result[j].Code })
+	return result
 }
 
-func Gone(resource, id string) *errs.Coded {
-	return errs.New(CodeGone, "gallery resource was permanently removed", map[string]any{"resource": resource, "id": id})
+func Resolve(err error) (problem.Problem, bool) {
+	value, ok, resolveErr := problem.FromError(err, "gallery-error-inspection")
+	return value, ok && resolveErr == nil
 }
 
-func Validation(field, detail string) *errs.Coded {
-	return errs.New(errs.CommonValidationFailed, "validation failed", map[string]any{
-		"details": []problem.Violation{{Pointer: "/" + strings.ReplaceAll(strings.ReplaceAll(field, "~", "~0"), "/", "~1"), Code: "validation.invalid", Params: problem.Parameters{"detail": detail}}},
-	})
+func mapped(code string, params problem.Parameters) error {
+	value, ok := DescriptorForCode(code)
+	if !ok {
+		return fmt.Errorf("gallery public error code is not declared: %s", code)
+	}
+	result, err := problem.NewError(value, params)
+	if err != nil {
+		return fmt.Errorf("gallery public error %s: %w", code, err)
+	}
+	return result
 }
 
-func InvalidState(resource, state string) *errs.Coded {
-	return errs.New(CodeInvalidState, "gallery resource is not in an allowed state", map[string]any{"resource": resource, "state": state})
+func NotFound(resource, id string) error {
+	return mapped(CodeNotFound, map[string]any{"resource": resource, "id": id})
 }
 
-func UpstreamFailed(code string) *errs.Coded {
-	return errs.New(CodeUpstreamFailed, "gallery asset operation failed", map[string]any{"upstreamCode": code})
+func Forbidden() error {
+	return mapped(CodeForbidden, nil)
 }
 
-func NotInitialized(resource string) *errs.Coded {
-	return errs.New(CodeNotInitialized, "gallery site configuration is not initialized", map[string]any{"resource": resource})
+func AuthorizationUnavailable() error {
+	return mapped(CodeAuthorizationUnavailable, nil)
 }
 
-func RateLimited() *errs.Coded {
-	return errs.New(CodeRateLimited, "too many submissions — please try again later", nil)
+func Conflict(resource string) error {
+	return mapped(CodeConflict, map[string]any{"resource": resource})
 }
 
-func ChallengeRequired(attemptID string) *errs.Coded {
-	return errs.New(CodeChallengeRequired, "additional verification required", map[string]any{
+func Gone(resource, id string) error {
+	return mapped(CodeGone, map[string]any{"resource": resource, "id": id})
+}
+
+func Validation(field, detail string) error {
+	pointer := "/" + strings.ReplaceAll(strings.ReplaceAll(field, "~", "~0"), "/", "~1")
+	violation := problem.Violation{
+		Pointer: pointer, Code: "validation.invalid",
+		Params: problem.Parameters{"detail": detail},
+	}
+	result, err := problem.NewError(DescriptorValidation, nil, violation)
+	if err != nil {
+		return fmt.Errorf("gallery validation error: %w", err)
+	}
+	return result
+}
+
+func InvalidState(resource, state string) error {
+	return mapped(CodeInvalidState, map[string]any{"resource": resource, "state": state})
+}
+
+func UpstreamFailed(code string) error {
+	return mapped(CodeUpstreamFailed, map[string]any{"upstreamCode": code})
+}
+
+func NotInitialized(resource string) error {
+	return mapped(CodeNotInitialized, map[string]any{"resource": resource})
+}
+
+func RateLimited() error {
+	return mapped(CodeRateLimited, nil)
+}
+
+func ChallengeRequired(attemptID string) error {
+	return mapped(CodeChallengeRequired, map[string]any{
 		"attemptId": attemptID, "challenge": "turnstile",
 	})
 }
 
-func AbuseUnavailable() *errs.Coded {
-	return errs.New(CodeAbuseUnavailable, "submission admission is temporarily unavailable", nil)
+func AbuseUnavailable() error {
+	return mapped(CodeAbuseUnavailable, nil)
 }
 
-func AbuseAttemptReplayed() *errs.Coded {
-	return errs.New(CodeAbuseReplay, "submission attempt was already admitted", nil)
+func AbuseAttemptReplayed() error {
+	return mapped(CodeAbuseReplay, nil)
 }

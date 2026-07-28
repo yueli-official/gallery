@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { createPlatformNotifier } from "@platform/ui/feedback";
+import { createGalleryNotifier } from "~/utils/feedback";
 
 const props = defineProps<{
   imageId: string;
@@ -7,7 +7,7 @@ const props = defineProps<{
   kind: "report" | "source_correction";
 }>();
 const emit = defineEmits<{ "update:open": [open: boolean] }>();
-const toast = createPlatformNotifier(useToast());
+const toast = createGalleryNotifier(useToast());
 const reportReason = ref("");
 const reportDescription = ref("");
 const proposedSourceUrl = ref("");

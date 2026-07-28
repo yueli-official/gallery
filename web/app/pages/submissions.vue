@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { createPlatformNotifier } from "@platform/ui/feedback";
+import { createGalleryNotifier } from "~/utils/feedback";
 import type { GallerySubmission } from "~/types/gallery";
 
 interface SubmissionPage {
@@ -15,7 +15,7 @@ const route = useRoute();
 const router = useRouter();
 const hydrated = useClientHydrated();
 const { call } = useApi();
-const toast = createPlatformNotifier(useToast());
+const toast = createGalleryNotifier(useToast());
 const page = computed(() => Math.max(1, Number(route.query.page) || 1));
 const outcome = computed(() => String(route.query.outcome || ""));
 const processingState = computed(() =>

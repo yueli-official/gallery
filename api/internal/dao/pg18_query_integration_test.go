@@ -19,8 +19,8 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/yueli-official/foundation/go/classification"
-	"platform/products/gallery/api/internal/dao"
-	"platform/products/gallery/api/internal/model"
+	"github.com/yueli-official/gallery/api/internal/dao"
+	"github.com/yueli-official/gallery/api/internal/model"
 )
 
 type galleryPG18Fixture struct {

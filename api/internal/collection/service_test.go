@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"platform/products/gallery/api/internal/model"
+	"github.com/yueli-official/gallery/api/internal/model"
 )
 
 type memoryStore struct {
