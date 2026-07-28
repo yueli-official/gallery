@@ -5,7 +5,7 @@ export default defineNuxtConfig({
     "@yueli/identity-nuxt",
     "@platform/site",
     "@platform/manage",
-    "@platform/asset",
+    "@yueli/asset-nuxt",
   ],
   modules: ["@nuxt/ui", "@yueli/ui"],
   css: ["~/assets/css/main.css"],
