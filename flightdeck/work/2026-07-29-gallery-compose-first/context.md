@@ -33,4 +33,5 @@ Compose 5.1.4 独立 CLI 完成三种模型解析，源码测试、Linux 构建�
 Docker 主机补做。
 
 独立 Asset 的扫描移除目前仍是未发布工作树；Gallery 自持 Compose 已删除 ClamAV，但部署锁只能在 Asset
-产生新的不可变版本和 revision 后更新。旧 `v0.1.2` revision 不能作为新运行时的部署完成证据。
+Asset 扫描移除已发布为 `v0.3.0 / 7007ec9503219635b769a99c68bdd1b27ccb4776`；Gallery 产品部署锁和
+默认构建 revision 已同步，旧 `v0.1.2` 不再是部署输入。

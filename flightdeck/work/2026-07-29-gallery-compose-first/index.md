@@ -63,22 +63,20 @@ bundled Chromium 对局域网 `/submit` 做真实 UI 验收：两张本次生成
 
 ## Next
 
-Asset 发布新的不可变版本后更新 Gallery `deployment.lock.json` 与默认构建 revision，再在 Docker 主机
-完成三种 Compose 拓扑实跑。继续冻结其他消费者迁移，也不要恢复用户叫停的 105 项全路由视觉矩阵。
+当前本地 commit 不 push。待用户允许发布后推送 Gallery，并在 Docker 主机完成三种 Compose 拓扑实跑。
+不要恢复用户叫停的 105 项全路由视觉矩阵。
 
 ## Current execution
 
-Workspace session `20260730T041505Z-17308` is live; all five processes are ready. Gallery Web is
-`http://192.168.5.7:3007`; external `ae-online` remains on `127.0.0.1:3000`.
+实现与产品自治改动已在本地 commit `4cb3de4` 收口；本 Work 不再声称旧 Workspace session 仍存活。
+当前阶段按用户要求只迁移和提交，不执行运行验收或 push。
 
 ## Constraints
 
 - 不恢复或兼容 `doctor.yaml`。
-- 不迁移 Docs、Blog、Nav、Resource 或其他消费者。
 - Gallery 业务代码只声明自身需求；具体服务实例由 Workspace 或 Compose 绑定。
 - 当前主机没有 Docker Engine；不能把静态 Compose 合同表述为真实容器验收。
-- `deployment.lock.json` 仍指向尚未包含扫描移除的新 Asset 发布前 revision；发布后必须更新不可变锁，
-  不能把当前旧 revision 当作可部署的新运行时。
+- `deployment.lock.json` 已指向包含扫描移除的 Asset `v0.3.0 / 7007ec950321...`。
 
 ## References
 

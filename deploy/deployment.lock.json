@@ -22,8 +22,8 @@
     },
     "asset": {
       "source": "https://github.com/yueli-official/asset.git",
-      "version": "v0.1.2",
-      "revision": "371647602911f8f268e741ec9cf88600018c1f6d",
+      "version": "v0.3.0",
+      "revision": "7007ec9503219635b769a99c68bdd1b27ccb4776",
       "capabilities": {
         "asset.api": "1.0"
       }

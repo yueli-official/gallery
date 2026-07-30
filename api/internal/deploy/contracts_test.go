@@ -58,7 +58,7 @@ func TestDeploymentRequirementsStayConsumerOrientedAndLocked(t *testing.T) {
 	}
 	for provider, expected := range map[string]string{
 		"identity": "9d367d3a10d8362b5ec7d8232a77050184980277",
-		"asset":    "371647602911f8f268e741ec9cf88600018c1f6d",
+		"asset":    "7007ec9503219635b769a99c68bdd1b27ccb4776",
 	} {
 		if lock.Dependencies[provider].Revision != expected {
 			t.Fatalf("%s revision = %q", provider, lock.Dependencies[provider].Revision)

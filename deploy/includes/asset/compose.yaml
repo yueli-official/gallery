@@ -17,10 +17,10 @@ services:
       retries: 20
 
   asset-migrate:
-    image: ${ASSET_MIGRATION_IMAGE:-yueli/gallery-asset-migration:v0.1.2}
+    image: ${ASSET_MIGRATION_IMAGE:-yueli/gallery-asset-migration:v0.3.0}
     pull_policy: build
     build:
-      context: "${ASSET_BUILD_CONTEXT:-https://github.com/yueli-official/asset.git#371647602911f8f268e741ec9cf88600018c1f6d}"
+      context: "${ASSET_BUILD_CONTEXT:-https://github.com/yueli-official/asset.git#7007ec9503219635b769a99c68bdd1b27ccb4776}"
       dockerfile_inline: |
         FROM migrate/migrate:v4.19.1
         COPY manifest/sql/migrations /migrations
@@ -34,10 +34,10 @@ services:
         condition: service_healthy
 
   asset:
-    image: ${ASSET_IMAGE:-yueli/gallery-asset:v0.1.2}
+    image: ${ASSET_IMAGE:-yueli/gallery-asset:v0.3.0}
     pull_policy: build
     build:
-      context: "${ASSET_BUILD_CONTEXT:-https://github.com/yueli-official/asset.git#371647602911f8f268e741ec9cf88600018c1f6d}"
+      context: "${ASSET_BUILD_CONTEXT:-https://github.com/yueli-official/asset.git#7007ec9503219635b769a99c68bdd1b27ccb4776}"
     restart: unless-stopped
     environment:
       GF_GCFG_FILE: /app/deploy/config.yaml
