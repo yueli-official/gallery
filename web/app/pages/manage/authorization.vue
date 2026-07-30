@@ -34,7 +34,7 @@ interface ConsoleView {
 definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
 useSeoMeta({ title: "权限与申请" });
 
-const { call } = useApi();
+const { call } = useApi("gallery-authorization");
 const { isAdministrator } = useGalleryMe();
 const hydrated = useClientHydrated();
 const toast = useToast();
@@ -49,7 +49,7 @@ const roleForm = reactive({
 const grantForm = reactive({ subject: "", role: "content_operator" });
 const { data, pending, error, refresh } = await useAsyncData(
   "gallery-authorization-console",
-  () => call<ConsoleView>("/api/v1/authorization/manage/console"),
+  () => call<ConsoleView>("/manage/console"),
   { server: false },
 );
 const state = computed(() => data.value);
@@ -83,7 +83,7 @@ function createDraft() {
   if (!state.value?.activeRevision) return;
   return mutate(
     () =>
-      call("/api/v1/authorization/manage/policies/drafts", {
+      call("/manage/policies/drafts", {
         method: "POST",
         body: { expectedActiveRevision: state.value!.activeRevision },
       }),
@@ -99,7 +99,7 @@ function toggleRoleCapability(role: RoleView, capability: string) {
   return mutate(
     () =>
       call(
-        `/api/v1/authorization/manage/policies/${state.value!.policy.number}/roles/${role.key}/capabilities`,
+        `/manage/policies/${state.value!.policy.number}/roles/${role.key}/capabilities`,
         { method: "PUT", body: { capabilities } },
       ),
     "角色能力已更新到草稿",
@@ -112,7 +112,7 @@ function toggleAutomatic(enabled: boolean) {
   return mutate(
     () =>
       call(
-        `/api/v1/authorization/manage/policies/${state.value!.policy.number}/automatic/${rule.key}`,
+        `/manage/policies/${state.value!.policy.number}/automatic/${rule.key}`,
         { method: "PUT", body: { enabled } },
       ),
     enabled ? "已启用注册自动授权" : "已关闭注册自动授权",
@@ -124,12 +124,12 @@ async function validateAndActivate() {
   if (!draft.value || !current) return;
   await mutate(async () => {
     const validation = await call<{ valid: boolean; violations: string[] }>(
-      `/api/v1/authorization/manage/policies/${current.policy.number}/validate`,
+      `/manage/policies/${current.policy.number}/validate`,
       { method: "POST" },
     );
     if (!validation.valid) throw new Error(validation.violations.join("；"));
     const impact = await call<{ removedBindings: number }>(
-      `/api/v1/authorization/manage/policies/${current.policy.number}/preview`,
+      `/manage/policies/${current.policy.number}/preview`,
       { method: "POST" },
     );
     if (
@@ -140,7 +140,7 @@ async function validateAndActivate() {
     )
       return false;
     await call(
-      `/api/v1/authorization/manage/policies/${current.policy.number}/activate`,
+      `/manage/policies/${current.policy.number}/activate`,
       {
         method: "POST",
         body: { expectedActiveRevision: current.activeRevision },
@@ -153,7 +153,7 @@ function review(application: ApplicationView, decision: "approve" | "reject") {
   return mutate(
     () =>
       call(
-        `/api/v1/authorization/manage/applications/${application.id}/review`,
+        `/manage/applications/${application.id}/review`,
         {
           method: "POST",
           body: {
@@ -170,7 +170,7 @@ function createRole() {
   if (!draft.value || !state.value) return;
   return mutate(async () => {
     await call(
-      `/api/v1/authorization/manage/policies/${state.value!.policy.number}/roles`,
+      `/manage/policies/${state.value!.policy.number}/roles`,
       { method: "POST", body: roleForm },
     );
     createRoleOpen.value = false;
@@ -194,7 +194,7 @@ function closeCreateRole() {
 function grantRole() {
   if (!grantForm.subject.trim() || !grantForm.role) return;
   return mutate(async () => {
-    await call("/api/v1/authorization/manage/grants", {
+    await call("/manage/grants", {
       method: "POST",
       body: { subject: grantForm.subject.trim(), role: grantForm.role },
     });
@@ -207,7 +207,7 @@ function revokeGrant(grant: GrantView) {
     return;
   return mutate(
     () =>
-      call(`/api/v1/authorization/manage/grants/${grant.id}`, {
+      call(`/manage/grants/${grant.id}`, {
         method: "DELETE",
       }),
     "角色授权已撤销",

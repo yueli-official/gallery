@@ -1,5 +1,13 @@
 <script setup lang="ts">
 import { PageHeader } from "@yueli/ui/dashboard/pattern";
+import { bindSettingsBeforeUnload } from "@yueli/ui/settings/browser";
+import {
+  SettingsSaveDock,
+  type SettingsSaveDockMessages,
+} from "@yueli/ui/settings/pattern";
+import { useVueSettingsWorkflow } from "@yueli/ui/settings/vue";
+import { useSettingsLeaveGuard } from "@yueli/ui/settings/vue-router";
+import { onMounted, onScopeDispose } from "vue";
 import { SkeletonList } from "~/utils/manageComponents";
 import { createGalleryNotifier } from "~/utils/feedback";
 import type {
@@ -12,13 +20,14 @@ import type {
 definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
 useSeoMeta({ title: "站点与首页 · 图库管理" });
 
-const { call } = useApi();
+const { call } = useGalleryApi();
 const { can } = useGalleryMe();
 const hydrated = useClientHydrated();
 const toast = createGalleryNotifier(useToast());
 const canManageSettings = computed(() => can("gallery.discovery.manage"));
 const saving = ref(false);
 const saved = ref(false);
+const saveError = ref("");
 
 const sectionNames: Record<GalleryHomeSectionKey, string> = {
   random: "随机图片",
@@ -38,6 +47,74 @@ const form = reactive<GallerySite>({
   homeSections: [],
 });
 
+const saveMessages: SettingsSaveDockMessages = {
+  region: "站点与首页保存操作",
+  unsaved: "有未保存的站点与首页设置",
+  saving: "正在保存站点与首页设置",
+  saved: "站点与首页设置已保存",
+  failed: "站点与首页设置保存失败",
+  discard: "放弃更改",
+  save: "保存设置",
+  savePending: "保存中",
+  saveSuccess: "已保存",
+};
+
+function snapshotForm(): GallerySite {
+  return {
+    name: form.name,
+    title: form.title,
+    description: form.description,
+    searchPlaceholder: form.searchPlaceholder,
+    footerTagline: form.footerTagline,
+    randomBatchSize: Number(form.randomBatchSize),
+    randomCandidateSize: Number(form.randomCandidateSize),
+    homeSections: form.homeSections.map((section) => ({ ...section })),
+  };
+}
+
+function restoreForm(site: GallerySite): void {
+  Object.assign(form, {
+    name: site.name,
+    title: site.title,
+    description: site.description,
+    searchPlaceholder: site.searchPlaceholder,
+    footerTagline: site.footerTagline,
+    randomBatchSize: site.randomBatchSize,
+    randomCandidateSize: site.randomCandidateSize,
+  });
+  form.homeSections.splice(
+    0,
+    form.homeSections.length,
+    ...[...site.homeSections]
+      .sort((left, right) => left.position - right.position)
+      .map((section) => ({ ...section })),
+  );
+}
+
+const settingsWorkflow = useVueSettingsWorkflow<GallerySite>({
+  snapshot: snapshotForm,
+  restore: restoreForm,
+});
+const dirty = settingsWorkflow.dirty;
+const saveStatus = computed(() =>
+  saving.value ? "pending" : saved.value ? "success" : "idle",
+);
+
+let unbindBeforeUnload: (() => void) | undefined;
+onMounted(() => {
+  unbindBeforeUnload = bindSettingsBeforeUnload({
+    isDirty: () => dirty.value,
+  });
+});
+onScopeDispose(() => unbindBeforeUnload?.());
+useSettingsLeaveGuard({
+  isDirty: () => dirty.value,
+  confirm: () =>
+    window.confirm(
+      "有未保存的站点与首页设置，确定离开当前页面吗？",
+    ),
+});
+
 const [
   { data: settingsData, pending, error, refresh },
   { data: preview, refresh: refreshPreview },
@@ -45,14 +122,14 @@ const [
   useAsyncData(
     "gallery-manage-site-settings",
     () =>
-      call<{ site: GallerySite }>("/api/v1/gallery/admin/site-settings"),
+      call<{ site: GallerySite }>("/admin/site-settings"),
     { server: false },
   ),
   useAsyncData(
     "gallery-manage-discovery-preview",
     () =>
       call<GalleryDiscovery>(
-        "/api/v1/gallery/discovery?seed=operator-preview",
+        "/discovery?seed=operator-preview",
       ),
     { server: false },
   ),
@@ -62,22 +139,8 @@ watch(
   () => settingsData.value?.site,
   (site) => {
     if (!site) return;
-    Object.assign(form, {
-      name: site.name,
-      title: site.title,
-      description: site.description,
-      searchPlaceholder: site.searchPlaceholder,
-      footerTagline: site.footerTagline,
-      randomBatchSize: site.randomBatchSize,
-      randomCandidateSize: site.randomCandidateSize,
-    });
-    form.homeSections.splice(
-      0,
-      form.homeSections.length,
-      ...[...site.homeSections]
-        .sort((left, right) => left.position - right.position)
-        .map((section) => ({ ...section })),
-    );
+    restoreForm(site);
+    settingsWorkflow.capture();
   },
   { immediate: true },
 );
@@ -85,7 +148,10 @@ watch(
 watch(
   form,
   () => {
-    if (!saving.value) saved.value = false;
+    if (!saving.value) {
+      saved.value = false;
+      saveError.value = "";
+    }
   },
   { deep: true },
 );
@@ -118,9 +184,10 @@ async function saveSettings(): Promise<void> {
   if (!canManageSettings.value || saving.value) return;
   saving.value = true;
   saved.value = false;
+  saveError.value = "";
   try {
     const result = await call<{ site: GallerySite }>(
-      "/api/v1/gallery/admin/site-settings",
+      "/admin/site-settings",
       {
         method: "PATCH",
         body: {
@@ -139,17 +206,26 @@ async function saveSettings(): Promise<void> {
       },
     );
     settingsData.value = result;
+    restoreForm(result.site);
+    settingsWorkflow.capture();
     await refreshPreview();
     saved.value = true;
   } catch (reason) {
+    saveError.value = message(reason);
     toast.add({
       title: "站点与首页设置没有保存",
-      description: message(reason),
+      description: saveError.value,
       color: "error",
     });
   } finally {
     saving.value = false;
   }
+}
+
+function discardChanges(): void {
+  settingsWorkflow.discard();
+  saved.value = false;
+  saveError.value = "";
 }
 </script>
 
@@ -385,5 +461,16 @@ async function saveSettings(): Promise<void> {
         </p>
       </aside>
     </form>
+
+    <SettingsSaveDock
+      v-if="canManageSettings"
+      :dirty
+      :messages="saveMessages"
+      :status="saveStatus"
+      :error="saveError"
+      :disabled="saving"
+      @discard="discardChanges"
+      @save="saveSettings"
+    />
   </div>
 </template>

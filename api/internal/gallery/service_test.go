@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/yueli-official/foundation/go/classification"
+	"github.com/yueli-official/foundation/go/problem"
 	"github.com/yueli-official/gallery/api/internal/collection"
-	"github.com/yueli-official/gallery/api/internal/galleryerr"
 	"github.com/yueli-official/gallery/api/internal/model"
 )
 
@@ -1047,6 +1047,25 @@ func TestClassificationTagsRejectsMalformedCursor(t *testing.T) {
 	assertCode(t, err, "common.validation_failed")
 }
 
+func TestClassificationTagsExposePublicIDsThatMatchAdminImageSelections(t *testing.T) {
+	store := validSubmissionStore()
+	store.classificationTags = []model.ClassificationTag{{
+		ID: testCategoryID, Name: "旅行", Slug: "travel", Status: "active",
+		ReplacementID: testFacetID,
+	}}
+
+	page, err := New(store).ClassificationTags(context.Background(), "", 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Items) != 1 {
+		t.Fatalf("classification tags = %#v", page.Items)
+	}
+	if page.Items[0].ID != PublicID(testCategoryID) || page.Items[0].ReplacementID != PublicID(testFacetID) {
+		t.Fatalf("classification tag IDs must use the public boundary: %#v", page.Items[0])
+	}
+}
+
 func TestReviewTagProposalNormalizesTargetAndInvalidatesChangedCatalog(t *testing.T) {
 	store := validSubmissionStore()
 	store.tagProposals = []model.ClassificationTagProposal{{ID: "019817c8-0000-7000-8400-000000000001"}}
@@ -1122,8 +1141,8 @@ func TestDefaultDiscoverySeedUsesUTCDate(t *testing.T) {
 
 func assertCode(t *testing.T, err error, want string) {
 	t.Helper()
-	value, ok := galleryerr.Resolve(err)
-	if !ok || value.Code != want {
+	value, ok, resolveErr := problem.FromError(err, "gallery-test")
+	if resolveErr != nil || !ok || value.Code != want {
 		t.Fatalf("expected %s, got %v", want, err)
 	}
 }

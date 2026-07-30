@@ -398,6 +398,7 @@ func galleryCapabilityViews() []v1.AuthorizationCapabilityView {
 		{Key: string(galleryauthz.CapabilityCaseRead), DisplayName: "查看处理单"},
 		{Key: string(galleryauthz.CapabilityCaseResolve), DisplayName: "处置处理单"},
 		{Key: string(galleryauthz.CapabilityDiscoveryRead), DisplayName: "查看发现策略"},
+		{Key: string(galleryauthz.CapabilityDiscoveryManage), DisplayName: "管理发现与站点设置"},
 		{Key: string(galleryauthz.CapabilityAssetSettingsManage), DisplayName: "管理资源配置"},
 	}
 }

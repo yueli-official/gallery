@@ -7,12 +7,12 @@ useSeoMeta({ title: "今日运营 · 图库管理" });
 
 const { user } = useAuth();
 const { can } = useGalleryMe();
-const { call } = useApi();
+const { call } = useGalleryApi();
 const hydrated = useClientHydrated();
 const { data, pending, error, refresh } = await useAsyncData(
   "gallery-admin-overview",
   () =>
-    call<{ overview: GalleryAdminOverview }>("/api/v1/gallery/admin/overview"),
+    call<{ overview: GalleryAdminOverview }>("/admin/overview"),
   { server: false },
 );
 const overview = computed(() => data.value?.overview);

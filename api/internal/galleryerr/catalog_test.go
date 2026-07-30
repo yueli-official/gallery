@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/yueli-official/foundation/go/problem"
 	"github.com/yueli-official/gallery/api/internal/galleryerr"
 )
 
@@ -50,9 +51,9 @@ func TestConstructorsCarryCode(t *testing.T) {
 		galleryerr.CodeAuthorizationUnavailable: galleryerr.AuthorizationUnavailable(),
 	}
 	for want, err := range cases {
-		value, ok := galleryerr.Resolve(err)
-		if !ok || value.Code != want {
-			t.Errorf("Resolve(%s) = %#v, %v", want, value, ok)
+		value, ok, resolveErr := problem.FromError(err, "gallery-error-inspection")
+		if resolveErr != nil || !ok || value.Code != want {
+			t.Errorf("FromError(%s) = %#v, %v, %v", want, value, ok, resolveErr)
 		}
 	}
 }

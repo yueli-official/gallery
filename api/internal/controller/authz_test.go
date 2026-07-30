@@ -36,12 +36,18 @@ func authorizationContext(subject authorization.SubjectRef, roles []string, serv
 
 func TestGalleryAdministratorComesFromLocalAuthorization(t *testing.T) {
 	service, administrator := newGalleryAuthorization(t)
-	if _, err := requireAdmin(authorizationContext(administrator, nil, service)); err != nil {
+	if _, err := requireCapability(
+		authorizationContext(administrator, nil, service),
+		authorization.CapabilityManage,
+	); err != nil {
 		t.Fatalf("gallery administrator rejected: %v", err)
 	}
 
 	identityAdmin := authorization.SubjectRef{Kind: authorization.SubjectUser, ID: "identity-admin"}
-	if _, err := requireAdmin(authorizationContext(identityAdmin, []string{"admin"}, service)); err == nil {
+	if _, err := requireCapability(
+		authorizationContext(identityAdmin, []string{"admin"}, service),
+		authorization.CapabilityManage,
+	); err == nil {
 		t.Fatal("Identity admin unexpectedly became Gallery administrator")
 	}
 }
@@ -69,10 +75,21 @@ func TestContentOperatorGetsDailyCapabilitiesButNotProtectedGovernance(t *testin
 	for _, capability := range []authorization.CapabilityKey{
 		galleryauthz.CapabilityClassificationGovern,
 		galleryauthz.CapabilityCaseResolve,
+		galleryauthz.CapabilityDiscoveryManage,
 		galleryauthz.CapabilityAssetSettingsManage,
 	} {
 		if _, err := requireCapability(ctx, capability); err == nil {
 			t.Fatalf("content operator unexpectedly allowed for %q", capability)
 		}
+	}
+}
+
+func TestGalleryAdministratorCanManageDiscoverySettings(t *testing.T) {
+	service, administrator := newGalleryAuthorization(t)
+	if _, err := requireCapability(
+		authorizationContext(administrator, nil, service),
+		galleryauthz.CapabilityDiscoveryManage,
+	); err != nil {
+		t.Fatalf("gallery administrator cannot manage discovery settings: %v", err)
 	}
 }

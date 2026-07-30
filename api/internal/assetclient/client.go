@@ -76,7 +76,7 @@ func (c *HTTP) UnregisterSubmission(ctx context.Context, _ string, assetID, subm
 
 func (c *HTTP) PublishImage(ctx context.Context, assetID, imageID, title string) error {
 	return c.referenceRequest(ctx, http.MethodPost, c.baseURL+"/api/v1/assets/"+url.PathEscape(strings.TrimSpace(assetID))+"/publications", map[string]any{
-		"siteKey": c.siteKey, "refType": "gallery-public-image", "refId": imageID, "refLabel": title,
+		"siteKey": c.siteKey, "refId": imageID, "refLabel": title, "refUrl": "/images/" + strings.TrimSpace(imageID),
 	})
 }
 
@@ -107,11 +107,16 @@ func (c *HTTP) PrepareSubmission(ctx context.Context, assetID string) (Submissio
 		return SubmissionAssetFacts{}, galleryerr.UpstreamFailed(remoteCode(decodeErr))
 	}
 	_, hashErr := hex.DecodeString(facts.ContentHash)
-	if facts.URL == "" || len(facts.ContentHash) != 64 || hashErr != nil || !strings.HasPrefix(facts.Mime, "image/") || facts.Width == nil || facts.Height == nil || *facts.Width <= 0 || *facts.Height <= 0 {
+	previewURL, previewURLErr := url.Parse(strings.TrimSpace(facts.URL))
+	if previewURLErr != nil || previewURL.Host == "" ||
+		(previewURL.Scheme != "http" && previewURL.Scheme != "https") ||
+		previewURL.User != nil || len(facts.ContentHash) != 64 || hashErr != nil ||
+		!strings.HasPrefix(facts.Mime, "image/") || facts.Width == nil ||
+		facts.Height == nil || *facts.Width <= 0 || *facts.Height <= 0 {
 		return SubmissionAssetFacts{}, galleryerr.UpstreamFailed("asset.invalid_media_facts")
 	}
 	return SubmissionAssetFacts{
-		PreviewURL: facts.URL, ContentHash: strings.ToLower(facts.ContentHash), Mime: facts.Mime,
+		PreviewURL: previewURL.String(), ContentHash: strings.ToLower(facts.ContentHash), Mime: facts.Mime,
 		Width: *facts.Width, Height: *facts.Height,
 	}, nil
 }

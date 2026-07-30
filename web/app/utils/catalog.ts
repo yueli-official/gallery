@@ -9,7 +9,6 @@ export interface GalleryCatalogState {
   categories: string[];
   facets: string[];
   tag: string;
-  preview: string;
   view: GalleryCatalogView;
 }
 
@@ -63,7 +62,6 @@ export function parseGalleryCatalogState(
     categories: list(query.categories),
     facets: list(query.facets),
     tag: scalar(query.tag),
-    preview: scalar(query.preview),
     view: scalar(query.view) === "masonry" ? "masonry" : "grid",
   };
 }
@@ -93,7 +91,6 @@ export function galleryCatalogQuery(
   if (state.categories.length) query.categories = state.categories.join(",");
   if (state.facets.length) query.facets = state.facets.join(",");
   if (state.tag) query.tag = state.tag;
-  if (state.preview) query.preview = state.preview;
   if (state.view === "masonry") query.view = state.view;
   return query;
 }

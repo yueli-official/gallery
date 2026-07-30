@@ -33,12 +33,12 @@ func StartTelemetry(ctx context.Context, fallbackServiceName string) (TelemetryS
 		_ = exporter.Shutdown(ctx)
 		return nil, err
 	}
-	serviceName := firstNonEmpty(os.Getenv("OTEL_SERVICE_NAME"), os.Getenv("PLATFORM_SERVICE_NAME"), fallbackServiceName)
-	serviceVersion := firstNonEmpty(os.Getenv("OTEL_SERVICE_VERSION"), os.Getenv("PLATFORM_SERVICE_VERSION"))
-	environment := firstNonEmpty(os.Getenv("PLATFORM_ENVIRONMENT"), "local")
+	serviceName := firstNonEmpty(os.Getenv("OTEL_SERVICE_NAME"), fallbackServiceName)
+	serviceVersion := firstNonEmpty(os.Getenv("OTEL_SERVICE_VERSION"))
+	environment := firstNonEmpty(os.Getenv("GALLERY_ENVIRONMENT"), "local")
 	provider, err := foundationtelemetry.NewProvider(ctx, foundationtelemetry.Config{
 		ServiceName: serviceName, ServiceVersion: serviceVersion, Environment: environment,
-		Attributes: map[string]string{"platform.catalog.environment": environment},
+		Attributes: map[string]string{"deployment.environment": environment},
 		Exporter:   exporter, Sampler: sampler,
 	})
 	if err != nil {

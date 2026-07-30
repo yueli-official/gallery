@@ -24,12 +24,12 @@ const managementCapabilities = [
 ] as const;
 
 export function useGalleryMe() {
-  const { call } = useApi();
+  const { call } = useGalleryApi();
   const me = useState<GalleryMeResponse | null>("gallery-me", () => null);
 
   async function refreshMe() {
     try {
-      me.value = await call<GalleryMeResponse>("/api/v1/me");
+      me.value = await call<GalleryMeResponse>("/me");
     } catch (error: unknown) {
       const status =
         (error as { failure?: { status?: number } })?.failure?.status ??

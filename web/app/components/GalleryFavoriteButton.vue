@@ -6,7 +6,7 @@ const props = defineProps<{
   title: string;
 }>();
 const { loggedIn, login } = useAuth();
-const { call } = useApi();
+const { call } = useGalleryApi();
 const notifier = createGalleryNotifier(useToast());
 const pending = ref(false);
 const saved = ref(false);
@@ -20,7 +20,7 @@ async function save(): Promise<void> {
   pending.value = true;
   try {
     await call(
-      `/api/v1/gallery/me/favorites/${encodeURIComponent(props.imageId)}`,
+      `/me/favorites/${encodeURIComponent(props.imageId)}`,
       { method: "PUT", body: { version: 0 } },
     );
     saved.value = true;

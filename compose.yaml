@@ -1,0 +1,10 @@
+name: yueli-gallery-standalone
+
+include:
+  - path: deploy/includes/identity/compose.yaml
+  - path:
+      - deploy/includes/asset/compose.yaml
+      - deploy/includes/asset/compose.managed-identity.yaml
+  - path:
+      - deploy/compose.gallery.yaml
+      - deploy/topologies/gallery.standalone.yaml

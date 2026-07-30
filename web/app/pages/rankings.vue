@@ -23,11 +23,8 @@ const windows = [
   { label: "全部", value: "all" },
 ];
 const images = computed(() => data.value?.ranking.images || []);
-const { preview, openPreview, closePreview, navigatePreview } =
-  useGalleryQuickView(images);
 function setQuery(patch: Record<string, string>) {
   const query = { ...route.query, ...patch };
-  delete query.preview;
   void router.replace({ query });
 }
 useSeoMeta({
@@ -81,8 +78,6 @@ useSeoMeta({
       v-else-if="images.length"
       :items="images"
       priority
-      quick-view
-      @preview="openPreview"
     />
     <div v-else class="gallery-compact-empty">
       <span class="gallery-empty-icon"
@@ -95,11 +90,5 @@ useSeoMeta({
         有更多公开浏览和收藏后，这里会开始更新。
       </p>
     </div>
-    <GalleryQuickView
-      :image-id="preview"
-      :items="images"
-      @close="closePreview"
-      @navigate="navigatePreview"
-    />
   </div>
 </template>

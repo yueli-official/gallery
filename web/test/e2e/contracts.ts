@@ -60,7 +60,7 @@ let parsedSites: SiteContract[] | undefined;
 export function sites(): SiteContract[] {
   if (parsedSites) return parsedSites;
   const value = JSON.parse(
-    requiredEnv("PLATFORMCTL_E2E_SITES"),
+    requiredEnv("GALLERY_E2E_SITES"),
   ) as SiteContract[];
   if (!Array.isArray(value) || value.length === 0)
     throw new Error("浏览器验收矩阵至少需要一个站点实例");

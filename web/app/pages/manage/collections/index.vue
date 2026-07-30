@@ -5,7 +5,7 @@ import type { GalleryCollection } from "~/types/gallery";
 
 definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
 useSeoMeta({ title: "专题集合 · 图库管理" });
-const { call } = useApi();
+const { call } = useGalleryApi();
 const { can } = useGalleryMe();
 const hydrated = useClientHydrated();
 const canManageCollections = computed(() => can("gallery.collection.manage"));
@@ -21,7 +21,7 @@ const { data, pending, error, refresh } = await useAsyncData(
   "gallery-manage-collections",
   () =>
     call<{ collections: GalleryCollection[] }>(
-      "/api/v1/gallery/admin/collections",
+      "/admin/collections",
     ),
   { server: false, default: () => ({ collections: [] }) },
 );
@@ -38,7 +38,7 @@ async function createCollection() {
     return;
   creating.value = true;
   try {
-    await call("/api/v1/gallery/admin/collections", {
+    await call("/admin/collections", {
       method: "POST",
       body: form,
     });

@@ -1,44 +1,3 @@
-export interface GalleryAssetReadiness {
-  id: string;
-  securityState?: string;
-  scanStatus?: string;
-}
-
-interface ReadinessOptions {
-  attempts?: number;
-  intervalMs?: number;
-  sleep?: (milliseconds: number) => Promise<void>;
-}
-
-const delay = (milliseconds: number) =>
-  new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
-
-export async function waitForGalleryAssetReady<
-  T extends GalleryAssetReadiness,
->(
-  assetId: string,
-  load: (assetId: string) => Promise<T>,
-  options: ReadinessOptions = {},
-): Promise<T> {
-  const attempts = Math.max(1, options.attempts ?? 181);
-  const intervalMs = Math.max(0, options.intervalMs ?? 500);
-  const sleep = options.sleep ?? delay;
-
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const asset = await load(assetId);
-    if (asset.securityState === "ready") return asset;
-    if (asset.securityState === "rejected") {
-      throw new Error("图片未通过安全检查，请更换文件后重试。");
-    }
-    if (asset.scanStatus === "failed") {
-      throw new Error("图片安全检查暂时失败，请稍后重试。");
-    }
-    if (attempt + 1 < attempts) await sleep(intervalMs);
-  }
-
-  throw new Error("图片仍在进行安全检查，请稍后重试。");
-}
-
 function record(value: unknown): Record<string, unknown> | undefined {
   return typeof value === "object" && value !== null
     ? (value as Record<string, unknown>)
@@ -55,26 +14,17 @@ function gallerySubmissionError(reason: unknown) {
   const error = record(reason);
   const nestedData = record(error?.data);
   const failure = record(error?.failure) ?? record(nestedData?.failure);
-  const params = record(failure?.params);
   const code =
     stableCode(failure?.code) ||
     stableCode(error?.code) ||
     stableCode(error?.message);
-  const upstreamCode = stableCode(params?.upstreamCode);
 
-  return { code, error, failure, upstreamCode };
+  return { code, error, failure };
 }
 
 export function gallerySubmissionErrorMessage(reason: unknown): string {
-  const { code, error, failure, upstreamCode } =
-    gallerySubmissionError(reason);
+  const { code, error, failure } = gallerySubmissionError(reason);
 
-  if (
-    upstreamCode === "asset.security.not_ready" ||
-    code === "gallery.asset_processing"
-  ) {
-    return "图片仍在进行安全检查，请稍后重试。";
-  }
   if (failure?.kind === "network" || code === "foundation.network.failed") {
     return "网络连接失败，请检查网络后重试。";
   }

@@ -1,4 +1,7 @@
 const siteBrand = process.env.NUXT_PUBLIC_SITE_BRAND || "月离图库";
+const cookieSecure = process.env.NUXT_COOKIE_SECURE === undefined
+  ? process.env.NODE_ENV === "production"
+  : process.env.NUXT_COOKIE_SECURE === "true";
 
 export default defineNuxtConfig({
   extends: [
@@ -6,6 +9,19 @@ export default defineNuxtConfig({
     "@yueli/asset-nuxt",
   ],
   modules: ["@nuxt/ui", "@yueli/ui", "@yueli/nuxt-runtime"],
+  icon: {
+    serverBundle: { collections: ["tabler"] },
+    clientBundle: {
+      scan: {
+        globInclude: [
+          "app/**/*.{vue,ts}",
+          "node_modules/@yueli/**/*.{vue,js,mjs,ts}",
+        ],
+        globExclude: ["test/**", "tests/**", ".*"],
+      },
+      sizeLimitKb: 256,
+    },
+  },
   yueliRuntime: {
     defaultTarget: "platform",
     targets: {
@@ -20,6 +36,20 @@ export default defineNuxtConfig({
         path: "/asset-api",
         ssr: {
           cookies: ["rs_session", "yueli_guest", "__Host-yueli_guest"],
+          headers: ["accept-language", "user-agent"],
+        },
+      },
+      gallery: {
+        path: "/api/gallery",
+        ssr: {
+          cookies: ["rs_session", "yueli_guest", "__Host-yueli_guest"],
+          headers: ["accept-language", "user-agent"],
+        },
+      },
+      "gallery-authorization": {
+        path: "/api/gallery-authorization",
+        ssr: {
+          cookies: ["rs_session"],
           headers: ["accept-language", "user-agent"],
         },
       },
@@ -69,13 +99,15 @@ export default defineNuxtConfig({
   runtimeConfig: {
     apiBase: process.env.NUXT_API_BASE || "http://127.0.0.1:8091",
     assetBase: process.env.NUXT_ASSET_BASE || "http://127.0.0.1:8082",
+    identityBase:
+      process.env.NUXT_IDENTITY_BASE || "http://127.0.0.1:8081",
     downstreamBase: process.env.NUXT_DOWNSTREAM_BASE || "http://127.0.0.1:8091",
     guestSessionTtlSeconds: Number(
       process.env.NUXT_GUEST_SESSION_TTL_SECONDS || 60 * 60 * 24 * 30,
     ),
-    guestCookieSecure:
-      process.env.NUXT_GUEST_COOKIE_SECURE === "true" ||
-      process.env.NODE_ENV === "production",
+    cookieSecure,
+    guestCookieSecure: cookieSecure,
+    authCookieSecure: cookieSecure,
     assetAudience: "asset-api",
     guestClaimTargets: [
       {
@@ -89,9 +121,7 @@ export default defineNuxtConfig({
         path: "/api/v1/assets/guest-claims",
       },
     ],
-    sealSecret:
-      process.env.NUXT_SEAL_SECRET ||
-      "dev-gallery-seal-secret-change-me-0123456789ab",
+    sealSecret: process.env.NUXT_SEAL_SECRET || "",
     public: {
       oidcIssuer:
         process.env.NUXT_PUBLIC_OIDC_ISSUER || "http://localhost:8081",
@@ -100,6 +130,9 @@ export default defineNuxtConfig({
       oidcRedirectUri:
         process.env.NUXT_PUBLIC_OIDC_REDIRECT_URI ||
         "http://localhost:3007/auth/callback",
+      oidcPostLogoutRedirectUri:
+        process.env.NUXT_PUBLIC_OIDC_POST_LOGOUT_REDIRECT_URI ||
+        "http://localhost:3007/",
       oidcScopes:
         process.env.NUXT_PUBLIC_OIDC_SCOPES ||
         "openid profile email roles offline_access",
@@ -107,10 +140,6 @@ export default defineNuxtConfig({
         process.env.NUXT_PUBLIC_ACCOUNT_URL || "http://localhost:3000",
       siteSlug: process.env.NUXT_PUBLIC_SITE_SLUG || "gallery-main",
       siteBrand,
-      siteDomain: process.env.NUXT_PUBLIC_SITE_DOMAIN || "gallery.localhost",
-      assetSpace: process.env.NUXT_PUBLIC_ASSET_SPACE || "yueli",
-      assetNamespace: process.env.NUXT_PUBLIC_ASSET_NAMESPACE || "yueli",
-      assetProfile: process.env.NUXT_PUBLIC_ASSET_PROFILE || "gallery-default",
     },
   },
   devtools: { enabled: true },

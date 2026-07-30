@@ -1,0 +1,5 @@
+services:
+  gallery-binding:
+    depends_on:
+      asset:
+        condition: service_started

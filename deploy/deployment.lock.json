@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "minimumComposeVersion": "2.20.0",
+  "bindings": {
+    "auth.oidc": {
+      "provider": "identity",
+      "providerCapability": "identity.oidc"
+    },
+    "media.library": {
+      "provider": "asset",
+      "providerCapability": "asset.api"
+    }
+  },
+  "dependencies": {
+    "identity": {
+      "source": "https://github.com/yueli-official/identity.git",
+      "version": "v0.2.2",
+      "revision": "9d367d3a10d8362b5ec7d8232a77050184980277",
+      "capabilities": {
+        "identity.oidc": "1.0"
+      }
+    },
+    "asset": {
+      "source": "https://github.com/yueli-official/asset.git",
+      "version": "v0.1.2",
+      "revision": "371647602911f8f268e741ec9cf88600018c1f6d",
+      "capabilities": {
+        "asset.api": "1.0"
+      }
+    }
+  },
+  "infrastructure": {
+    "postgres": "18.4-bookworm",
+    "pgvector": "0.8.5-pg18-bookworm",
+    "redis": "8.4.5-alpine",
+    "caddy": "2.10.2-alpine",
+    "migrate": "4.19.1"
+  }
+}

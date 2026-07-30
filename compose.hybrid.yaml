@@ -1,0 +1,7 @@
+name: yueli-gallery-hybrid
+
+include:
+  - path: deploy/includes/asset/compose.yaml
+  - path:
+      - deploy/compose.gallery.yaml
+      - deploy/topologies/gallery.hybrid.yaml

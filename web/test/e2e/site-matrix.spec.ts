@@ -1,29 +1,21 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { productSites } from "./contracts";
-import { loginE2E, requiredEnv, settleNuxt } from "./runtime";
+import {
+  capturePageFailures,
+  loginE2E,
+  requiredEnv,
+  settleNuxt,
+} from "./runtime";
 
-const accountURL = requiredEnv("PLATFORMCTL_E2E_ACCOUNT_URL");
-const missing = "__platform_e2e_missing__";
-
-function captureErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() === "error") errors.push(`console: ${message.text()}`);
-  });
-  page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
-  page.on("response", (response) => {
-    if (response.status() >= 500)
-      errors.push(`http ${response.status()}: ${response.url()}`);
-  });
-  return errors;
-}
+const accountURL = requiredEnv("GALLERY_E2E_ACCOUNT_URL");
+const missing = "__gallery_e2e_missing__";
 
 export function registerJourneySuite(product: string) {
   for (const site of productSites(product)) {
     const contract = site.contract;
     test.describe(`${site.slug} (${site.product})`, () => {
       test("公开入口完成渲染且没有浏览器错误", async ({ page }) => {
-        const errors = captureErrors(page);
+        const errors = capturePageFailures(page);
         const response = await page.goto(
           new URL(contract.public.path, site.url).toString(),
           { waitUntil: "domcontentloaded" },
@@ -37,7 +29,7 @@ export function registerJourneySuite(product: string) {
       });
 
       test("匿名访问管理入口进入账户登录流程", async ({ page }) => {
-        const errors = captureErrors(page);
+        const errors = capturePageFailures(page);
         await page.goto(new URL(contract.manage.path, site.url).toString(), {
           waitUntil: "domcontentloaded",
         });
@@ -56,7 +48,7 @@ export function registerJourneySuite(product: string) {
       test("已登录运营者可以进入管理界面", async ({ browser }) => {
         const context = await loginE2E(browser);
         const page = await context.newPage();
-        const errors = captureErrors(page);
+        const errors = capturePageFailures(page);
         try {
           const manageURL = new URL(contract.manage.path, site.url).toString();
           await page.goto(manageURL, { waitUntil: "domcontentloaded" });
@@ -84,7 +76,7 @@ export function registerJourneySuite(product: string) {
         if (!settings) return;
         const context = await loginE2E(browser);
         const page = await context.newPage();
-        const errors = captureErrors(page);
+        const errors = capturePageFailures(page);
         try {
           await page.goto(new URL(settings.path, site.url).toString(), {
             waitUntil: "domcontentloaded",
@@ -129,7 +121,7 @@ export function registerJourneySuite(product: string) {
           ? await loginE2E(browser)
           : undefined;
         const targetPage = context ? await context.newPage() : page;
-        const errors = captureErrors(targetPage);
+        const errors = capturePageFailures(targetPage);
         try {
           await targetPage.goto(
             new URL(contract.empty.path, site.url).toString(),
@@ -157,11 +149,11 @@ export function registerJourneySuite(product: string) {
       });
 
       test("缺失实体返回产品错误状态", async ({ page }) => {
-        const errors = captureErrors(page);
-        const response = await page.goto(
-          new URL(contract.error.path, site.url).toString(),
-          { waitUntil: "domcontentloaded" },
-        );
+        const errors = capturePageFailures(page);
+        const errorURL = new URL(contract.error.path, site.url).toString();
+        const response = await page.goto(errorURL, {
+          waitUntil: "domcontentloaded",
+        });
         expect(response?.status()).toBe(contract.error.status);
         await expect(
           page.getByText(contract.error.text, { exact: false }).first(),
@@ -169,7 +161,9 @@ export function registerJourneySuite(product: string) {
         await settleNuxt(page);
         expect(
           errors.filter(
-            (error) => !error.includes(`status of ${contract.error.status}`),
+            (error) =>
+              error !== `http ${contract.error.status}: ${errorURL}` &&
+              !error.includes(`status of ${contract.error.status}`),
           ),
         ).toEqual([]);
       });

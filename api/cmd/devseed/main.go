@@ -10,9 +10,10 @@ import (
 	"strings"
 
 	_ "github.com/lib/pq"
+	"github.com/yueli-official/gallery/api/internal/bootstrap"
 )
 
-//go:embed sql/*.sql
+//go:embed sql/content.sql
 var seedFiles embed.FS
 
 func main() {
@@ -38,14 +39,15 @@ func main() {
 	if _, err := transaction.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtext('gallery:devseed'))`); err != nil {
 		fatal("lock development seed: %v", err)
 	}
-	for _, path := range []string{"sql/site.sql", "sql/content.sql"} {
-		statement, err := seedFiles.ReadFile(path)
-		if err != nil {
-			fatal("read %s: %v", path, err)
-		}
-		if _, err := transaction.ExecContext(ctx, string(statement)); err != nil {
-			fatal("execute %s: %v", path, err)
-		}
+	if err := bootstrap.Apply(ctx, transaction); err != nil {
+		fatal("%v", err)
+	}
+	statement, err := seedFiles.ReadFile("sql/content.sql")
+	if err != nil {
+		fatal("read sql/content.sql: %v", err)
+	}
+	if _, err := transaction.ExecContext(ctx, string(statement)); err != nil {
+		fatal("execute sql/content.sql: %v", err)
 	}
 	if err := transaction.Commit(); err != nil {
 		fatal("commit development seed: %v", err)

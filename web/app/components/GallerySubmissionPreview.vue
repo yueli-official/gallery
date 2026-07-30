@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const props = defineProps<{ submissionId: string; alt: string }>();
-const { call } = useApi();
+const { call } = useGalleryApi();
 const source = ref("");
 const failed = ref(false);
 
@@ -26,15 +26,21 @@ watch(() => props.submissionId, load, { immediate: true });
     :src="source"
     :alt="alt"
     loading="lazy"
+    data-submission-preview-state="ready"
     class="aspect-[4/3] size-full object-cover"
   />
   <div
     v-else-if="failed"
     class="flex size-full items-center justify-center text-muted"
     role="img"
+    data-submission-preview-state="error"
     :aria-label="`${alt}（预览加载失败）`"
   >
     <UIcon name="i-tabler-photo-off" class="size-5" />
   </div>
-  <USkeleton v-else class="size-full rounded-none" />
+  <USkeleton
+    v-else
+    class="size-full rounded-none"
+    data-submission-preview-state="loading"
+  />
 </template>

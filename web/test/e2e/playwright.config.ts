@@ -7,9 +7,14 @@ const e2eRoot = path.resolve(root, "test/e2e");
 const contract = JSON.parse(
   fs.readFileSync(path.join(e2eRoot, "contract.json"), "utf8"),
 );
+const localHost = process.env.LOCAL_LAN_HOST?.trim() || "127.0.0.1";
+const identityPort = process.env.LOCAL_IDENTITY_PORT?.trim() || "8081";
+const accountPort = process.env.LOCAL_ACCOUNT_PORT?.trim() || "3000";
+const galleryPort = process.env.LOCAL_GALLERY_WEB_PORT?.trim() || "3007";
 const galleryURL =
-  process.env.GALLERY_E2E_URL?.trim() || "http://127.0.0.1:3007";
-process.env.PLATFORMCTL_E2E_SITES ||= JSON.stringify([
+  process.env.GALLERY_E2E_URL?.trim() ||
+  `http://${localHost}:${galleryPort}`;
+process.env.GALLERY_E2E_SITES ||= JSON.stringify([
   {
     slug: "gallery-main",
     product: "gallery",
@@ -17,26 +22,32 @@ process.env.PLATFORMCTL_E2E_SITES ||= JSON.stringify([
     contract,
   },
 ]);
-process.env.PLATFORMCTL_E2E_IDENTITY_URL ||=
-  process.env.IDENTITY_BASE_URL?.trim() || "http://127.0.0.1:8081";
-process.env.PLATFORMCTL_E2E_ACCOUNT_URL ||=
-  process.env.NUXT_PUBLIC_ACCOUNT_URL?.trim() || "http://127.0.0.1:3000";
+process.env.GALLERY_E2E_IDENTITY_URL ||=
+  process.env.IDENTITY_BASE_URL?.trim() ||
+  `http://${localHost}:${identityPort}`;
+process.env.GALLERY_E2E_ACCOUNT_URL ||=
+  process.env.NUXT_PUBLIC_ACCOUNT_URL?.trim() ||
+  `http://${localHost}:${accountPort}`;
 
 const channel = process.env.GALLERY_E2E_BROWSER_CHANNEL || undefined;
-const suite = process.env.PLATFORMCTL_E2E_SUITE?.trim() || "all";
+const suite = process.env.GALLERY_E2E_SUITE?.trim() || "all";
 const inCI = Boolean(process.env.CI?.trim());
 const supportedSuites = new Set([
   "all",
   "journeys",
+  "management",
+  "security",
+  "resilience",
   "visual",
   "accessibility",
   "performance",
+  "responsive",
 ]);
 if (!supportedSuites.has(suite))
   throw new Error(`不支持的 Gallery E2E suite：${suite}`);
 
 const runID =
-  process.env.PLATFORMCTL_E2E_RUN_ID?.trim() ||
+  process.env.GALLERY_E2E_RUN_ID?.trim() ||
   new Date().toISOString().replace(/[:.]/g, "-");
 
 export default defineConfig({

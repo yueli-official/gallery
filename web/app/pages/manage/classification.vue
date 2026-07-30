@@ -23,7 +23,7 @@ type ManagedIdentity =
   | GalleryClassificationTag;
 type IdentityOperation = "status" | "reparent" | "merge" | "delete";
 
-const { call } = useApi();
+const { call } = useGalleryApi();
 const { can } = useGalleryMe();
 const route = useRoute();
 const router = useRouter();
@@ -71,7 +71,7 @@ const { data, pending, error, refresh } = await useAsyncData(
   "gallery-manage-classification",
   () =>
     call<{ catalog: GalleryClassificationCatalog }>(
-      "/api/v1/gallery/admin/classification",
+      "/admin/classification",
     ),
   {
     server: false,
@@ -86,7 +86,7 @@ const {
   "gallery-manage-classification-tags",
   () =>
     call<{ page: GalleryClassificationTagPage }>(
-      "/api/v1/gallery/admin/classification/tags?size=40",
+      "/admin/classification/tags?size=40",
     ),
   { server: false, default: () => ({ page: { items: [], nextCursor: "" } }) },
 );
@@ -102,7 +102,7 @@ const {
       proposals: GalleryClassificationTagProposal[];
       total: number;
     }>(
-      "/api/v1/gallery/admin/classification/tag-proposals?status=pending&page=1&size=30",
+      "/admin/classification/tag-proposals?status=pending&page=1&size=30",
     );
   },
   { server: false, default: () => ({ proposals: [], total: 0 }) },
@@ -256,7 +256,7 @@ async function requestPreview(command: GalleryClassificationGovernanceCommand) {
   try {
     const response = await call<{
       preview: GalleryClassificationGovernancePreview;
-    }>("/api/v1/gallery/admin/classification/governance/preview", {
+    }>("/admin/classification/governance/preview", {
       method: "POST",
       body: { command },
     });
@@ -354,7 +354,7 @@ async function executePreview() {
   actionSuccess.value = "";
   const operation = pendingCommand.value.operation;
   try {
-    await call("/api/v1/gallery/admin/classification/governance/execute", {
+    await call("/admin/classification/governance/execute", {
       method: "POST",
       body: {
         command: pendingCommand.value,
@@ -389,7 +389,7 @@ async function loadMoreTags() {
   loadingMoreTags.value = true;
   try {
     const response = await call<{ page: GalleryClassificationTagPage }>(
-      `/api/v1/gallery/admin/classification/tags?size=40&cursor=${encodeURIComponent(cursor)}`,
+      `/admin/classification/tags?size=40&cursor=${encodeURIComponent(cursor)}`,
     );
     tagData.value.page = {
       items: [...tagData.value.page.items, ...response.page.items],
@@ -411,7 +411,7 @@ async function reviewTagProposal(
   actionSuccess.value = "";
   try {
     await call(
-      `/api/v1/gallery/admin/classification/tag-proposals/${encodeURIComponent(item.id)}/review`,
+      `/admin/classification/tag-proposals/${encodeURIComponent(item.id)}/review`,
       {
         method: "POST",
         body: {

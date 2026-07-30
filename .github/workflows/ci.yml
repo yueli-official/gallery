@@ -38,18 +38,29 @@ jobs:
       - name: 检查 OpenAPI 契约
         env:
           GOWORK: "off"
-          PLATFORM_OPENAPI_OUTPUT: ${{ runner.temp }}/gallery-openapi.json
+          GALLERY_OPENAPI_OUTPUT: ${{ runner.temp }}/gallery-openapi.json
         run: |
           go run ./cmd/gallery
-          diff -u ../contracts/openapi/gallery.json "$PLATFORM_OPENAPI_OUTPUT"
+          diff -u ../contracts/openapi/gallery.json "$GALLERY_OPENAPI_OUTPUT"
       - name: 运行测试
         env:
           GOWORK: "off"
         run: go test -timeout 60s ./...
+      - name: 静态检查
+        env:
+          GOWORK: "off"
+        run: go vet ./...
       - name: 构建命令
         env:
           GOWORK: "off"
-        run: go build ./cmd/gallery ./cmd/errorcatalog ./cmd/devseed
+        run: >-
+          go build
+          ./cmd/gallery
+          ./cmd/errorcatalog
+          ./cmd/devseed
+          ./cmd/bootstrap
+          ./cmd/bindingcheck
+          ./cmd/healthcheck
 
   web:
     runs-on: ubuntu-latest
@@ -92,3 +103,37 @@ jobs:
       - uses: actions/checkout@v4
       - name: 构建 ${{ matrix.name }} 容器
         run: docker build --tag yueli-gallery-${{ matrix.name }}:ci ${{ matrix.context }}
+
+  compose:
+    runs-on: ubuntu-latest
+    env:
+      GALLERY_POSTGRES_PASSWORD: gallery-db-ci-secret
+      GALLERY_DATABASE_URL: postgres://gallery:gallery-db-ci-secret@gallery-postgres:5432/gallery?sslmode=disable
+      GALLERY_BOOTSTRAP_ADMIN_SUBS: '["11111111-1111-4111-8111-111111111111"]'
+      GALLERY_IDENTITY_ISSUER: http://localhost:8081
+      GALLERY_IDENTITY_DISCOVERY_URL: https://identity-internal:8443/.well-known/openid-configuration
+      GALLERY_IDENTITY_JWKS_URL: https://identity-internal:8443/oauth2/jwks.json
+      GALLERY_IDENTITY_TOKEN_URL: https://identity-internal:8443/oauth2/token
+      GALLERY_ACCOUNT_ORIGIN: http://localhost:3000
+      GALLERY_ASSET_INTERNAL_URL: http://asset:8082
+      GALLERY_ASSET_CLIENT_SECRET: gallery-asset-client-ci-secret-123456
+      GALLERY_WEB_SEAL_SECRET: gallery-web-seal-ci-secret-1234567890
+      GALLERY_OIDC_REDIRECT_URI: http://localhost:3007/auth/callback
+      GALLERY_OIDC_POST_LOGOUT_REDIRECT_URI: http://localhost:3007/
+      GALLERY_ADMIN_SUB: 11111111-1111-4111-8111-111111111111
+      GALLERY_ADMIN_EMAIL: admin@example.test
+      GALLERY_ADMIN_PASSWORD: gallery-admin-ci-password
+      IDENTITY_POSTGRES_PASSWORD: identity-db-ci-secret
+      IDENTITY_DATABASE_URL: postgres://identity:identity-db-ci-secret@identity-postgres:5432/identity?sslmode=disable
+      IDENTITY_GLOBAL_SECRET: identity-global-ci-secret-1234567890
+      ASSET_POSTGRES_PASSWORD: asset-db-ci-secret
+      ASSET_DATABASE_URL: postgres://asset:asset-db-ci-secret@asset-postgres:5432/asset?sslmode=disable
+      ASSET_UPLOAD_SECRET: asset-upload-ci-secret-1234567890
+      ASSET_STORAGE_CONFIG_SECRET: asset-storage-ci-secret-1234567890
+    steps:
+      - uses: actions/checkout@v4
+      - name: 校验三种 Compose 模型
+        run: |
+          docker compose -f compose.yaml config --quiet
+          docker compose -f compose.attach.yaml config --quiet
+          docker compose -f compose.hybrid.yaml config --quiet

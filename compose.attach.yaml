@@ -1,0 +1,4 @@
+name: yueli-gallery-attach
+
+include:
+  - path: deploy/compose.gallery.yaml

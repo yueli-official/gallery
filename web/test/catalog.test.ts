@@ -28,11 +28,13 @@ describe("gallery catalog state", () => {
   });
 
   it("omits defaults from shareable URLs but keeps them in API requests", () => {
-    const state = parseGalleryCatalogState({ q: "山", preview: "image-id" });
+    const state = parseGalleryCatalogState({
+      q: "山",
+      preview: "legacy-image-id",
+    });
 
     expect(galleryCatalogQuery(state)).toEqual({
       q: "山",
-      preview: "image-id",
     });
     expect(galleryCatalogRequest(state)).toEqual({
       q: "山",

@@ -1,0 +1,150 @@
+services:
+  gallery-postgres:
+    image: pgvector/pgvector:0.8.5-pg18-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${GALLERY_POSTGRES_USER:-gallery}
+      POSTGRES_PASSWORD: ${GALLERY_POSTGRES_PASSWORD:?set GALLERY_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${GALLERY_POSTGRES_DB:-gallery}
+    volumes:
+      - gallery-postgres:/var/lib/postgresql/18/docker
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  gallery-migrate:
+    image: ${GALLERY_MIGRATION_IMAGE:-yueli/gallery-migration:local}
+    pull_policy: build
+    build:
+      context: ../api
+      target: migration
+    restart: "no"
+    command:
+      - -path=/migrations
+      - -database=${GALLERY_DATABASE_URL:?set GALLERY_DATABASE_URL}
+      - up
+    depends_on:
+      gallery-postgres:
+        condition: service_healthy
+
+  gallery-bootstrap:
+    image: ${GALLERY_BOOTSTRAP_IMAGE:-yueli/gallery-bootstrap:local}
+    pull_policy: build
+    build:
+      context: ../api
+      target: bootstrap
+    restart: "no"
+    environment:
+      GALLERY_DATABASE_URL: ${GALLERY_DATABASE_URL:?set GALLERY_DATABASE_URL}
+    depends_on:
+      gallery-migrate:
+        condition: service_completed_successfully
+
+  gallery-binding:
+    image: ${GALLERY_BINDING_IMAGE:-yueli/gallery-bindingcheck:local}
+    pull_policy: build
+    build:
+      context: ../api
+      target: bindingcheck
+    restart: "no"
+    environment:
+      GALLERY_IDENTITY_ISSUER: ${GALLERY_IDENTITY_ISSUER:?set GALLERY_IDENTITY_ISSUER}
+      GALLERY_IDENTITY_DISCOVERY_URL: ${GALLERY_IDENTITY_DISCOVERY_URL:?set GALLERY_IDENTITY_DISCOVERY_URL}
+      GALLERY_IDENTITY_JWKS_URL: ${GALLERY_IDENTITY_JWKS_URL:?set GALLERY_IDENTITY_JWKS_URL}
+      GALLERY_IDENTITY_TOKEN_URL: ${GALLERY_IDENTITY_TOKEN_URL:?set GALLERY_IDENTITY_TOKEN_URL}
+      GALLERY_ASSET_BASE_URL: ${GALLERY_ASSET_INTERNAL_URL:?set GALLERY_ASSET_INTERNAL_URL}
+      GALLERY_ASSET_CLIENT_ID: ${GALLERY_ASSET_CLIENT_ID:-gallery-asset-svc}
+      GALLERY_ASSET_CLIENT_SECRET: ${GALLERY_ASSET_CLIENT_SECRET:?set GALLERY_ASSET_CLIENT_SECRET}
+      GALLERY_ASSET_SCOPE: ${GALLERY_ASSET_SCOPE:-asset:sign}
+      GALLERY_BINDING_ALLOW_INSECURE_IDENTITY_HTTP: ${GALLERY_BINDING_ALLOW_INSECURE_IDENTITY_HTTP:-false}
+      GALLERY_BINDING_ALLOW_INSECURE_ASSET_HTTP: ${GALLERY_BINDING_ALLOW_INSECURE_ASSET_HTTP:-false}
+      GALLERY_BINDING_TIMEOUT: ${GALLERY_BINDING_TIMEOUT:-3m}
+
+  gallery-api:
+    image: ${GALLERY_API_IMAGE:-yueli/gallery-api:local}
+    pull_policy: build
+    build:
+      context: ../api
+      target: runtime
+    restart: unless-stopped
+    environment:
+      GF_GCFG_FILE: /app/manifest/config/config.example.yaml
+      GF_SERVER_ADDRESS: 0.0.0.0:8091
+      GALLERY_DATABASE_URL: ${GALLERY_DATABASE_URL:?set GALLERY_DATABASE_URL}
+      GF_GALLERY_SITESLUG: ${GALLERY_SITE_KEY:-gallery-main}
+      GF_GALLERY_AUTHORIZATION_BOOTSTRAPADMINISTRATORSUBS: ${GALLERY_BOOTSTRAP_ADMIN_SUBS:?set GALLERY_BOOTSTRAP_ADMIN_SUBS as a JSON array}
+      GF_GALLERY_ASSET_BASEURL: ${GALLERY_ASSET_INTERNAL_URL:?set GALLERY_ASSET_INTERNAL_URL}
+      GF_GALLERY_ASSET_TOKENURL: ${GALLERY_IDENTITY_TOKEN_URL:?set GALLERY_IDENTITY_TOKEN_URL}
+      GF_GALLERY_ASSET_CLIENTID: ${GALLERY_ASSET_CLIENT_ID:-gallery-asset-svc}
+      GF_GALLERY_ASSET_CLIENTSECRET: ${GALLERY_ASSET_CLIENT_SECRET:?set GALLERY_ASSET_CLIENT_SECRET}
+      GF_GALLERY_ASSET_SCOPE: ${GALLERY_ASSET_SCOPE:-asset:sign}
+      GF_GALLERY_JWKS_URL: ${GALLERY_IDENTITY_JWKS_URL:?set GALLERY_IDENTITY_JWKS_URL}
+      GF_GALLERY_JWKS_ISSUER: ${GALLERY_IDENTITY_ISSUER:?set GALLERY_IDENTITY_ISSUER}
+      GF_GALLERY_JWKS_AUDIENCE: ${GALLERY_OIDC_CLIENT_ID:-gallery-main-web}
+      GF_GALLERY_JWKS_ALLOWLOOPBACKHTTP: ${GALLERY_ALLOW_LOOPBACK_IDENTITY_HTTP:-false}
+      GALLERY_ENVIRONMENT: ${GALLERY_ENVIRONMENT:-production}
+      GALLERY_RATE_LIMIT_PER_MINUTE: ${GALLERY_RATE_LIMIT_PER_MINUTE:-600}
+      OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER:-none}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    ports:
+      - "${GALLERY_API_PORT:-8091}:8091"
+    depends_on:
+      gallery-postgres:
+        condition: service_healthy
+      gallery-migrate:
+        condition: service_completed_successfully
+      gallery-bootstrap:
+        condition: service_completed_successfully
+      gallery-binding:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/gallery-healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  gallery-web:
+    image: ${GALLERY_WEB_IMAGE:-yueli/gallery-web:local}
+    pull_policy: build
+    build:
+      context: ../web
+    restart: unless-stopped
+    environment:
+      NUXT_API_BASE: http://gallery-api:8091
+      NUXT_DOWNSTREAM_BASE: http://gallery-api:8091
+      NUXT_ASSET_BASE: ${GALLERY_ASSET_INTERNAL_URL:?set GALLERY_ASSET_INTERNAL_URL}
+      NUXT_SEAL_SECRET: ${GALLERY_WEB_SEAL_SECRET:?set GALLERY_WEB_SEAL_SECRET}
+      NUXT_COOKIE_SECURE: ${GALLERY_COOKIE_SECURE:-true}
+      NUXT_AUTH_COOKIE_SECURE: ${GALLERY_COOKIE_SECURE:-true}
+      NUXT_GUEST_COOKIE_SECURE: ${GALLERY_COOKIE_SECURE:-true}
+      NUXT_PUBLIC_OIDC_ISSUER: ${GALLERY_IDENTITY_ISSUER:?set GALLERY_IDENTITY_ISSUER}
+      NUXT_PUBLIC_OIDC_CLIENT_ID: ${GALLERY_OIDC_CLIENT_ID:-gallery-main-web}
+      NUXT_PUBLIC_OIDC_REDIRECT_URI: ${GALLERY_OIDC_REDIRECT_URI:?set GALLERY_OIDC_REDIRECT_URI}
+      NUXT_PUBLIC_OIDC_POST_LOGOUT_REDIRECT_URI: ${GALLERY_OIDC_POST_LOGOUT_REDIRECT_URI:?set GALLERY_OIDC_POST_LOGOUT_REDIRECT_URI}
+      NUXT_PUBLIC_OIDC_SCOPES: ${GALLERY_OIDC_SCOPES:-openid profile email roles offline_access}
+      NUXT_PUBLIC_ACCOUNT_URL: ${GALLERY_ACCOUNT_ORIGIN:?set GALLERY_ACCOUNT_ORIGIN}
+      NUXT_PUBLIC_SITE_SLUG: ${GALLERY_SITE_KEY:-gallery-main}
+      NUXT_PUBLIC_SITE_BRAND: ${GALLERY_SITE_BRAND:-月离图库}
+    ports:
+      - "${GALLERY_WEB_PORT:-3007}:3007"
+    depends_on:
+      gallery-api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3007/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+volumes:
+  gallery-postgres:

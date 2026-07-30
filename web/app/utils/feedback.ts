@@ -47,9 +47,16 @@ export function createGalleryNotifier<NativeToastInput>(toast: {
         id: notice.id,
         color: notice.tone,
         duration: notice.duration,
+        progress: false,
         type: notice.foreground ? "foreground" : "background",
         close: notice.close,
-        icon: notice.icon,
+        icon:
+          notice.icon ||
+          (notice.tone === "success"
+            ? "i-tabler-circle-check"
+            : notice.tone === "info"
+              ? "i-tabler-info-circle"
+              : undefined),
       } as NativeToastInput);
     },
   };

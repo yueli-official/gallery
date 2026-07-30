@@ -1,6 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { productSites } from "./contracts";
-import { loginE2E, settleNuxt } from "./runtime";
+import {
+  expectNoHorizontalOverflow,
+  loginE2E,
+  settleNuxt,
+} from "./runtime";
 
 const viewports = [
   { name: "mobile", width: 390, height: 844 },
@@ -21,6 +25,19 @@ async function setTheme(page: Page, theme: (typeof themes)[number]) {
 
 async function settle(page: Page) {
   await settleNuxt(page);
+  await page.waitForFunction(
+    () =>
+      [
+        ...document.querySelectorAll(
+          '[data-submission-preview-state="loading"]',
+        ),
+      ].every((element) => {
+        const bounds = element.getBoundingClientRect();
+        return bounds.bottom <= 0 || bounds.top >= window.innerHeight;
+      }),
+    undefined,
+    { timeout: 30_000 },
+  );
   await page.locator("img").evaluateAll((images) => {
     for (const image of images as HTMLImageElement[]) {
       const bounds = image.getBoundingClientRect();
@@ -76,6 +93,7 @@ export function registerVisualSuite(product: string) {
             expect(rootClass.split(/\s+/).includes("dark")).toBe(
               theme === "dark",
             );
+            await expectNoHorizontalOverflow(page);
             await expect(page).toHaveScreenshot([
               "screenshots",
               site.slug,
@@ -130,6 +148,7 @@ export function registerVisualSuite(product: string) {
                 expect(rootClass.split(/\s+/).includes("dark")).toBe(
                   theme === "dark",
                 );
+                await expectNoHorizontalOverflow(page);
                 await expect(page).toHaveScreenshot([
                   "screenshots",
                   site.slug,
@@ -176,16 +195,34 @@ export function registerVisualSuite(product: string) {
                   { waitUntil: "domcontentloaded" },
                 );
                 expect(response?.status()).toBe(scenario.status || 200);
-                await settle(targetPage);
-                for (const action of scenario.actions || []) {
-                  await targetPage
-                    .getByRole(action.role, { name: action.name, exact: true })
-                    .first()
-                    .click();
+                if (scenario.actions?.length) {
+                  const controls = scenario.actions.map((action) =>
+                    targetPage
+                      .getByRole(action.role, {
+                        name: action.name,
+                        exact: true,
+                      })
+                      .first(),
+                  );
+                  await expect(controls[0]).toBeVisible();
+                  await settle(targetPage);
+                  for (const [index, action] of scenario.actions.entries()) {
+                    const control = controls[index];
+                    await control.click();
+                    if (action.role === "checkbox")
+                      await expect(control).toBeChecked();
+                  }
+                  await settle(targetPage);
+                } else {
+                  await expect(
+                    targetPage.locator(scenario.readySelector).first(),
+                  ).toBeVisible();
+                  await settle(targetPage);
                 }
                 await expect(
                   targetPage.locator(scenario.readySelector).first(),
                 ).toBeVisible();
+                await expectNoHorizontalOverflow(targetPage);
                 await expect(targetPage).toHaveScreenshot([
                   "screenshots",
                   site.slug,

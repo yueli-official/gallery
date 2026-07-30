@@ -30,11 +30,7 @@ INSERT INTO gallery_categories (
 		('019817c8-0000-7000-8300-000000000001', '019817c8-0000-7000-8000-000000000002', 'wallpaper', '壁纸', '适合桌面、手机与其他屏幕展示的图片。', 'active', 10, NOW()),
 		('019817c8-0000-7000-8300-000000000002', '019817c8-0000-7000-8000-000000000002', 'illustration', '插画', '数字或传统绘制的视觉作品。', 'active', 20, NOW()),
 		('019817c8-0000-7000-8300-000000000003', '019817c8-0000-7000-8000-000000000002', 'photography', '摄影', '通过摄影媒介形成的图像。', 'active', 30, NOW())
-		ON CONFLICT (catalog_id, slug) DO UPDATE SET
-			name=EXCLUDED.name,
-			description=EXCLUDED.description,
-			status='active',
-			editorial_position=EXCLUDED.editorial_position;
+		ON CONFLICT (catalog_id, slug) DO NOTHING;
 
 INSERT INTO gallery_facets (
 			id, catalog_id, slug, name, description, status, editorial_position, first_activated_at
@@ -43,11 +39,7 @@ INSERT INTO gallery_facets (
 		('019817c8-0000-7000-8100-000000000001', '019817c8-0000-7000-8000-000000000002', 'scene', '场景', '图片呈现的主体与环境。', 'active', 10, NOW()),
 		('019817c8-0000-7000-8100-000000000002', '019817c8-0000-7000-8000-000000000002', 'orientation', '方向', '图片的横竖与方形比例。', 'active', 20, NOW()),
 		('019817c8-0000-7000-8100-000000000003', '019817c8-0000-7000-8000-000000000002', 'style', '风格', '运营维护的视觉风格。', 'active', 30, NOW())
-		ON CONFLICT (catalog_id, slug) DO UPDATE SET
-			name=EXCLUDED.name,
-			description=EXCLUDED.description,
-			status='active',
-			editorial_position=EXCLUDED.editorial_position;
+		ON CONFLICT (catalog_id, slug) DO NOTHING;
 
 INSERT INTO gallery_facet_values (
 			id, catalog_id, facet_id, parent_id, slug, name, description, status, editorial_position, first_activated_at
@@ -65,12 +57,7 @@ INSERT INTO gallery_facet_values (
 		('019817c8-0000-7000-8200-000000000013', '019817c8-0000-7000-8000-000000000002', '019817c8-0000-7000-8100-000000000002', NULL, 'square', '方图', '宽高接近。', 'active', 30, NOW()),
 		('019817c8-0000-7000-8200-000000000021', '019817c8-0000-7000-8000-000000000002', '019817c8-0000-7000-8100-000000000003', NULL, 'minimal', '极简', '克制元素与清晰构成。', 'active', 10, NOW()),
 		('019817c8-0000-7000-8200-000000000022', '019817c8-0000-7000-8000-000000000002', '019817c8-0000-7000-8100-000000000003', NULL, 'retro', '复古', '历史媒介与旧印刷语言。', 'active', 20, NOW())
-		ON CONFLICT (catalog_id, facet_id, slug) DO UPDATE SET
-			parent_id=EXCLUDED.parent_id,
-			name=EXCLUDED.name,
-			description=EXCLUDED.description,
-			status='active',
-			editorial_position=EXCLUDED.editorial_position;
+		ON CONFLICT (catalog_id, facet_id, slug) DO NOTHING;
 
 INSERT INTO gallery_classification_policy_profiles (
 			catalog_id, policy_key, schema_version, policy_revision, document
@@ -97,8 +84,4 @@ INSERT INTO gallery_classification_policy_profiles (
 				"discovery": {"defaultSort": "editorial"}
 			}'::jsonb
 		)
-		ON CONFLICT (catalog_id, policy_key) DO UPDATE SET
-			schema_version=EXCLUDED.schema_version,
-			policy_revision=EXCLUDED.policy_revision,
-			document=EXCLUDED.document,
-			updated_at=NOW();
+		ON CONFLICT (catalog_id, policy_key) DO NOTHING;

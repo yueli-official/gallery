@@ -4,10 +4,6 @@ import type { GalleryImageCard } from "~/types/gallery";
 const props = defineProps<{
   items: GalleryImageCard[];
   priority?: boolean;
-  quickView?: boolean;
-}>();
-const emit = defineEmits<{
-  preview: [imageId: string, trigger: HTMLElement | null];
 }>();
 
 function sourcePolicy(assetId: string, index: number) {
@@ -18,20 +14,6 @@ function sourcePolicy(assetId: string, index: number) {
   );
 }
 
-function openPreview(event: MouseEvent, imageId: string): void {
-  if (
-    !props.quickView ||
-    event.button !== 0 ||
-    event.metaKey ||
-    event.ctrlKey ||
-    event.shiftKey ||
-    event.altKey
-  ) {
-    return;
-  }
-  event.preventDefault();
-  emit("preview", imageId, event.currentTarget as HTMLElement | null);
-}
 </script>
 
 <template>
@@ -44,8 +26,6 @@ function openPreview(event: MouseEvent, imageId: string): void {
       <NuxtLink
         :to="`/images/${encodeURIComponent(image.id)}`"
         class="gallery-tile-link"
-        :aria-haspopup="quickView ? 'dialog' : undefined"
-        @click="openPreview($event, image.id)"
       >
         <div
           class="gallery-tile-media"

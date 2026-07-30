@@ -987,6 +987,10 @@ func (s *Service) ClassificationTags(ctx context.Context, cursor string, size in
 			return nil, err
 		}
 	}
+	for index := range page.Items {
+		page.Items[index].ID = PublicID(page.Items[index].ID)
+		page.Items[index].ReplacementID = PublicID(page.Items[index].ReplacementID)
+	}
 	return page, nil
 }
 

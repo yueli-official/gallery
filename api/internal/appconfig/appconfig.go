@@ -30,10 +30,6 @@ func LoadJWKS(ctx context.Context) JWKS {
 	}
 }
 
-func SiteBrand(ctx context.Context) string {
-	return g.Cfg().MustGet(ctx, "gallery.brand", "月离图库").String()
-}
-
 func SiteSlug(ctx context.Context) string {
 	return g.Cfg().MustGet(ctx, "gallery.siteSlug", "gallery-main").String()
 }

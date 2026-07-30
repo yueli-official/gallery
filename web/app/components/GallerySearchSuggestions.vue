@@ -16,9 +16,11 @@ const emit = defineEmits<{ select: [key: string] }>();
       size="xs"
       @click="emit('select', item.key)"
     >
-      <span class="flex w-full items-center justify-between gap-3">
-        <span>{{ item.label }}</span>
-        <span class="text-[0.68rem] text-dimmed">{{ item.context }}</span>
+      <span class="flex min-w-0 w-full items-center justify-between gap-3">
+        <span class="min-w-0 truncate">{{ item.label }}</span>
+        <span class="shrink-0 text-[0.68rem] text-dimmed">{{
+          item.context
+        }}</span>
       </span>
     </UButton>
   </div>

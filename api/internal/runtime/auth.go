@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"time"
 
-	jose "github.com/go-jose/go-jose/v4"
 	"github.com/gogf/gf/v2/net/ghttp"
 	"github.com/gogf/gf/v2/util/guid"
 	foundationauth "github.com/yueli-official/foundation/go/auth"
@@ -30,28 +29,11 @@ type RemoteVerifierConfig struct {
 	Transport         jwks.RemoteOptions
 }
 
-type StaticVerifierConfig struct {
-	Keys     jose.JSONWebKeySet
-	Issuer   string
-	Audience string
-	Clock    func() time.Time
-}
-
 func NewRemoteVerifier(config RemoteVerifierConfig) (*foundationauth.Verifier, error) {
 	transport := config.Transport
 	transport.AllowLoopbackHTTP = transport.AllowLoopbackHTTP || config.AllowLoopbackHTTP
 	transport.Client = TelemetryHTTPClient(transport.Client)
 	keys, err := jwks.NewRemoteSource(config.JWKSURL, transport)
-	if err != nil {
-		return nil, err
-	}
-	return foundationauth.NewVerifier(foundationauth.Config{
-		Keys: keys, Issuer: config.Issuer, Audiences: optionalAudience(config.Audience), Clock: config.Clock,
-	})
-}
-
-func NewStaticVerifier(config StaticVerifierConfig) (*foundationauth.Verifier, error) {
-	keys, err := jwks.NewStaticSource(config.Keys)
 	if err != nil {
 		return nil, err
 	}

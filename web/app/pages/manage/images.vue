@@ -37,7 +37,7 @@ useSeoMeta({ title: "图片 · 图库管理" });
 
 const ALL = "__all__" as const;
 const router = useRouter();
-const { call } = useApi();
+const { call } = useGalleryApi();
 const { can } = useGalleryMe();
 const hydrated = useClientHydrated();
 const toast = createGalleryNotifier(useToast());
@@ -97,7 +97,7 @@ async function loadImages(
   const token = activeWorkflow.beginLoad();
   try {
     const data = await call<GalleryAdminImagePage>(
-      "/api/v1/gallery/admin/images",
+      "/admin/images",
       {
         query: {
           q: nextQuery.q || undefined,
@@ -264,7 +264,7 @@ const { data: tagData } = await useAsyncData(
   "gallery-manage-image-tags",
   () =>
     call<{ page: GalleryClassificationTagPage }>(
-      "/api/v1/gallery/admin/classification/tags?size=100",
+      "/admin/classification/tags?size=100",
     ),
   { server: false, default: () => ({ page: { items: [], nextCursor: "" } }) },
 );
@@ -447,7 +447,7 @@ async function openEdit(item: GalleryAdminImage) {
   editLoading.value = true;
   try {
     const response = await call<{ image: GalleryAdminImage }>(
-      `/api/v1/gallery/admin/images/${encodeURIComponent(item.id)}`,
+      `/admin/images/${encodeURIComponent(item.id)}`,
     );
     hydrateEditForm(response.image);
   } catch (reason: any) {
@@ -474,7 +474,7 @@ async function saveEdit() {
   editPending.value = true;
   try {
     await call(
-      `/api/v1/gallery/admin/images/${encodeURIComponent(editing.value.id)}`,
+      `/admin/images/${encodeURIComponent(editing.value.id)}`,
       {
         method: "PATCH",
         body: {
@@ -541,7 +541,7 @@ async function runBatch() {
   try {
     const response = await call<{
       results: Array<{ imageId: string; success: boolean; error?: string }>;
-    }>("/api/v1/gallery/admin/images/bulk", {
+    }>("/admin/images/bulk", {
       method: "POST",
       body: {
         imageIds: selectedIds.value,
@@ -600,7 +600,7 @@ function moreItems(image: GalleryAdminImage) {
 </script>
 
 <template>
-  <div>
+  <div :data-manage-images-state="panelState">
     <PageHeader title="图片">
       <template #subtitle>管理已审核图片的公开状态、分类、维度与标签</template>
       <template #actions
@@ -867,6 +867,7 @@ function moreItems(image: GalleryAdminImage) {
           <UFormField label="主分类" required>
             <USelectMenu
               v-model="editForm.primaryCategoryId"
+              aria-label="主分类"
               :items="categoryOptions.filter((item) => item.value !== ALL)"
               value-key="value"
               class="w-full"
@@ -896,6 +897,7 @@ function moreItems(image: GalleryAdminImage) {
           <UFormField label="标签" hint="可多选">
             <USelectMenu
               v-model="editForm.tagIds"
+              aria-label="标签"
               :items="tagOptions"
               value-key="value"
               multiple

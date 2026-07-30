@@ -76,6 +76,34 @@ func TestPrepareSubmissionUsesSignedThumbnailAndReturnsImmutableFacts(t *testing
 	}
 }
 
+func TestPrepareSubmissionRejectsRelativePreviewURL(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/oauth2/token", func(response http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(response).Encode(map[string]any{"access_token": "service-token", "expires_in": 600})
+	})
+	mux.HandleFunc("/api/v1/assets/asset-1/sign", func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(response).Encode(map[string]any{
+			"url":         "/public/derived/gallery-demo/001__thumbnail.v1.webp",
+			"contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			"mime":        "image/webp", "width": 320, "height": 240,
+		})
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+	client, err := NewHTTP(Config{
+		BaseURL: server.URL, TokenURL: server.URL + "/oauth2/token",
+		ClientID: "gallery-asset-svc", ClientSecret: "secret",
+		SiteKey: "gallery-main", HTTPClient: server.Client(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.PrepareSubmission(context.Background(), "asset-1"); err == nil {
+		t.Fatal("expected relative Asset preview URL to be rejected")
+	}
+}
+
 func TestPublishImageRegistersPublicRenditionWithServiceCredential(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/oauth2/token", func(response http.ResponseWriter, _ *http.Request) {
@@ -90,8 +118,11 @@ func TestPublishImageRegistersPublicRenditionWithServiceCredential(t *testing.T)
 		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
 			t.Fatal(err)
 		}
-		if body["siteKey"] != "gallery-main" || body["refType"] != "gallery-public-image" || body["refId"] != "image-1" {
+		if body["siteKey"] != "gallery-main" || body["refId"] != "image-1" || body["refUrl"] != "/images/image-1" {
 			t.Fatalf("body = %#v", body)
+		}
+		if _, coupled := body["refType"]; coupled {
+			t.Fatalf("publication request leaked a consumer-specific reference type: %#v", body)
 		}
 		_ = json.NewEncoder(response).Encode(map[string]any{"published": true})
 	})

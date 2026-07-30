@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "consumer": {
+    "name": "gallery",
+    "siteKey": "gallery-main"
+  },
+  "requires": {
+    "auth.oidc": {
+      "contract": "1.0",
+      "runtimeEvidence": [
+        "issuer",
+        "openid-configuration",
+        "jwks",
+        "client-credentials"
+      ]
+    },
+    "media.library": {
+      "contract": "1.0",
+      "profile": "gallery-submission",
+      "scope": "asset:sign",
+      "runtimeEvidence": [
+        "readyz",
+        "openapi-required-paths",
+        "service-token-authorization"
+      ]
+    }
+  }
+}

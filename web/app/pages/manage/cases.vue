@@ -12,7 +12,7 @@ definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
 useSeoMeta({ title: "处理单 · 图库管理" });
 const route = useRoute();
 const router = useRouter();
-const { call } = useApi();
+const { call } = useGalleryApi();
 const { can } = useGalleryMe();
 const hydrated = useClientHydrated();
 const canResolveCases = computed(() => can("gallery.case.resolve"));
@@ -33,7 +33,7 @@ const resolvingId = ref("");
 const { data, pending, error, refresh } = await useAsyncData(
   "gallery-manage-cases",
   () =>
-    call<GalleryAdminCasePage>("/api/v1/gallery/admin/cases", {
+    call<GalleryAdminCasePage>("/admin/cases", {
       query: {
         q: q.value || undefined,
         sort: sort.value,
@@ -156,7 +156,7 @@ async function resolve(
   );
   try {
     await call(
-      `/api/v1/gallery/admin/cases/${encodeURIComponent(item.id)}/resolve`,
+      `/admin/cases/${encodeURIComponent(item.id)}/resolve`,
       {
         method: "POST",
         body: {

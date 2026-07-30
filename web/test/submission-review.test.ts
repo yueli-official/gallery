@@ -45,7 +45,7 @@ describe("submission review action", () => {
 
   it("uses the operator-gated preview route instead of the public asset route", () => {
     expect(submissionPreviewURL("submission id")).toBe(
-      "/api/v1/gallery/admin/submissions/submission%20id/preview",
+      "/admin/submissions/submission%20id/preview",
     );
   });
 });

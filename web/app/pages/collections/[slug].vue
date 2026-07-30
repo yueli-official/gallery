@@ -13,8 +13,6 @@ const { data, error, status, refresh } = await useFetch<{
 if (import.meta.server && error.value) setResponseStatus(404);
 const collection = computed(() => data.value?.collection);
 const images = computed(() => collection.value?.images || []);
-const { preview, openPreview, closePreview, navigatePreview } =
-  useGalleryQuickView(images);
 
 useSeoMeta({
   title: () => collection.value?.seoTitle || collection.value?.name || "专题",
@@ -31,7 +29,6 @@ useSeoMeta({
 
 function setPage(value: number): void {
   const query = { ...route.query };
-  delete query.preview;
   if (value <= 1) delete query.page;
   else query.page = String(value);
   void router.push({ query });
@@ -95,8 +92,6 @@ function setPage(value: number): void {
       v-else-if="images.length"
       :items="images"
       priority
-      quick-view
-      @preview="openPreview"
     />
     <div
       v-else-if="collection"
@@ -136,12 +131,5 @@ function setPage(value: number): void {
         @click="setPage(page + 1)"
       />
     </nav>
-
-    <GalleryQuickView
-      :image-id="preview"
-      :items="images"
-      @close="closePreview"
-      @navigate="navigatePreview"
-    />
   </div>
 </template>

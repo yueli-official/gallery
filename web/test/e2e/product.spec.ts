@@ -2,18 +2,69 @@ import { expect, test } from "@playwright/test";
 
 import { productSites } from "./contracts";
 import { registerProductSuite } from "./product-suite";
+import { loginE2E } from "./runtime";
 
 registerProductSuite("gallery");
 
-const suite = process.env.PLATFORMCTL_E2E_SUITE?.trim() || "all";
+const suite = process.env.GALLERY_E2E_SUITE?.trim() || "all";
 if (suite === "all" || suite === "journeys") {
   for (const site of productSites("gallery")) {
+    test(`${site.slug} 新访客可以查看空投稿记录`, async ({ browser }) => {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      try {
+        const submissionsResponse = page.waitForResponse(
+          (response) =>
+            new URL(response.url()).pathname ===
+            "/api/gallery/me/submissions",
+        );
+        await page.goto(new URL("/submissions", site.url).toString(), {
+          waitUntil: "domcontentloaded",
+        });
+        expect((await submissionsResponse).status()).toBe(200);
+        await expect(page.getByText("投稿记录加载失败")).toHaveCount(0);
+        await expect(
+          page.getByText("还没有投稿记录", { exact: true }),
+        ).toBeVisible();
+      } finally {
+        await context.close();
+      }
+    });
+
+    test(`${site.slug} 已登录用户可以查看投稿记录`, async ({ browser }) => {
+      const context = await loginE2E(
+        browser,
+        {},
+        undefined,
+        site.url,
+      );
+      const page = await context.newPage();
+      try {
+        const submissionsResponse = page.waitForResponse(
+          (response) =>
+            new URL(response.url()).pathname ===
+            "/api/gallery/me/submissions",
+        );
+        await page.goto(new URL("/submissions", site.url).toString(), {
+          waitUntil: "domcontentloaded",
+        });
+        const response = await submissionsResponse;
+        expect(response.status()).toBe(200);
+        expect(
+          (await response.json() as { total: number }).total,
+        ).toBeGreaterThan(0);
+        await expect(page.getByText("投稿记录加载失败")).toHaveCount(0);
+      } finally {
+        await context.close();
+      }
+    });
+
     test(`${site.slug} Viewer 可连续浏览并显式关闭`, async ({ page }) => {
       await page.goto(
         new URL("/images/AZsQAAAAcACQAAAAAAAAAQ", site.url).toString(),
         { waitUntil: "domcontentloaded" },
       );
-      await expect(page.locator(".gallery-viewer.has-image")).toBeVisible();
+      await expect(page.locator(".gallery-detail.has-image")).toBeVisible();
       await expect(
         page.locator('[data-navigation-ready="true"]'),
       ).toBeVisible();
@@ -25,7 +76,7 @@ if (suite === "all" || suite === "journeys") {
         const before = page.url();
         await next.click();
         await expect.poll(() => page.url()).not.toBe(before);
-        await expect(page.locator(".gallery-viewer.has-image")).toBeVisible();
+        await expect(page.locator(".gallery-detail.has-image")).toBeVisible();
         visited.add(page.url());
       }
       expect(visited.size).toBeGreaterThanOrEqual(10);

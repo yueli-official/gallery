@@ -15,6 +15,9 @@ func TestDefinitionCompiles(t *testing.T) {
 	if catalog.Consumer() != "gallery" {
 		t.Fatalf("consumer = %q", catalog.Consumer())
 	}
+	if catalog.Version() != 2 {
+		t.Fatalf("version = %d, want 2", catalog.Version())
+	}
 }
 
 func TestRegistrationContentOperatorStartsDisabled(t *testing.T) {
@@ -40,6 +43,7 @@ func TestContentOperatorExcludesProtectedGovernanceCapabilities(t *testing.T) {
 		authorization.CapabilityManage,
 		CapabilityClassificationGovern,
 		CapabilityCaseResolve,
+		CapabilityDiscoveryManage,
 		CapabilityAssetSettingsManage,
 	} {
 		if slices.Contains(capabilities, forbidden) {
@@ -56,5 +60,32 @@ func TestContentOperatorExcludesProtectedGovernanceCapabilities(t *testing.T) {
 		if !slices.Contains(capabilities, required) {
 			t.Fatalf("content operator is missing %q", required)
 		}
+	}
+}
+
+func TestDefinitionDeclaresProtectedDiscoveryManagement(t *testing.T) {
+	definition := Definition()
+	index := slices.IndexFunc(definition.Capabilities, func(capability authorization.CapabilityDefinition) bool {
+		return capability.Key == CapabilityDiscoveryManage
+	})
+	if index < 0 {
+		t.Fatalf("definition is missing %q", CapabilityDiscoveryManage)
+	}
+	capability := definition.Capabilities[index]
+	if capability.Binding != authorization.BindingProtectedOnly {
+		t.Fatalf("%q binding = %q, want %q", CapabilityDiscoveryManage, capability.Binding, authorization.BindingProtectedOnly)
+	}
+	if capability.Risk != authorization.RiskHigh {
+		t.Fatalf("%q risk = %q, want %q", CapabilityDiscoveryManage, capability.Risk, authorization.RiskHigh)
+	}
+
+	administratorIndex := slices.IndexFunc(definition.Roles, func(role authorization.RoleDefinition) bool {
+		return role.Key == RoleAdministrator
+	})
+	if administratorIndex < 0 {
+		t.Fatal("administrator role is missing")
+	}
+	if !slices.Contains(definition.Roles[administratorIndex].Capabilities, CapabilityDiscoveryManage) {
+		t.Fatalf("administrator role is missing %q", CapabilityDiscoveryManage)
 	}
 }

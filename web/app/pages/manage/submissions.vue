@@ -21,7 +21,7 @@ import type {
 definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
 useSeoMeta({ title: "投稿与审核 · 图库管理" });
 const router = useRouter();
-const { call } = useApi();
+const { call } = useGalleryApi();
 const { can } = useGalleryMe();
 const hydrated = useClientHydrated();
 const canReviewSubmissions = computed(() => can("gallery.submission.review"));
@@ -59,7 +59,7 @@ async function loadSubmissions(
   const token = activeWorkflow.beginLoad();
   try {
     const data = await call<GalleryAdminSubmissionPage>(
-      "/api/v1/gallery/admin/submissions",
+      "/admin/submissions",
       {
         query: {
           q: nextQuery.q || undefined,
@@ -117,7 +117,7 @@ const {
   queryPolicy: createJsonCollectionQueryPolicy<SubmissionCollectionQuery>(),
   keyOf: (item: GallerySubmission) => item.id,
   isSelectable: (item: GallerySubmission) =>
-    canReviewSubmissions.value && submissionReviewAction(item).canApprove,
+    submissionReviewAction(item).canApprove,
   querySync,
   dataQueryKey: (query) => JSON.stringify(query),
   load: loadSubmissions,
@@ -341,7 +341,7 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
   );
   try {
     await call(
-      `/api/v1/gallery/admin/submissions/${encodeURIComponent(item.id)}/review`,
+      `/admin/submissions/${encodeURIComponent(item.id)}/review`,
       {
         method: "POST",
         body: { decision, note: note.value[item.id] || "" },
@@ -370,7 +370,7 @@ async function bulkApprove() {
         success: boolean;
         error?: string;
       }>;
-    }>("/api/v1/gallery/admin/submissions/bulk-review", {
+    }>("/admin/submissions/bulk-review", {
       method: "POST",
       body: {
         submissionIds: selectedIds.value,
@@ -524,7 +524,7 @@ function decisionSummary(item: GallerySubmission) {
       :is-selected="submissionWorkflow.isSelected"
       :is-item-selectable="(item) => submissionReviewAction(item).canApprove"
       label="投稿审核队列"
-      :selectable="canReviewSubmissions"
+      :selectable="canReviewSubmissions && panelState === 'ready'"
       @search="search"
       @control-change="changeControl"
       @clear-filters="clearFilters"

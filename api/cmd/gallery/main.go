@@ -30,6 +30,9 @@ import (
 )
 
 func main() {
+	if err := runtime.EnableEnvironmentConfig(); err != nil {
+		panic(err)
+	}
 	ctx := gctx.New()
 	shutdown, err := runtime.StartTelemetry(ctx, "gallery-api")
 	if err != nil {
@@ -42,7 +45,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	if os.Getenv("PLATFORM_OPENAPI_OUTPUT") != "" {
+	if runtime.OpenAPIRequested() {
 		authz, err := authorization.NewMemory(authorizationDefinition, authorization.MemoryOptions{
 			RootScopeID: galleryauthz.RootScopeID,
 			ProtectedSubjects: []authorization.SubjectRef{{

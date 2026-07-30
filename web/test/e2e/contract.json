@@ -6,6 +6,10 @@
     "path": "/manage",
     "heading": "今日运营",
     "readySelector": "main h1",
+    "settings": {
+      "path": "/manage/discovery",
+      "fieldLabel": "站点名称"
+    },
     "views": []
   },
   "empty": {
@@ -73,7 +77,7 @@
       {
         "key": "viewer",
         "path": "/images/AZsQAAAAcACQAAAAAAAAAQ",
-        "readySelector": ".gallery-viewer.has-image",
+        "readySelector": ".gallery-detail.has-image",
         "viewports": ["mobile", "desktop"]
       },
       {
@@ -96,7 +100,7 @@
       {
         "key": "manage-images",
         "path": "/manage/images",
-        "readySelector": "text=管理已审核图片的公开状态、分类、维度与标签",
+        "readySelector": "[data-manage-images-state=ready]",
         "authenticated": true,
         "viewports": ["mobile", "desktop"]
       },
@@ -110,14 +114,21 @@
       {
         "key": "manage-discovery",
         "path": "/manage/discovery",
-        "readySelector": "text=多样性优先的首页探索",
+        "readySelector": "text=站点内容",
         "authenticated": true,
         "viewports": ["mobile", "desktop"]
       },
       {
         "key": "manage-assets",
         "path": "/manage/assets",
-        "readySelector": "text=站点资源策略",
+        "readySelector": "text=gallery-submission",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "manage-authorization",
+        "path": "/manage/authorization",
+        "readySelector": "text=成员授权",
         "authenticated": true,
         "viewports": ["mobile", "desktop"]
       },

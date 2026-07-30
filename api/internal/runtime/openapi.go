@@ -9,7 +9,7 @@ import (
 	foundationopenapi "github.com/yueli-official/foundation/go/goframe/openapi"
 )
 
-const openAPIOutputEnv = "PLATFORM_OPENAPI_OUTPUT"
+const openAPIOutputEnv = "GALLERY_OPENAPI_OUTPUT"
 
 func OpenAPIRequested() bool {
 	return os.Getenv(openAPIOutputEnv) != ""

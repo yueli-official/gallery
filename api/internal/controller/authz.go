@@ -83,10 +83,6 @@ func isAdmin(ctx context.Context) bool {
 	return service != nil && service.IsAdministrator(ctx)
 }
 
-func requireAdmin(ctx context.Context) (string, error) {
-	return requireCapability(ctx, authorization.CapabilityManage)
-}
-
 func requireCapability(ctx context.Context, capability authorization.CapabilityKey) (string, error) {
 	service := authorizationService(ctx)
 	if service == nil {

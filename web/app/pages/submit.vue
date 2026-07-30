@@ -16,12 +16,12 @@ import {
   applyGallerySubmissionDefaults,
   gallerySubmissionMetadataValid,
 } from "~/utils/gallerySubmissionBatch";
-import { gallerySubmissionFailure } from "~/utils/galleryAssetReadiness";
+import { gallerySubmissionFailure } from "~/utils/gallerySubmissionFailure";
+import { galleryClientId } from "~/utils/clientId";
 
 type QueueStatus =
   | "ready"
   | "uploading"
-  | "checking"
   | "submitting"
   | "completed"
   | "duplicate"
@@ -45,8 +45,8 @@ interface QueueItem {
 }
 
 const { loggedIn, login } = useAuth();
-const { call } = useApi();
-const { upload, waitUntilReady } = useGalleryAssetUpload();
+const { call } = useGalleryApi();
+const { upload } = useGalleryAssetUpload();
 const toast = createGalleryNotifier(useToast());
 const { data: submissionOptions } = await useFetch<GallerySubmissionOptions>(
   "/api/gallery/submission-options",
@@ -127,7 +127,7 @@ async function chooseFiles(event: Event) {
       continue;
     }
     queue.value.push({
-      id: crypto.randomUUID(),
+      id: galleryClientId(),
       file,
       previewUrl: URL.createObjectURL(file),
       title: sharedTitle.value.trim() || file.name.replace(/\.[^.]+$/, ""),
@@ -220,11 +220,9 @@ async function submitItem(item: QueueItem) {
       })) as GalleryUploadedAsset;
       item.assetId = uploaded.id;
     }
-    item.status = "checking";
-    await waitUntilReady(item.assetId, uploaded);
     item.status = "submitting";
     const response = await call<{ submission: GallerySubmission }>(
-      "/api/v1/gallery/submissions",
+      "/submissions",
       {
         method: "POST",
         body: submissionBody(item),
@@ -395,7 +393,6 @@ onBeforeUnmount(() =>
                     {
                       ready: '待上传',
                       uploading: '上传中',
-                      checking: '安全检查',
                       submitting: '创建记录',
                       completed: '已完成',
                       duplicate: '已投稿',
@@ -406,7 +403,7 @@ onBeforeUnmount(() =>
               />
               <UButton
                 v-if="
-                  !['uploading', 'checking', 'submitting'].includes(item.status)
+                  !['uploading', 'submitting'].includes(item.status)
                 "
                 class="absolute right-2 top-2"
                 color="neutral"

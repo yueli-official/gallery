@@ -203,7 +203,6 @@ onBeforeRouteLeave((to) => {
     :image="image"
     :status="status"
     :failed="Boolean(error)"
-    mode="page"
     :previous="previous"
     :next="next"
     :related="related"

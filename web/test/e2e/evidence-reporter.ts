@@ -11,9 +11,9 @@ import type { SiteContract } from "./contracts";
 export default class EvidenceReporter implements Reporter {
   private readonly root = process.cwd();
   private readonly runID =
-    process.env.PLATFORMCTL_E2E_RUN_ID?.trim() || "local";
+    process.env.GALLERY_E2E_RUN_ID?.trim() || "local";
   private readonly sites = JSON.parse(
-    process.env.PLATFORMCTL_E2E_SITES || "[]",
+    process.env.GALLERY_E2E_SITES || "[]",
   ) as SiteContract[];
 
   onTestEnd(test: TestCase, result: TestResult) {

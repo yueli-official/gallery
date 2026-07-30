@@ -14,7 +14,7 @@ const { loggedIn, login } = useAuth();
 const route = useRoute();
 const router = useRouter();
 const hydrated = useClientHydrated();
-const { call } = useApi();
+const { call } = useGalleryApi();
 const toast = createGalleryNotifier(useToast());
 const page = computed(() => Math.max(1, Number(route.query.page) || 1));
 const outcome = computed(() => String(route.query.outcome || ""));
@@ -25,7 +25,7 @@ const reviewState = computed(() => String(route.query.reviewState || ""));
 const { data, error, pending, refresh } = await useAsyncData(
   "gallery-my-submissions",
   () =>
-    call<SubmissionPage>("/api/v1/gallery/me/submissions", {
+    call<SubmissionPage>("/me/submissions", {
       query: {
         page: page.value,
         size: 20,
@@ -151,7 +151,7 @@ async function withdraw(id: string) {
   withdrawing.value = id;
   try {
     await call(
-      `/api/v1/gallery/me/submissions/${encodeURIComponent(id)}/withdraw`,
+      `/me/submissions/${encodeURIComponent(id)}/withdraw`,
       { method: "POST" },
     );
     await refresh();

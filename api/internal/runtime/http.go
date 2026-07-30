@@ -34,10 +34,10 @@ func MustAPIMiddleware(limiter *ratelimit.Limiter) *goframeapi.Middleware {
 
 func MustRateLimiterFromEnvironment() *ratelimit.Limiter {
 	limit := defaultRateLimitPerMinute
-	if raw := os.Getenv("PLATFORM_RATE_LIMIT_PER_MINUTE"); raw != "" {
+	if raw := os.Getenv("GALLERY_RATE_LIMIT_PER_MINUTE"); raw != "" {
 		parsed, err := strconv.Atoi(raw)
 		if err != nil || parsed < 0 {
-			panic(fmt.Errorf("PLATFORM_RATE_LIMIT_PER_MINUTE must be a non-negative integer"))
+			panic(fmt.Errorf("GALLERY_RATE_LIMIT_PER_MINUTE must be a non-negative integer"))
 		}
 		limit = parsed
 	}

@@ -6,7 +6,7 @@ definePageMeta({ middleware: "auth" });
 const route = useRoute();
 const router = useRouter();
 const hydrated = useClientHydrated();
-const { call } = useApi();
+const { call } = useGalleryApi();
 const toast = createGalleryNotifier(useToast());
 const page = computed(() => Math.max(1, Number(route.query.page) || 1));
 const sort = computed(() =>
@@ -26,20 +26,17 @@ const { data, error, pending, refresh } = await useAsyncData(
   "gallery-my-favorites",
   () =>
     call<{ collection: GalleryCollectionDetail }>(
-      "/api/v1/gallery/me/favorites",
+      "/me/favorites",
       { query: { page: page.value, size: 24, sort: sort.value } },
     ),
   { server: false, watch: [page, sort] },
 );
 const collection = computed(() => data.value?.collection);
 const images = computed(() => collection.value?.images || []);
-const { preview, openPreview, closePreview, navigatePreview } =
-  useGalleryQuickView(images);
 const removing = ref("");
 
 function updateQuery(next: { page?: number; sort?: string }) {
   const query = { ...route.query };
-  delete query.preview;
   if (next.page !== undefined) {
     if (next.page <= 1) delete query.page;
     else query.page = String(next.page);
@@ -56,7 +53,7 @@ async function removeFavorite(imageId: string) {
   if (!collection.value || removing.value) return;
   removing.value = imageId;
   try {
-    await call(`/api/v1/gallery/me/favorites/${encodeURIComponent(imageId)}`, {
+    await call(`/me/favorites/${encodeURIComponent(imageId)}`, {
       method: "DELETE",
       query: { version: collection.value.version },
     });
@@ -86,7 +83,7 @@ useSeoMeta({ title: "我的收藏", robots: "noindex,nofollow" });
       <div>
         <h1 class="gallery-page-title">我的收藏</h1>
         <p class="gallery-page-copy">
-          只对你可见。按收藏时间或标题整理，点击图片可快速预览。
+          只对你可见。按收藏时间或标题整理，点击图片查看完整详情。
         </p>
       </div>
       <div v-if="collection" class="flex items-center gap-3">
@@ -121,7 +118,6 @@ useSeoMeta({ title: "我的收藏", robots: "noindex,nofollow" });
       v-else-if="images.length"
       :items="images"
       :removing="removing"
-      @preview="openPreview"
       @remove="removeFavorite"
     />
     <div v-else class="gallery-compact-empty">
@@ -168,12 +164,5 @@ useSeoMeta({ title: "我的收藏", robots: "noindex,nofollow" });
         @click="updateQuery({ page: page + 1 })"
       />
     </nav>
-
-    <GalleryQuickView
-      :image-id="preview"
-      :items="images"
-      @close="closePreview"
-      @navigate="navigatePreview"
-    />
   </div>
 </template>

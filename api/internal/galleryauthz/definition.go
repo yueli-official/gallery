@@ -30,6 +30,7 @@ const (
 	CapabilityCaseRead                     authorization.CapabilityKey = "gallery.case.read"
 	CapabilityCaseResolve                  authorization.CapabilityKey = "gallery.case.resolve"
 	CapabilityDiscoveryRead                authorization.CapabilityKey = "gallery.discovery.read"
+	CapabilityDiscoveryManage              authorization.CapabilityKey = "gallery.discovery.manage"
 	CapabilityAssetSettingsManage          authorization.CapabilityKey = "gallery.asset_settings.manage"
 
 	PredicateRegistrationContentOperator    authorization.PredicateKey = "gallery.registration_auto_content_operator"
@@ -63,12 +64,13 @@ func Definition() authorization.Definition {
 		administratorCapabilities,
 		CapabilityClassificationGovern,
 		CapabilityCaseResolve,
+		CapabilityDiscoveryManage,
 		CapabilityAssetSettingsManage,
 	)
 
 	return authorization.Definition{
 		Consumer: "gallery",
-		Version:  1,
+		Version:  2,
 		Capabilities: []authorization.CapabilityDefinition{
 			{
 				Key: CapabilityPublicRead, Version: 1,
@@ -89,6 +91,7 @@ func Definition() authorization.Definition {
 			normalCapability(CapabilityCaseRead),
 			protectedCapability(CapabilityCaseResolve),
 			normalCapability(CapabilityDiscoveryRead),
+			protectedCapability(CapabilityDiscoveryManage),
 			protectedCapability(CapabilityAssetSettingsManage),
 		},
 		Scopes: authorization.ScopeSchema{Types: []authorization.ScopeTypeDefinition{

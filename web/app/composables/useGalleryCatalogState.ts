@@ -36,7 +36,6 @@ export function useGalleryCatalogState() {
       categories: [...selectedCategories.value],
       facets: [...selectedFacets.value],
       page: 1,
-      preview: "",
     });
   }
 
@@ -51,7 +50,6 @@ export function useGalleryCatalogState() {
       facets: [],
       tag: "",
       page: 1,
-      preview: "",
     });
   }
 
@@ -68,19 +66,15 @@ export function useGalleryCatalogState() {
   }
 
   function setPage(page: number) {
-    return pushState({ ...state.value, page: Math.max(1, page), preview: "" });
+    return pushState({ ...state.value, page: Math.max(1, page) });
   }
 
   function setSort(sort: GalleryCatalogSort) {
-    return pushState({ ...state.value, sort, page: 1, preview: "" });
+    return pushState({ ...state.value, sort, page: 1 });
   }
 
   function setView(view: GalleryCatalogView) {
-    return pushState({ ...state.value, view, preview: "" });
-  }
-
-  function setPreview(preview: string) {
-    return pushState({ ...state.value, preview });
+    return pushState({ ...state.value, view });
   }
 
   function setTag(tag: string) {
@@ -90,7 +84,6 @@ export function useGalleryCatalogState() {
       q: "",
       tag: tag.trim(),
       page: 1,
-      preview: "",
     });
   }
 
@@ -114,7 +107,7 @@ export function useGalleryCatalogState() {
   }
 
   function removeTag() {
-    return pushState({ ...state.value, tag: "", page: 1, preview: "" });
+    return pushState({ ...state.value, tag: "", page: 1 });
   }
 
   return {
@@ -132,7 +125,6 @@ export function useGalleryCatalogState() {
     setPage,
     setSort,
     setView,
-    setPreview,
     setTag,
     removeSearch,
     removeCategory,

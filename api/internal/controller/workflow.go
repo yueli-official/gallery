@@ -167,7 +167,7 @@ func (c *Admin) GetAdminSiteSettings(ctx context.Context, _ *v1.GetAdminSiteSett
 }
 
 func (c *Admin) UpdateAdminSiteSettings(ctx context.Context, req *v1.UpdateAdminSiteSettingsReq) (*v1.UpdateAdminSiteSettingsRes, error) {
-	if _, err := requireCapability(ctx, galleryauthz.CapabilityAssetSettingsManage); err != nil {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityDiscoveryManage); err != nil {
 		return nil, err
 	}
 	value, err := c.service.UpdateSiteSettings(ctx, req.SiteSettingsUpdateInput)

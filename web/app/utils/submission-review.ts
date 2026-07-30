@@ -51,5 +51,5 @@ export function submissionReviewAction(
 }
 
 export function submissionPreviewURL(submissionId: string): string {
-  return `/api/v1/gallery/admin/submissions/${encodeURIComponent(submissionId)}/preview`;
+  return `/admin/submissions/${encodeURIComponent(submissionId)}/preview`;
 }

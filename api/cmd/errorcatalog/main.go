@@ -35,7 +35,7 @@ func main() {
 		if err != nil {
 			exit(err)
 		}
-		if !bytes.Equal(current, data) {
+		if !bytes.Equal(bytes.ReplaceAll(current, []byte("\r\n"), []byte("\n")), data) {
 			exit(fmt.Errorf("错误目录已漂移，请执行 go run ./cmd/errorcatalog"))
 		}
 		return

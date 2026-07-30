@@ -1,10 +1,13 @@
 .doctor/
 .data/
+.env
+deploy/env/*.env
 node_modules/
 api/manifest/config/config.yaml
 web/node_modules/
 web/.nuxt/
 web/.nuxt-instances/
+web/.nuxt-*/
 web/.output/
 web/.turbo/
 web/test-results/

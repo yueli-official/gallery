@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { galleryClientId } from "../app/utils/clientId";
 import {
   GALLERY_UPLOAD_ACCEPT,
   GALLERY_UPLOAD_FORMAT_LABEL,
@@ -8,6 +10,53 @@ import {
 } from "../app/utils/galleryUpload";
 
 describe("gallery upload preflight", () => {
+  it("submits finalized assets without legacy scan polling", () => {
+    const uploadComposable = readFileSync(
+      new URL("../app/composables/useGalleryAssetUpload.ts", import.meta.url),
+      "utf8",
+    );
+    const submitPage = readFileSync(
+      new URL("../app/pages/submit.vue", import.meta.url),
+      "utf8",
+    );
+
+    expect(uploadComposable).not.toMatch(
+      /readyz|waitUntilReady|securityState|scanStatus/,
+    );
+    expect(submitPage).not.toMatch(
+      /waitUntilReady|status = "checking"|checking: '安全检查'/,
+    );
+  });
+
+  it("creates unique queue IDs without secure-context randomUUID", () => {
+    let seed = 0;
+    const insecureCrypto = {
+      getRandomValues(values: Uint8Array) {
+        seed += 1;
+        values.forEach((_, index) => {
+          values[index] = seed + index;
+        });
+        return values;
+      },
+    };
+
+    const first = galleryClientId(insecureCrypto);
+    const second = galleryClientId(insecureCrypto);
+
+    expect(first).not.toBe(second);
+    expect(first).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+  });
+
+  it("uses native randomUUID when the browser provides it", () => {
+    expect(
+      galleryClientId({
+        randomUUID: () => "00000000-0000-4000-8000-000000000001",
+      }),
+    ).toBe("00000000-0000-4000-8000-000000000001");
+  });
+
   it("accepts a supported static image", () => {
     expect(
       galleryUploadFileError({

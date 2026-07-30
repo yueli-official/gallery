@@ -3,22 +3,8 @@ import type { GalleryImageCard } from "~/types/gallery";
 
 defineProps<{ items: GalleryImageCard[]; removing?: string }>();
 const emit = defineEmits<{
-  preview: [imageId: string, trigger: HTMLElement | null];
   remove: [imageId: string];
 }>();
-
-function openPreview(event: MouseEvent, imageId: string): void {
-  if (
-    event.button ||
-    event.metaKey ||
-    event.ctrlKey ||
-    event.shiftKey ||
-    event.altKey
-  )
-    return;
-  event.preventDefault();
-  emit("preview", imageId, event.currentTarget as HTMLElement | null);
-}
 </script>
 
 <template>
@@ -31,8 +17,6 @@ function openPreview(event: MouseEvent, imageId: string): void {
       <NuxtLink
         :to="`/images/${encodeURIComponent(image.id)}`"
         class="block"
-        aria-haspopup="dialog"
-        @click="openPreview($event, image.id)"
       >
         <div
           class="gallery-tile-media"

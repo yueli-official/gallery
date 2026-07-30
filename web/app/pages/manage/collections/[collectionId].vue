@@ -11,7 +11,7 @@ import type {
 
 definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
 const route = useRoute("/manage/collections/[collectionId]");
-const { call } = useApi();
+const { call } = useGalleryApi();
 const { can } = useGalleryMe();
 const toast = createGalleryNotifier(useToast());
 const hydrated = useClientHydrated();
@@ -40,7 +40,7 @@ const { data, pending, error, refresh } = await useAsyncData(
   "gallery-manage-collection-detail",
   () =>
     call<{ collection: GalleryCollectionDetail }>(
-      `/api/v1/gallery/admin/collections/${encodeURIComponent(collectionId.value)}?page=1&size=60`,
+      `/admin/collections/${encodeURIComponent(collectionId.value)}?page=1&size=60`,
     ),
   { server: false },
 );
@@ -94,7 +94,7 @@ async function saveMetadata(): Promise<void> {
   metadataSaved.value = false;
   try {
     await call<{ collection: GalleryCollection }>(
-      `/api/v1/gallery/admin/collections/${encodeURIComponent(collection.value.id)}`,
+      `/admin/collections/${encodeURIComponent(collection.value.id)}`,
       {
         method: "PATCH",
         body: { ...form, version: collection.value.version },
@@ -118,7 +118,7 @@ async function searchImages(): Promise<void> {
   pickerPending.value = true;
   try {
     const result = await call<GalleryImagePage>(
-      `/api/v1/gallery/images?q=${encodeURIComponent(imageSearch.value.trim())}&page=1&size=12&sort=newest`,
+      `/images?q=${encodeURIComponent(imageSearch.value.trim())}&page=1&size=12&sort=newest`,
     );
     const existing = new Set(
       collection.value?.images.map((item) => item.id) || [],
@@ -142,7 +142,7 @@ async function mutateMembers(
   if (!canManageCollections.value || !collection.value) return;
   try {
     await call(
-      `/api/v1/gallery/admin/collections/${encodeURIComponent(collection.value.id)}/members`,
+      `/admin/collections/${encodeURIComponent(collection.value.id)}/members`,
       {
         method: "POST",
         body: { version: collection.value.version, add, remove },
@@ -212,7 +212,7 @@ async function saveOrder(): Promise<void> {
   orderSaved.value = false;
   try {
     await call(
-      `/api/v1/gallery/admin/collections/${encodeURIComponent(collection.value.id)}/order`,
+      `/admin/collections/${encodeURIComponent(collection.value.id)}/order`,
       {
         method: "PUT",
         body: { version: collection.value.version, imageIds: orderedIds.value },

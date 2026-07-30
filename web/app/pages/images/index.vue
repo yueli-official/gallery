@@ -21,7 +21,6 @@ const {
   setPage,
   setSort,
   setView,
-  setPreview,
   setTag,
   removeSearch,
   removeCategory,
@@ -31,9 +30,6 @@ const {
 const page = computed(() => catalogState.value.page);
 const sort = computed(() => catalogState.value.sort);
 const view = computed(() => catalogState.value.view);
-const preview = computed(() => catalogState.value.preview);
-const previewTrigger = shallowRef<HTMLElement>();
-const previewScrollY = ref(0);
 
 const [{ data: pageData, error, status, refresh }, { data: discovery }] =
   await Promise.all([
@@ -179,17 +175,6 @@ function changeSort(value: unknown) {
 function changeView(value: GalleryCatalogView) {
   void setView(value);
 }
-function openPreview(imageId: string, trigger: HTMLElement | null) {
-  previewTrigger.value = trigger || undefined;
-  previewScrollY.value = import.meta.client ? window.scrollY : 0;
-  void setPreview(imageId);
-}
-function closePreview() {
-  void setPreview("");
-}
-function navigatePreview(imageId: string) {
-  void setPreview(imageId);
-}
 function removeRefinement(item: (typeof activeRefinements.value)[number]) {
   if (item.kind === "search") void removeSearch();
   if (item.kind === "category") void removeCategory(item.value);
@@ -212,22 +197,13 @@ function selectSuggestion(key: string) {
   void apply();
 }
 
-watch(preview, async (current, previous) => {
-  if (current || !previous || !import.meta.client) return;
-  await nextTick();
-  window.scrollTo({ top: previewScrollY.value, behavior: "auto" });
-  previewTrigger.value?.focus({ preventScroll: true });
-  previewTrigger.value = undefined;
-});
-
 useSeoMeta({
   title: "浏览图片",
   description: "按分类、标签和多个维度分页浏览公开图片。",
   robots: () =>
     hasFilters.value ||
     page.value > 1 ||
-    sort.value !== "newest" ||
-    preview.value
+    sort.value !== "newest"
       ? "noindex,follow"
       : "index,follow",
 });
@@ -313,7 +289,7 @@ useSeoMeta({
         </div>
       </aside>
 
-      <section aria-live="polite">
+      <section class="min-w-0" aria-live="polite">
         <div class="gallery-results-toolbar">
           <div class="flex min-w-0 flex-wrap gap-2">
             <span v-if="!hasFilters" class="px-1 text-sm text-muted">
@@ -340,12 +316,12 @@ useSeoMeta({
               @click="clearFilters"
             />
           </div>
-          <div class="flex shrink-0 items-center gap-1">
+          <div class="gallery-results-controls flex shrink-0 items-center gap-1">
             <USelect
               :model-value="sort"
               :items="sortItems"
               value-key="value"
-              class="w-32 shrink-0"
+              class="gallery-results-sort w-32 shrink-0"
               @update:model-value="changeSort"
             />
             <div class="gallery-view-switch" aria-label="图片布局">
@@ -391,15 +367,11 @@ useSeoMeta({
           v-else-if="pageData?.items.length && view === 'masonry'"
           :items="pageData.items"
           :priority="page === 1"
-          quick-view
-          @preview="openPreview"
         />
         <GalleryImageGrid
           v-else-if="pageData?.items.length"
           :items="pageData.items"
           :priority="page === 1"
-          quick-view
-          @preview="openPreview"
         />
         <div v-else class="gallery-compact-empty">
           <span class="gallery-empty-icon"
@@ -517,12 +489,5 @@ useSeoMeta({
         </div>
       </template>
     </UDrawer>
-
-    <GalleryQuickView
-      :image-id="preview"
-      :items="pageData?.items || []"
-      @close="closePreview"
-      @navigate="navigatePreview"
-    />
   </div>
 </template>

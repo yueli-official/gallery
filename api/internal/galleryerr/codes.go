@@ -72,11 +72,6 @@ func Catalog() []CatalogEntry {
 	return result
 }
 
-func Resolve(err error) (problem.Problem, bool) {
-	value, ok, resolveErr := problem.FromError(err, "gallery-error-inspection")
-	return value, ok && resolveErr == nil
-}
-
 func mapped(code string, params problem.Parameters) error {
 	value, ok := DescriptorForCode(code)
 	if !ok {
