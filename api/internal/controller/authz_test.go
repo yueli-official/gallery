@@ -7,6 +7,7 @@ import (
 	foundationauth "github.com/yueli-official/foundation/go/auth"
 	"github.com/yueli-official/foundation/go/authorization"
 	"github.com/yueli-official/gallery/api/internal/galleryauthz"
+	"github.com/yueli-official/gallery/api/internal/testidentity"
 )
 
 func newGalleryAuthorization(t *testing.T) (*galleryauthz.Service, authorization.SubjectRef) {
@@ -26,18 +27,16 @@ func newGalleryAuthorization(t *testing.T) (*galleryauthz.Service, authorization
 	return galleryauthz.New(runtime), administrator
 }
 
-func authorizationContext(subject authorization.SubjectRef, roles []string, service *galleryauthz.Service) context.Context {
-	ctx := foundationauth.NewContext(context.Background(), &foundationauth.Principal{
-		Subject: subject.ID,
-		Roles:   roles,
-	})
+func authorizationContext(t testing.TB, subject authorization.SubjectRef, roles []string, service *galleryauthz.Service) context.Context {
+	t.Helper()
+	ctx := foundationauth.NewContext(context.Background(), testidentity.User(t, subject.ID, roles, nil))
 	return context.WithValue(ctx, authorizationContextKey{}, service)
 }
 
 func TestGalleryAdministratorComesFromLocalAuthorization(t *testing.T) {
 	service, administrator := newGalleryAuthorization(t)
 	if _, err := requireCapability(
-		authorizationContext(administrator, nil, service),
+		authorizationContext(t, administrator, nil, service),
 		authorization.CapabilityManage,
 	); err != nil {
 		t.Fatalf("gallery administrator rejected: %v", err)
@@ -45,7 +44,7 @@ func TestGalleryAdministratorComesFromLocalAuthorization(t *testing.T) {
 
 	identityAdmin := authorization.SubjectRef{Kind: authorization.SubjectUser, ID: "identity-admin"}
 	if _, err := requireCapability(
-		authorizationContext(identityAdmin, []string{"admin"}, service),
+		authorizationContext(t, identityAdmin, []string{"admin"}, service),
 		authorization.CapabilityManage,
 	); err == nil {
 		t.Fatal("Identity admin unexpectedly became Gallery administrator")
@@ -61,7 +60,7 @@ func TestContentOperatorGetsDailyCapabilitiesButNotProtectedGovernance(t *testin
 	}); err != nil {
 		t.Fatalf("Grant() error = %v", err)
 	}
-	ctx := authorizationContext(operator, nil, service)
+	ctx := authorizationContext(t, operator, nil, service)
 	for _, capability := range []authorization.CapabilityKey{
 		galleryauthz.CapabilityImageUpdate,
 		galleryauthz.CapabilitySubmissionReview,
@@ -87,7 +86,7 @@ func TestContentOperatorGetsDailyCapabilitiesButNotProtectedGovernance(t *testin
 func TestGalleryAdministratorCanManageDiscoverySettings(t *testing.T) {
 	service, administrator := newGalleryAuthorization(t)
 	if _, err := requireCapability(
-		authorizationContext(administrator, nil, service),
+		authorizationContext(t, administrator, nil, service),
 		galleryauthz.CapabilityDiscoveryManage,
 	); err != nil {
 		t.Fatalf("gallery administrator cannot manage discovery settings: %v", err)

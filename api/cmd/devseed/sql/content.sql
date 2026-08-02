@@ -1,13 +1,29 @@
 -- The shared local test account is an E2E fixture, not personal development
 -- data. Clear its mutable workspace before rebuilding the deterministic demo
 -- so repeated browser runs cannot inherit favorites or uploads from an older run.
+-- Authorization state predates the public User Key migration in some reused
+-- local databases. Reconcile the deterministic bootstrap grant before the API
+-- restores its in-memory authorization snapshot; no legacy identifier remains
+-- valid after this seed completes.
+UPDATE authorization_grants
+SET target_id = 'usr_AAAAAAAAAAAAAAAAAAAAAA'
+WHERE instance_key = 'gallery:gallery-main'
+  AND target_kind = 'user'
+  AND target_id = 'ac73d232-ce55-487d-bb39-fd336f1a9806'
+  AND source = 'bootstrap';
+
+UPDATE authorization_projection_rules
+SET subject_key = 'user:usr_AAAAAAAAAAAAAAAAAAAAAA'
+WHERE instance_key = 'gallery:gallery-main'
+  AND subject_key = 'user:ac73d232-ce55-487d-bb39-fd336f1a9806';
+
 DELETE FROM gallery_cases
-WHERE reporter_kind = 'user' AND reporter_id = 'ac73d232-ce55-487d-bb39-fd336f1a9806';
+WHERE reporter_kind = 'user' AND reporter_id = 'usr_AAAAAAAAAAAAAAAAAAAAAA';
 DELETE FROM gallery_collections
 WHERE kind = 'gallery.favorites' AND owner_kind = 'user'
-  AND owner_id = 'ac73d232-ce55-487d-bb39-fd336f1a9806';
+  AND owner_id = 'usr_AAAAAAAAAAAAAAAAAAAAAA';
 DELETE FROM gallery_submissions
-WHERE subject_kind = 'user' AND subject_id = 'ac73d232-ce55-487d-bb39-fd336f1a9806';
+WHERE subject_kind = 'user' AND subject_id = 'usr_AAAAAAAAAAAAAAAAAAAAAA';
 
 INSERT INTO gallery_tags (id, catalog_id, current_slug, current_name, status, created_at, updated_at)
 SELECT
@@ -94,7 +110,7 @@ INSERT INTO gallery_submissions (
 )
 SELECT
     ('019b3000-0000-7000-9000-' || lpad(i::text, 12, '0'))::uuid,
-    'user', 'ac73d232-ce55-487d-bb39-fd336f1a9806',
+    'user', 'usr_AAAAAAAAAAAAAAAAAAAAAA',
     ('019b0000-0000-7000-9000-' || lpad((200 + i)::text, 12, '0'))::uuid,
     '批量投稿样本 ' || lpad(i::text, 2, '0'),
     '用于审核队列筛选、分页与局部失败恢复。',
@@ -137,7 +153,7 @@ SELECT
     CASE WHEN i <= 8 THEN ('019b3000-0000-7000-9000-' || lpad(i::text, 12, '0'))::uuid END,
     (ARRAY['report','source_correction','safety_uncertain','near_duplicate','takedown'])[((i - 1) % 5) + 1],
     CASE WHEN i <= 10 THEN 'open' WHEN i <= 14 THEN 'reviewing' WHEN i <= 17 THEN 'resolved' ELSE 'dismissed' END,
-    'user', 'ac73d232-ce55-487d-bb39-fd336f1a9806', '演示工单原因 ' || i, '用于申诉队列的状态、类型与搜索验收。',
+    'user', 'usr_AAAAAAAAAAAAAAAAAAAAAA', '演示工单原因 ' || i, '用于申诉队列的状态、类型与搜索验收。',
     CASE WHEN i % 5 = 2 THEN 'https://example.com/corrected-source/' || i END,
     TIMESTAMPTZ '2026-07-10 08:00:00+00' + (i || ' minutes')::interval,
     TIMESTAMPTZ '2026-07-10 08:00:00+00' + (i || ' minutes')::interval

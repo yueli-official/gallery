@@ -40,8 +40,8 @@ func optionalSubject(ctx context.Context) (model.Subject, bool) {
 	}
 	kindClaim, _ := principal.Claim("subject_kind")
 	kind := valueString(kindClaim)
-	if kind == "" {
-		kind = "user"
+	if kind != "user" && kind != "guest" {
+		return model.Subject{}, false
 	}
 	verifiedClaim, _ := principal.Claim("email_verified")
 	return model.Subject{Kind: kind, ID: principal.Subject, Verified: claimBool(verifiedClaim), Bearer: bearerOf(ctx)}, true
