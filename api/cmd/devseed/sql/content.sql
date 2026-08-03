@@ -18,12 +18,23 @@ WHERE instance_key = 'gallery:gallery-main'
   AND subject_key = 'user:ac73d232-ce55-487d-bb39-fd336f1a9806';
 
 DELETE FROM gallery_cases
-WHERE reporter_kind = 'user' AND reporter_id = 'usr_AAAAAAAAAAAAAAAAAAAAAA';
+WHERE reporter_kind = 'user'
+  AND reporter_id IN (
+    'usr_AAAAAAAAAAAAAAAAAAAAAA',
+    'ac73d232-ce55-487d-bb39-fd336f1a9806'
+  );
 DELETE FROM gallery_collections
 WHERE kind = 'gallery.favorites' AND owner_kind = 'user'
-  AND owner_id = 'usr_AAAAAAAAAAAAAAAAAAAAAA';
+  AND owner_id IN (
+    'usr_AAAAAAAAAAAAAAAAAAAAAA',
+    'ac73d232-ce55-487d-bb39-fd336f1a9806'
+  );
 DELETE FROM gallery_submissions
-WHERE subject_kind = 'user' AND subject_id = 'usr_AAAAAAAAAAAAAAAAAAAAAA';
+WHERE subject_kind = 'user'
+  AND subject_id IN (
+    'usr_AAAAAAAAAAAAAAAAAAAAAA',
+    'ac73d232-ce55-487d-bb39-fd336f1a9806'
+  );
 
 INSERT INTO gallery_tags (id, catalog_id, current_slug, current_name, status, created_at, updated_at)
 SELECT

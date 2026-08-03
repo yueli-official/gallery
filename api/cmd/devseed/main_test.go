@@ -18,3 +18,27 @@ func TestEmbeddedSeedOwnsOnlyGalleryTables(t *testing.T) {
 		t.Fatal("development content contains no Gallery-owned table")
 	}
 }
+
+func TestEmbeddedSeedClearsLegacySharedAccountState(t *testing.T) {
+	body, err := seedFiles.ReadFile("sql/content.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.ToLower(string(body))
+	legacyID := "ac73d232-ce55-487d-bb39-fd336f1a9806"
+	publicUserKey := "usr_aaaaaaaaaaaaaaaaaaaaaa"
+	for _, table := range []string{"gallery_cases", "gallery_collections", "gallery_submissions"} {
+		start := strings.Index(text, "delete from "+table)
+		if start < 0 {
+			t.Fatalf("development seed does not clear %s", table)
+		}
+		end := strings.Index(text[start:], ";")
+		if end < 0 {
+			t.Fatalf("development seed has an unterminated %s cleanup", table)
+		}
+		statement := text[start : start+end]
+		if !strings.Contains(statement, legacyID) || !strings.Contains(statement, publicUserKey) {
+			t.Fatalf("development seed does not reconcile legacy and public identities in %s", table)
+		}
+	}
+}

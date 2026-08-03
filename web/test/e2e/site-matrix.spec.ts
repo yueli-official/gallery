@@ -41,7 +41,7 @@ export function registerJourneySuite(product: string) {
         await expect(
           page.getByRole("heading", { name: "欢迎回来" }),
         ).toBeVisible();
-        await settleNuxt(page);
+        await page.waitForLoadState("load");
         expect(errors).toEqual([]);
       });
 
