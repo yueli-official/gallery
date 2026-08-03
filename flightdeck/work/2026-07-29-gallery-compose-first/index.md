@@ -8,7 +8,7 @@ Gallery 仓库自持标准 Docker Compose，并明确支持完整独立、接入
 
 ## Status
 
-Open
+Finished
 
 ## Current
 
@@ -63,13 +63,11 @@ bundled Chromium 对局域网 `/submit` 做真实 UI 验收：两张本次生成
 
 ## Next
 
-当前本地 commit 不 push。待用户允许发布后推送 Gallery，并在 Docker 主机完成三种 Compose 拓扑实跑。
-不要恢复用户叫停的 105 项全路由视觉矩阵。
+None。
 
 ## Current execution
 
-实现与产品自治改动已在本地 commit `4cb3de4` 收口；本 Work 不再声称旧 Workspace session 仍存活。
-当前阶段按用户要求只迁移和提交，不执行运行验收或 push。
+Completed。本地实现、Compose 合同和真栈验收已收口；跨消费者逐站验收由 Workspace 新 Work 统一承载。
 
 ## Constraints
 

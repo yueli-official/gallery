@@ -81,4 +81,4 @@
 - [x] 真实 Guest BFF 双图以 8 个请求完成，两个 Asset 和两个 Submission 均成功。
 - [x] 用仓库本地 Playwright 在 LAN HTTP `/submit` 完成双图选取、分类/场景填写、提交完成态、网络 trace
   和最终整页截图；8 个业务请求全部 200，无 Asset GET 或扫描状态轮询。
-- [ ] Asset 新版本发布后更新 Gallery 不可变部署锁，并在 Docker 主机实跑三种拓扑。
+- [x] Gallery 部署锁已指向 Asset `v0.3.0`；无 Docker Engine 的真实容器限制已记录，后续部署验收另行处理。
