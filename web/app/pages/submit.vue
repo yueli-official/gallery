@@ -17,7 +17,7 @@ import {
   gallerySubmissionMetadataValid,
 } from "~/utils/gallerySubmissionBatch";
 import { gallerySubmissionFailure } from "~/utils/gallerySubmissionFailure";
-import { galleryClientId } from "~/utils/clientId";
+import { galleryDraftKey } from "~/utils/clientId";
 
 type QueueStatus =
   | "ready"
@@ -127,7 +127,7 @@ async function chooseFiles(event: Event) {
       continue;
     }
     queue.value.push({
-      id: galleryClientId(),
+      id: galleryDraftKey(),
       file,
       previewUrl: URL.createObjectURL(file),
       title: sharedTitle.value.trim() || file.name.replace(/\.[^.]+$/, ""),

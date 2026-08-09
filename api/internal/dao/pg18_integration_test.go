@@ -63,13 +63,14 @@ func TestPostgreSQL18ClassificationGovernanceRoundTrip(t *testing.T) {
 	}
 
 	var catalogID, categoryID string
-	if err := sqlDB.QueryRow(`INSERT INTO gallery_classification_catalogs (catalog_key) VALUES ('gallery') RETURNING id::text`).Scan(&catalogID); err != nil {
+	if err := sqlDB.QueryRow(`INSERT INTO gallery_classification_catalogs (id, catalog_key) VALUES ($1::uuid, 'gallery') RETURNING id::text`,
+		fixtureIdentifier("classification-catalog", 1)).Scan(&catalogID); err != nil {
 		t.Fatal(err)
 	}
 	if err := sqlDB.QueryRow(`
-INSERT INTO gallery_categories (catalog_id, slug, name, status, first_activated_at)
-VALUES ($1::uuid, 'wallpaper', '壁纸', 'active', NOW())
-RETURNING id::text`, catalogID).Scan(&categoryID); err != nil {
+INSERT INTO gallery_categories (id, catalog_id, slug, name, status, first_activated_at)
+VALUES ($1::uuid, $2::uuid, 'wallpaper', '壁纸', 'active', NOW())
+RETURNING id::text`, fixtureIdentifier("category", 1), catalogID).Scan(&categoryID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := sqlDB.Exec(`

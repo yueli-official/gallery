@@ -19,14 +19,13 @@ func TestEmbeddedSeedOwnsOnlyGalleryTables(t *testing.T) {
 	}
 }
 
-func TestEmbeddedSeedClearsLegacySharedAccountState(t *testing.T) {
+func TestEmbeddedSeedUsesCompactSharedAccountKey(t *testing.T) {
 	body, err := seedFiles.ReadFile("sql/content.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
 	text := strings.ToLower(string(body))
-	legacyID := "ac73d232-ce55-487d-bb39-fd336f1a9806"
-	publicUserKey := "usr_aaaaaaaaaaaaaaaaaaaaaa"
+	publicUserKey := "testa123"
 	for _, table := range []string{"gallery_cases", "gallery_collections", "gallery_submissions"} {
 		start := strings.Index(text, "delete from "+table)
 		if start < 0 {
@@ -37,8 +36,8 @@ func TestEmbeddedSeedClearsLegacySharedAccountState(t *testing.T) {
 			t.Fatalf("development seed has an unterminated %s cleanup", table)
 		}
 		statement := text[start : start+end]
-		if !strings.Contains(statement, legacyID) || !strings.Contains(statement, publicUserKey) {
-			t.Fatalf("development seed does not reconcile legacy and public identities in %s", table)
+		if !strings.Contains(statement, publicUserKey) {
+			t.Fatalf("development seed does not reconcile the compact public identity in %s", table)
 		}
 	}
 }

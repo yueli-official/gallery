@@ -143,9 +143,9 @@ VALUES (?::uuid, ?, ?::uuid, 'alias', ?)`, catalog["id"].String(), lookupKey, ta
 			catalogChanged = true
 		} else {
 			tag, err := tx.GetOne(`
-INSERT INTO gallery_tags (catalog_id, current_name, current_slug)
-VALUES (?::uuid, ?, ?)
-RETURNING id::text AS id`, catalog["id"].String(), proposal["input_value"].String(), lookupKey)
+INSERT INTO gallery_tags (id, catalog_id, current_name, current_slug)
+VALUES (?::uuid, ?::uuid, ?, ?)
+RETURNING id::text AS id`, newIdentifier(), catalog["id"].String(), proposal["input_value"].String(), lookupKey)
 			if err != nil {
 				return gerror.Wrap(err, "create canonical gallery tag from proposal")
 			}

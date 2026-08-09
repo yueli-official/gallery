@@ -1,10 +1,10 @@
--- Gallery is greenfield and seed-owned. PostgreSQL 18 provides uuidv7().
--- Runtime identifiers are UUIDv7; public 22-character IDs are only an API encoding.
+-- Gallery is greenfield and seed-owned. Runtime UUIDv7 values are issued by
+-- the shared Foundation Identifier Module before the owning write.
 
 CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE gallery_site_settings (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    id UUID PRIMARY KEY,
     site_key TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     title TEXT NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE gallery_site_settings (
 );
 
 CREATE TABLE gallery_classification_catalogs (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    id UUID PRIMARY KEY,
     catalog_key TEXT NOT NULL UNIQUE,
     revision BIGINT NOT NULL DEFAULT 1 CHECK (revision > 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -38,7 +38,7 @@ CREATE TABLE gallery_classification_policy_profiles (
 );
 
 CREATE TABLE gallery_categories (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    id UUID PRIMARY KEY,
     catalog_id UUID NOT NULL REFERENCES gallery_classification_catalogs(id) ON DELETE RESTRICT,
     parent_id UUID,
     slug TEXT NOT NULL,
@@ -68,7 +68,7 @@ CREATE INDEX gallery_categories_replacement_idx
     WHERE replacement_id IS NOT NULL;
 
 CREATE TABLE gallery_facets (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    id UUID PRIMARY KEY,
     catalog_id UUID NOT NULL REFERENCES gallery_classification_catalogs(id) ON DELETE RESTRICT,
     slug TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -90,7 +90,7 @@ CREATE TABLE gallery_facets (
 );
 
 CREATE TABLE gallery_facet_values (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    id UUID PRIMARY KEY,
     catalog_id UUID NOT NULL,
     facet_id UUID NOT NULL,
     parent_id UUID,
@@ -127,7 +127,7 @@ CREATE INDEX gallery_facet_values_replacement_idx
     WHERE replacement_id IS NOT NULL;
 
 CREATE TABLE gallery_tags (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    id UUID PRIMARY KEY,
     catalog_id UUID NOT NULL REFERENCES gallery_classification_catalogs(id) ON DELETE RESTRICT,
     current_name TEXT NOT NULL,
     current_slug TEXT NOT NULL,
@@ -175,7 +175,7 @@ CREATE INDEX gallery_tags_name_cursor_idx
     ON gallery_tags (LOWER(current_name), id);
 
 CREATE TABLE gallery_classification_outbox (
-    event_id UUID PRIMARY KEY DEFAULT uuidv7(),
+    event_id UUID PRIMARY KEY,
     catalog_id UUID NOT NULL REFERENCES gallery_classification_catalogs(id) ON DELETE RESTRICT,
     revision BIGINT NOT NULL CHECK (revision > 0),
     event_type TEXT NOT NULL,
@@ -209,7 +209,7 @@ WHEN (OLD.revision IS DISTINCT FROM NEW.revision)
 EXECUTE FUNCTION gallery_notify_classification_catalog_changed();
 
 CREATE TABLE gallery_submissions (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    id UUID PRIMARY KEY,
     subject_kind TEXT NOT NULL CHECK (subject_kind IN ('user', 'guest', 'operator')),
     subject_id TEXT NOT NULL,
     asset_id UUID NOT NULL,
@@ -280,7 +280,7 @@ CREATE INDEX gallery_submission_tag_filter_idx
     ON gallery_submission_tag_assignments (tag_id, submission_id);
 
 CREATE TABLE gallery_tag_proposals (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    id UUID PRIMARY KEY,
     submission_id UUID NOT NULL REFERENCES gallery_submissions(id) ON DELETE CASCADE,
     input_value TEXT NOT NULL,
     lookup_key TEXT NOT NULL,
@@ -304,7 +304,7 @@ CREATE INDEX gallery_tag_proposals_resolved_idx
     WHERE resolved_tag_id IS NOT NULL;
 
 CREATE TABLE gallery_images (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    id UUID PRIMARY KEY,
     asset_id UUID NOT NULL UNIQUE,
     origin_submission_id UUID UNIQUE REFERENCES gallery_submissions(id) ON DELETE SET NULL,
     title TEXT NOT NULL,
@@ -384,7 +384,7 @@ CREATE INDEX gallery_image_tag_filter_idx
     ON gallery_image_tag_assignments (tag_id, image_id);
 
 CREATE TABLE gallery_collections (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    id UUID PRIMARY KEY,
     kind TEXT NOT NULL CHECK (kind IN ('gallery.editorial', 'gallery.favorites')),
     resource_kind TEXT NOT NULL DEFAULT 'gallery.image' CHECK (resource_kind = 'gallery.image'),
     owner_kind TEXT NOT NULL CHECK (owner_kind IN ('site', 'user')),
@@ -423,7 +423,7 @@ CREATE TABLE gallery_collection_members (
 CREATE INDEX gallery_collection_members_manual_idx ON gallery_collection_members (collection_id, manual_position, added_at DESC);
 
 CREATE TABLE gallery_cases (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    id UUID PRIMARY KEY,
     image_id UUID REFERENCES gallery_images(id) ON DELETE SET NULL,
     submission_id UUID REFERENCES gallery_submissions(id) ON DELETE SET NULL,
     kind TEXT NOT NULL CHECK (kind IN ('report', 'source_correction', 'safety_uncertain', 'near_duplicate', 'takedown')),
@@ -444,7 +444,7 @@ CREATE TABLE gallery_cases (
 CREATE INDEX gallery_cases_queue_idx ON gallery_cases (status, created_at ASC);
 
 CREATE TABLE gallery_image_events (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    id UUID PRIMARY KEY,
     image_id UUID REFERENCES gallery_images(id) ON DELETE SET NULL,
     subject_key TEXT NOT NULL DEFAULT '',
     session_key TEXT NOT NULL DEFAULT '',
@@ -467,7 +467,7 @@ CREATE TABLE gallery_image_metrics_daily (
 );
 
 CREATE TABLE gallery_ranking_snapshots (
-    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    id UUID PRIMARY KEY,
     ranking_kind TEXT NOT NULL CHECK (ranking_kind IN ('trending', 'most_viewed', 'most_favorited')),
     window_key TEXT NOT NULL CHECK (window_key IN ('24h', '7d', '30d', 'all')),
     generated_at TIMESTAMPTZ NOT NULL,

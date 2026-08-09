@@ -454,14 +454,18 @@ INSERT INTO gallery_images (id, asset_id, title, alt_text, width, height, proces
 
 func TestPostgreSQL18TagKeysetPlanUsesCursorIndexAtScale(t *testing.T) {
 	fixture := newGalleryPG18Fixture(t)
+	if _, err := fixture.SQL.Exec(`INSERT INTO gallery_classification_catalogs (id, catalog_key) VALUES ('01990000-0000-7000-8000-000000000001', 'gallery')`); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := fixture.SQL.Exec(`
-INSERT INTO gallery_classification_catalogs (id, catalog_key) VALUES ('01990000-0000-7000-8000-000000000001', 'gallery');
-INSERT INTO gallery_tags (catalog_id, current_name, current_slug)
-SELECT '01990000-0000-7000-8000-000000000001',
-       'Tag ' || LPAD(value::text, 5, '0'),
-       'tag-' || LPAD(value::text, 5, '0')
-FROM generate_series(1, 20000) value;
-ANALYZE gallery_tags;`); err != nil {
+INSERT INTO gallery_tags (id, catalog_id, current_name, current_slug)
+SELECT seed.id, '01990000-0000-7000-8000-000000000001',
+       'Tag ' || LPAD(seed.ordinality::text, 5, '0'),
+       'tag-' || LPAD(seed.ordinality::text, 5, '0')
+FROM unnest($1::uuid[]) WITH ORDINALITY AS seed(id, ordinality)`, pq.Array(fixtureIdentifiers("tag-plan", 20000))); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.SQL.Exec(`ANALYZE gallery_tags`); err != nil {
 		t.Fatal(err)
 	}
 	var cursorID string
@@ -503,23 +507,54 @@ LIMIT 41`, "Tag 10000", cursorID)
 
 func TestPostgreSQL18ContextualCountPlanUsesAssignmentIndexesAtScale(t *testing.T) {
 	fixture := newGalleryPG18Fixture(t)
-	if _, err := fixture.SQL.Exec(`
+	tx, err := fixture.SQL.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`
 INSERT INTO gallery_classification_catalogs (id, catalog_key) VALUES ('01990000-0000-7000-8000-000000000001', 'gallery');
-CREATE TEMP TABLE seed_categories (ordinal integer PRIMARY KEY, id uuid NOT NULL);
-INSERT INTO seed_categories SELECT value, uuidv7() FROM generate_series(1, 100) value;
+CREATE TEMP TABLE seed_categories (ordinal integer PRIMARY KEY, id uuid NOT NULL) ON COMMIT DROP;`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(`
+INSERT INTO seed_categories
+SELECT ordinality::integer, id FROM unnest($1::uuid[]) WITH ORDINALITY AS seed(id, ordinality)`,
+		pq.Array(fixtureIdentifiers("context-category", 100))); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(`
 INSERT INTO gallery_categories (id, catalog_id, slug, name, status, first_activated_at)
 SELECT id, '01990000-0000-7000-8000-000000000001', 'category-' || ordinal, '分类 ' || ordinal, 'active', NOW()
 FROM seed_categories;
 INSERT INTO gallery_facets (id, catalog_id, slug, name, status, first_activated_at)
 VALUES ('01990000-0000-7000-8200-000000000001', '01990000-0000-7000-8000-000000000001', 'scene', '场景', 'active', NOW());
-CREATE TEMP TABLE seed_facet_values (ordinal integer PRIMARY KEY, id uuid NOT NULL);
-INSERT INTO seed_facet_values SELECT value, uuidv7() FROM generate_series(1, 10) value;
+CREATE TEMP TABLE seed_facet_values (ordinal integer PRIMARY KEY, id uuid NOT NULL) ON COMMIT DROP;`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(`
+INSERT INTO seed_facet_values
+SELECT ordinality::integer, id FROM unnest($1::uuid[]) WITH ORDINALITY AS seed(id, ordinality)`,
+		pq.Array(fixtureIdentifiers("context-facet-value", 10))); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(`
 INSERT INTO gallery_facet_values (id, catalog_id, facet_id, slug, name, status, first_activated_at)
 SELECT id, '01990000-0000-7000-8000-000000000001', '01990000-0000-7000-8200-000000000001',
        'scene-' || ordinal, '场景 ' || ordinal, 'active', NOW()
 FROM seed_facet_values;
-CREATE TEMP TABLE seed_images (ordinal integer PRIMARY KEY, id uuid NOT NULL, asset_id uuid NOT NULL);
-INSERT INTO seed_images SELECT value, uuidv7(), uuidv7() FROM generate_series(1, 12000) value;
+CREATE TEMP TABLE seed_images (ordinal integer PRIMARY KEY, id uuid NOT NULL, asset_id uuid NOT NULL) ON COMMIT DROP;`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(`
+INSERT INTO seed_images
+SELECT ordinality::integer, id, asset_id
+FROM unnest($1::uuid[], $2::uuid[]) WITH ORDINALITY AS seed(id, asset_id, ordinality)`,
+		pq.Array(fixtureIdentifiers("context-image", 12000)),
+		pq.Array(fixtureIdentifiers("context-asset", 12000))); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(`
 INSERT INTO gallery_images (id, asset_id, title, alt_text, width, height, processing_state, review_state, publication_state, safety_state, public_rendition_ready, published_at)
 SELECT id, asset_id, '图片 ' || ordinal, '图片 ' || ordinal, 1600, 900, 'ready', 'approved', 'published', 'safe', TRUE,
        NOW() - ordinal * INTERVAL '1 second'
@@ -537,16 +572,12 @@ ANALYZE gallery_image_category_assignments;
 ANALYZE gallery_image_facet_assignments;`); err != nil {
 		t.Fatal(err)
 	}
-	var categoryOne, categoryTwo, facetValue string
-	if err := fixture.SQL.QueryRow(`SELECT id::text FROM seed_categories WHERE ordinal = 1`).Scan(&categoryOne); err != nil {
+	if err := tx.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	if err := fixture.SQL.QueryRow(`SELECT id::text FROM seed_categories WHERE ordinal = 2`).Scan(&categoryTwo); err != nil {
-		t.Fatal(err)
-	}
-	if err := fixture.SQL.QueryRow(`SELECT id::text FROM seed_facet_values WHERE ordinal = 1`).Scan(&facetValue); err != nil {
-		t.Fatal(err)
-	}
+	categoryOne := fixtureIdentifier("context-category", 1)
+	categoryTwo := fixtureIdentifier("context-category", 2)
+	facetValue := fixtureIdentifier("context-facet-value", 1)
 	payload := fmt.Sprintf(`[{"value_id":%q,"matching_ids":[%q]},{"value_id":%q,"matching_ids":[%q]}]`, categoryOne, categoryOne, categoryTwo, categoryTwo)
 	rows, err := fixture.SQL.Query(`
 EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
@@ -731,18 +762,22 @@ func TestPostgreSQL18CatalogScalePlansStayWithinBudgetAndOrderFromIndexes(t *tes
 	fixture := newGalleryPG18Fixture(t)
 	if _, err := fixture.SQL.Exec(`
 INSERT INTO gallery_images (
-    asset_id, title, description, alt_text, width, height,
+    id, asset_id, title, description, alt_text, width, height,
     processing_state, review_state, publication_state, safety_state,
     public_rendition_ready, published_at, updated_at
 )
-SELECT uuidv7(),
-       CASE WHEN value % 997 = 0 THEN 'Needle city ' || value ELSE 'Catalog image ' || value END,
-       CASE WHEN value % 991 = 0 THEN 'rare needle description' ELSE 'curated visual' END,
-       'Catalog image ' || value,
+SELECT seed.id, seed.asset_id,
+       CASE WHEN seed.ordinality % 997 = 0 THEN 'Needle city ' || seed.ordinality ELSE 'Catalog image ' || seed.ordinality END,
+       CASE WHEN seed.ordinality % 991 = 0 THEN 'rare needle description' ELSE 'curated visual' END,
+       'Catalog image ' || seed.ordinality,
        1600, 900, 'ready', 'approved', 'published', 'safe', TRUE,
-       NOW() - value * INTERVAL '1 second', NOW() - value * INTERVAL '1 second'
-FROM generate_series(1, 12000) value;
-ANALYZE gallery_images;`); err != nil {
+       NOW() - seed.ordinality * INTERVAL '1 second', NOW() - seed.ordinality * INTERVAL '1 second'
+FROM unnest($1::uuid[], $2::uuid[]) WITH ORDINALITY AS seed(id, asset_id, ordinality)`,
+		pq.Array(fixtureIdentifiers("catalog-image", 12000)),
+		pq.Array(fixtureIdentifiers("catalog-asset", 12000))); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.SQL.Exec(`ANALYZE gallery_images`); err != nil {
 		t.Fatal(err)
 	}
 

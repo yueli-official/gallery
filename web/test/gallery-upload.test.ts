@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { galleryClientId } from "../app/utils/clientId";
+import { galleryDraftKey } from "../app/utils/clientId";
 import {
   GALLERY_UPLOAD_ACCEPT,
   GALLERY_UPLOAD_FORMAT_LABEL,
@@ -28,33 +28,11 @@ describe("gallery upload preflight", () => {
     );
   });
 
-  it("creates unique queue IDs without secure-context randomUUID", () => {
-    let seed = 0;
-    const insecureCrypto = {
-      getRandomValues(values: Uint8Array) {
-        seed += 1;
-        values.forEach((_, index) => {
-          values[index] = seed + index;
-        });
-        return values;
-      },
-    };
-
-    const first = galleryClientId(insecureCrypto);
-    const second = galleryClientId(insecureCrypto);
-
+  it("creates distinct non-persistent queue draft keys", () => {
+    const first = galleryDraftKey();
+    const second = galleryDraftKey();
     expect(first).not.toBe(second);
-    expect(first).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-    );
-  });
-
-  it("uses native randomUUID when the browser provides it", () => {
-    expect(
-      galleryClientId({
-        randomUUID: () => "00000000-0000-4000-8000-000000000001",
-      }),
-    ).toBe("00000000-0000-4000-8000-000000000001");
+    expect(first).toMatch(/^draft-gallery-upload-[1-9][0-9]*$/);
   });
 
   it("accepts a supported static image", () => {

@@ -18,7 +18,7 @@ gallery:
   siteSlug: "gallery-main"
   authorization:
     bootstrapAdministratorSubs:
-      - "usr_AAAAAAAAAAAAAAAAAAAAAA"
+      - "TestA123"
   asset:
     baseUrl: "http://localhost:8082"
     tokenUrl: "http://localhost:8081/oauth2/token"

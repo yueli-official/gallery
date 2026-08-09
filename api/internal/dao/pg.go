@@ -59,8 +59,8 @@ func (p *PG) enqueueClassificationRefresh(
 ) error {
 	if p.work == nil {
 		if _, err := tx.Ctx(ctx).Exec(`
-INSERT INTO gallery_classification_outbox (catalog_id, revision, event_type, payload)
-VALUES (?::uuid, ?, ?, ?::jsonb)`, catalogID, revision, eventType, string(payload)); err != nil {
+INSERT INTO gallery_classification_outbox (event_id, catalog_id, revision, event_type, payload)
+VALUES (?::uuid, ?::uuid, ?, ?, ?::jsonb)`, newIdentifier(), catalogID, revision, eventType, string(payload)); err != nil {
 			return err
 		}
 	} else {
@@ -814,9 +814,10 @@ func (p *PG) CreateEditorialCollection(ctx context.Context, operator string, inp
 	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		tx = tx.Ctx(ctx)
 		record, err := tx.GetOne(`
-INSERT INTO gallery_collections (kind, resource_kind, owner_kind, owner_id, visibility, name, description)
-VALUES ('gallery.editorial', 'gallery.image', 'site', 'gallery', ?, ?, ?)
-RETURNING id::text AS id, kind, resource_kind, owner_kind, owner_id, visibility, name, description, version, created_at, updated_at`, input.Visibility, input.Name, input.Description)
+INSERT INTO gallery_collections (id, kind, resource_kind, owner_kind, owner_id, visibility, name, description)
+VALUES (?::uuid, 'gallery.editorial', 'gallery.image', 'site', 'gallery', ?, ?, ?)
+RETURNING id::text AS id, kind, resource_kind, owner_kind, owner_id, visibility, name, description, version, created_at, updated_at`,
+			newIdentifier(), input.Visibility, input.Name, input.Description)
 		if err != nil {
 			return gerror.Wrap(err, "create editorial collection")
 		}
@@ -1054,9 +1055,9 @@ LIMIT 1`, kind, window).Scan(&existing); err != nil {
 		}
 		var created []rankingSnapshot
 		if err := tx.Raw(`
-INSERT INTO gallery_ranking_snapshots (ranking_kind, window_key, generated_at, expires_at)
-VALUES (?, ?, NOW(), NOW() + INTERVAL '5 minutes')
-RETURNING id::text AS id, generated_at`, kind, window).Scan(&created); err != nil {
+INSERT INTO gallery_ranking_snapshots (id, ranking_kind, window_key, generated_at, expires_at)
+VALUES (?::uuid, ?, ?, NOW(), NOW() + INTERVAL '5 minutes')
+RETURNING id::text AS id, generated_at`, newIdentifier(), kind, window).Scan(&created); err != nil {
 			return gerror.Wrap(err, "create gallery ranking snapshot")
 		}
 		if len(created) != 1 {
@@ -1098,9 +1099,9 @@ WHERE rank <= ?`
 func (p *PG) CreateSubmission(ctx context.Context, subject model.Subject, input model.SubmissionInput, review string) (*model.Submission, error) {
 	const query = `
 INSERT INTO gallery_submissions (
-    subject_kind, subject_id, asset_id, title, description, source_url, alt_text, review_state
+    id, subject_kind, subject_id, asset_id, title, description, source_url, alt_text, review_state
 )
-VALUES (?, ?, ?::uuid, ?, ?, NULLIF(?, ''), ?, ?)
+VALUES (?::uuid, ?, ?, ?::uuid, ?, ?, NULLIF(?, ''), ?, ?)
 RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
           COALESCE(image_id::text, '') AS image_id, title, description, COALESCE(source_url, '') AS source_url,
           alt_text, processing_state, review_state, safety_state,
@@ -1136,7 +1137,7 @@ SELECT EXISTS (
 		if len(input.Classification.TagCreations) != 0 {
 			return galleryerr.NotInitialized("classification_tag_creation")
 		}
-		record, err := tx.GetOne(query, subject.Kind, subject.ID, input.AssetID, input.Title, input.Description,
+		record, err := tx.GetOne(query, newIdentifier(), subject.Kind, subject.ID, input.AssetID, input.Title, input.Description,
 			input.SourceURL, input.AltText, review)
 		if err != nil {
 			return gerror.Wrap(err, "insert gallery submission")
@@ -1176,8 +1177,8 @@ VALUES (?::uuid, ?::uuid)`, value.ID, tag.TagID); err != nil {
 		}
 		for _, proposal := range input.Classification.TagProposals {
 			if _, err := tx.Ctx(ctx).Exec(`
-INSERT INTO gallery_tag_proposals (submission_id, input_value, lookup_key)
-VALUES (?::uuid, ?, ?)`, value.ID, proposal.DisplayValue, proposal.LookupKey); err != nil {
+INSERT INTO gallery_tag_proposals (id, submission_id, input_value, lookup_key)
+VALUES (?::uuid, ?::uuid, ?, ?)`, newIdentifier(), value.ID, proposal.DisplayValue, proposal.LookupKey); err != nil {
 				return gerror.Wrap(err, "create gallery submission tag proposal")
 			}
 		}
@@ -1325,13 +1326,13 @@ func (p *PG) SubmissionAssetID(ctx context.Context, id string) (string, error) {
 
 func (p *PG) CreateCase(ctx context.Context, subject model.Subject, imageID string, input model.CaseInput) (*model.Case, error) {
 	const query = `
-INSERT INTO gallery_cases (image_id, kind, reporter_kind, reporter_id, reason, description, proposed_source_url)
-SELECT i.id, ?, NULLIF(?, ''), ?, ?, ?, NULLIF(?, '')
+INSERT INTO gallery_cases (id, image_id, kind, reporter_kind, reporter_id, reason, description, proposed_source_url)
+SELECT ?::uuid, i.id, ?, NULLIF(?, ''), ?, ?, ?, NULLIF(?, '')
 FROM gallery_images i WHERE i.id = ?::uuid AND ` + eligibleImage + `
 RETURNING id::text AS id, COALESCE(image_id::text, '') AS image_id,
           COALESCE(submission_id::text, '') AS submission_id, kind, status, reason, description,
           COALESCE(proposed_source_url, '') AS proposed_source_url, resolution_note, created_at, updated_at`
-	record, err := p.db.GetOne(ctx, query, input.Kind, subject.Kind, subject.ID, input.Reason, input.Description, input.ProposedSourceURL, imageID)
+	record, err := p.db.GetOne(ctx, query, newIdentifier(), input.Kind, subject.Kind, subject.ID, input.Reason, input.Description, input.ProposedSourceURL, imageID)
 	if err != nil {
 		return nil, gerror.Wrap(err, "create gallery case")
 	}
@@ -1683,14 +1684,14 @@ LIMIT 1`, id)
 		if imageID == "" {
 			record, err := tx.GetOne(`
 INSERT INTO gallery_images (
-    asset_id, origin_submission_id, title, description, source_url, alt_text, width, height,
+    id, asset_id, origin_submission_id, title, description, source_url, alt_text, width, height,
     dominant_color, processing_state, review_state, publication_state, safety_state,
     public_rendition_ready, exact_sha256, pdq_hash, published_at
 )
-SELECT asset_id, id, title, description, source_url, alt_text, width, height,
+SELECT ?::uuid, asset_id, id, title, description, source_url, alt_text, width, height,
        dominant_color, 'ready', 'approved', 'published', 'safe', FALSE, exact_sha256, pdq_hash, NOW()
 FROM gallery_submissions WHERE id = ?::uuid
-RETURNING id::text AS id`, id)
+RETURNING id::text AS id`, newIdentifier(), id)
 			if err != nil {
 				return gerror.Wrap(err, "publish approved gallery submission")
 			}
@@ -1797,8 +1798,9 @@ WITH hidden AS (
     WHERE id = ?::uuid AND publication_state = 'published'
     RETURNING id
 )
-INSERT INTO gallery_cases (image_id, kind, status, reporter_kind, reporter_id, reason, operator_sub)
-SELECT id, 'takedown', 'resolved', 'operator', ?, ?, ? FROM hidden`, id, operator, reason, operator)
+INSERT INTO gallery_cases (id, image_id, kind, status, reporter_kind, reporter_id, reason, operator_sub)
+SELECT ?::uuid, id, 'takedown', 'resolved', 'operator', ?, ?, ? FROM hidden`,
+		id, newIdentifier(), operator, reason, operator)
 	if err != nil {
 		return gerror.Wrap(err, "hide public gallery image")
 	}
@@ -1910,9 +1912,9 @@ SELECT EXISTS (
 			}
 		}
 		result, err := tx.Ctx(ctx).Exec(`
-INSERT INTO gallery_image_events (image_id, subject_key, session_key, event_type)
-SELECT i.id, ?, ?, ? FROM gallery_images i WHERE i.id = ?::uuid AND `+eligibleImage,
-			subjectKey, input.SessionKey, input.Type, imageID)
+INSERT INTO gallery_image_events (id, image_id, subject_key, session_key, event_type)
+SELECT ?::uuid, i.id, ?, ?, ? FROM gallery_images i WHERE i.id = ?::uuid AND `+eligibleImage,
+			newIdentifier(), subjectKey, input.SessionKey, input.Type, imageID)
 		if err != nil {
 			return gerror.Wrap(err, "record gallery image event")
 		}
@@ -1956,12 +1958,12 @@ func (p *PG) FindSingleton(ctx context.Context, kind, ownerID string) (*model.Co
 
 func (p *PG) CreateCollection(ctx context.Context, input collection.CreateInput) (*model.Collection, error) {
 	const query = `
-INSERT INTO gallery_collections (kind, resource_kind, owner_kind, owner_id, visibility, name, description)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO gallery_collections (id, kind, resource_kind, owner_kind, owner_id, visibility, name, description)
+VALUES (?::uuid, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (owner_id) WHERE kind = 'gallery.favorites'
 DO UPDATE SET updated_at = gallery_collections.updated_at
 RETURNING id::text AS id, kind, resource_kind, owner_kind, owner_id, visibility, name, description, version, created_at, updated_at`
-	record, err := p.db.GetOne(ctx, query, input.Kind, input.ResourceKind, input.OwnerKind, input.OwnerID, input.Visibility, input.Name, input.Description)
+	record, err := p.db.GetOne(ctx, query, newIdentifier(), input.Kind, input.ResourceKind, input.OwnerKind, input.OwnerID, input.Visibility, input.Name, input.Description)
 	if err != nil {
 		return nil, gerror.Wrap(err, "create gallery collection")
 	}

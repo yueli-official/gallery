@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/gogf/gf/v2/net/ghttp"
-	"github.com/google/uuid"
 	"github.com/yueli-official/foundation/go/abuse"
 	foundationauth "github.com/yueli-official/foundation/go/auth"
+	"github.com/yueli-official/foundation/go/identifier"
 	v1 "github.com/yueli-official/gallery/api/api/v1"
 	galleryservice "github.com/yueli-official/gallery/api/internal/gallery"
 	"github.com/yueli-official/gallery/api/internal/galleryauthz"
@@ -26,7 +26,7 @@ func (c *Workflow) CreateSubmission(ctx context.Context, req *v1.CreateSubmissio
 	}
 	attemptID := strings.TrimSpace(req.AbuseAttemptID)
 	if attemptID == "" {
-		attemptID = uuid.NewString()
+		attemptID = identifier.MustNew().String()
 	}
 	request := ghttp.RequestFromCtx(ctx)
 	if request == nil {
