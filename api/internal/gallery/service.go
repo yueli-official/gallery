@@ -14,10 +14,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/yueli-official/foundation/go/abuse"
 
 	"github.com/yueli-official/foundation/go/classification"
+	"github.com/yueli-official/foundation/go/identifier"
 	"github.com/yueli-official/gallery/api/internal/collection"
 	"github.com/yueli-official/gallery/api/internal/galleryabuse"
 	"github.com/yueli-official/gallery/api/internal/galleryerr"
@@ -764,7 +764,7 @@ func (s *Service) Submit(ctx context.Context, subject model.Subject, input model
 	if input.Title == "" {
 		return nil, galleryerr.Validation("title", "title is required")
 	}
-	if _, err := uuid.Parse(input.AssetID); err != nil {
+	if _, err := identifier.Parse(input.AssetID); err != nil {
 		return nil, galleryerr.Validation("assetId", "assetId must be a UUID")
 	}
 	for index, rawID := range input.CategoryIDs {

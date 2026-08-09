@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/uuid"
+	"github.com/yueli-official/foundation/go/identifier"
 )
 
 func PublicID(value string) string {
-	id, err := uuid.Parse(strings.TrimSpace(value))
+	id, err := identifier.Parse(strings.TrimSpace(value))
 	if err != nil {
 		return value
 	}
@@ -18,15 +18,15 @@ func PublicID(value string) string {
 
 func DatabaseID(value string) (string, error) {
 	value = strings.TrimSpace(value)
-	if id, err := uuid.Parse(value); err == nil {
+	if id, err := identifier.Parse(value); err == nil {
 		return id.String(), nil
 	}
 	bytes, err := base64.RawURLEncoding.DecodeString(value)
 	if err != nil || len(bytes) != 16 {
 		return "", fmt.Errorf("invalid public UUID")
 	}
-	id, err := uuid.FromBytes(bytes)
-	if err != nil {
+	id := identifier.UUID([16]byte(bytes))
+	if _, err := identifier.Parse(id.String()); err != nil {
 		return "", fmt.Errorf("invalid public UUID: %w", err)
 	}
 	return id.String(), nil
