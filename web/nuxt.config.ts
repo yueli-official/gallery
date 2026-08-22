@@ -10,14 +10,24 @@ export default defineNuxtConfig({
   ],
   modules: ["@nuxt/ui", "@yueli/ui", "@yueli/nuxt-runtime"],
   icon: {
+    provider: "none",
+    fallbackToApi: false,
     serverBundle: { collections: ["tabler"] },
     clientBundle: {
       scan: {
         globInclude: [
-          "app/**/*.{vue,ts}",
-          "node_modules/@yueli/**/*.{vue,js,mjs,ts}",
+          "app/**/*.{vue,js,mjs,ts,jsx,tsx}",
+          "node_modules/@yueli/**/*.{vue,js,mjs,ts,jsx,tsx}",
         ],
-        globExclude: ["test/**", "tests/**", ".*"],
+        globExclude: [
+          "test/**",
+          "tests/**",
+          "coverage/**",
+          "dist/**",
+          ".nuxt/**",
+          ".output/**",
+          ".*",
+        ],
       },
       sizeLimitKb: 256,
     },
@@ -139,6 +149,7 @@ export default defineNuxtConfig({
       accountUrl:
         process.env.NUXT_PUBLIC_ACCOUNT_URL || "http://localhost:3000",
       siteSlug: process.env.NUXT_PUBLIC_SITE_SLUG || "gallery-main",
+      assetNamespace: process.env.NUXT_PUBLIC_ASSET_NAMESPACE || "gallery",
       siteBrand,
     },
   },

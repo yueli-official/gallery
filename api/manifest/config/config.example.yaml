@@ -16,6 +16,7 @@ database:
 
 gallery:
   siteSlug: "gallery-main"
+  assetNamespace: "gallery"
   authorization:
     bootstrapAdministratorSubs:
       - "TestA123"

@@ -1,4 +1,5 @@
 import type { GalleryUploadedAsset } from "~/types/gallery";
+import { assetUploadURL } from "@yueli/asset-nuxt/upload";
 
 interface UploadInit {
   uploadUrl: string;
@@ -8,12 +9,12 @@ interface UploadInit {
 
 export function useGalleryAssetUpload() {
   const { call } = useAssetApi();
-  const { slug: siteSlug } = useSiteRuntime();
+  const { assetNamespace } = useSiteRuntime();
 
   function put(url: string, file: File, headers: Record<string, string>, onProgress?: (value: number) => void) {
     return new Promise<void>((resolve, reject) => {
       const request = new XMLHttpRequest();
-      request.open("PUT", url);
+      request.open("PUT", assetUploadURL(url));
       Object.entries(headers).forEach(([key, value]) => request.setRequestHeader(key, value));
       request.upload.onprogress = (event) => {
         if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 95));
@@ -33,7 +34,7 @@ export function useGalleryAssetUpload() {
         filename: file.name,
         mime: file.type || "application/octet-stream",
         size: file.size,
-        siteKey: siteSlug.value,
+        siteKey: assetNamespace.value,
         profileKey: "gallery-submission",
         category: "gallery-submission",
         visibility: "private",

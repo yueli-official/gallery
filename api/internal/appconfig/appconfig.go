@@ -34,6 +34,10 @@ func SiteSlug(ctx context.Context) string {
 	return g.Cfg().MustGet(ctx, "gallery.siteSlug", "gallery-main").String()
 }
 
+func AssetNamespace(ctx context.Context) string {
+	return g.Cfg().MustGet(ctx, "gallery.assetNamespace", "gallery").String()
+}
+
 func BootstrapAdministratorSubs(ctx context.Context) []string {
 	return g.Cfg().MustGet(ctx, "gallery.authorization.bootstrapAdministratorSubs").Strings()
 }

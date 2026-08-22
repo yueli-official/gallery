@@ -3,5 +3,6 @@ export function useSiteRuntime() {
   return {
     slug: computed(() => config.public.siteSlug),
     brand: computed(() => config.public.siteBrand),
+    assetNamespace: computed(() => config.public.assetNamespace),
   };
 }

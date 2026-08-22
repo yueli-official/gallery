@@ -1,0 +1,34 @@
+{
+  "$schema": "../../asset/contracts/asset-consumer-declaration.schema.json",
+  "consumerKey": "gallery",
+  "namespaceKey": "gallery",
+  "displayName": "月离图库",
+  "bindings": [
+    { "kind": "oauth-client", "subject": "gallery-main-web" },
+    { "kind": "service-client", "subject": "gallery-asset-svc" }
+  ],
+  "profiles": [
+    {
+      "key": "gallery-submission",
+      "kind": "private-original",
+      "purpose": "投稿原件与公开派生图",
+      "allowedMimes": ["image/jpeg", "image/png", "image/webp"],
+      "maxBytes": 20971520,
+      "maxPixels": 80000000,
+      "visibility": "private",
+      "metadataPolicy": "preserve",
+      "keepOriginal": true,
+      "storageClass": "private-original",
+      "variants": [
+        { "key": "thumbnail", "width": 240, "height": 180, "mode": "fill", "format": "webp", "quality": 82, "visibility": "public", "metadataPolicy": "strip" },
+        { "key": "grid-sm", "width": 480, "height": 360, "mode": "fill", "format": "webp", "quality": 84, "visibility": "public", "metadataPolicy": "strip" },
+        { "key": "grid-lg", "width": 960, "height": 720, "mode": "fill", "format": "webp", "quality": 86, "visibility": "public", "metadataPolicy": "strip" },
+        { "key": "masonry-sm", "width": 960, "height": 960, "mode": "resize", "format": "webp", "quality": 85, "visibility": "public", "metadataPolicy": "strip" },
+        { "key": "masonry-lg", "width": 1600, "height": 1600, "mode": "resize", "format": "webp", "quality": 88, "visibility": "public", "metadataPolicy": "strip" },
+        { "key": "preview", "width": 1600, "height": 1600, "mode": "resize", "format": "webp", "quality": 88, "visibility": "public", "metadataPolicy": "strip" },
+        { "key": "display", "width": 2560, "height": 2560, "mode": "resize", "format": "webp", "quality": 90, "visibility": "public", "metadataPolicy": "strip" },
+        { "key": "og", "width": 1200, "height": 630, "mode": "fill", "format": "webp", "quality": 86, "visibility": "public", "metadataPolicy": "strip" }
+      ]
+    }
+  ]
+}

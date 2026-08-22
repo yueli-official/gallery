@@ -1,20 +1,17 @@
 <script setup lang="ts">
-import { ManageAssetSettings } from "@yueli/asset-nuxt/components";
+import { AssetRegistrationSummary } from "@yueli/asset-nuxt/components";
+import { PageHeader } from "@yueli/ui/dashboard/pattern";
 
 definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
-useSeoMeta({ title: "资源设置 · 图库管理" });
-
-const { slug, brand } = useSiteRuntime();
-const { can } = useGalleryMe();
+useSeoMeta({ title: "资源策略 · 图库管理" });
 </script>
 
 <template>
-  <ManageAssetSettings
-    :site-key="slug"
-    :site-name="brand"
-    :can-manage="can('gallery.asset_settings.manage')"
-    permission-description="只有具备图库资源管理权限的运营者可以修改这些规则。"
-    description="管理投稿原图的私有存储、公开图片衍生版本与上传限制。日常审核不需要进入这里，只有存储策略变化或上传异常时才调整。"
-    :profile-order="['gallery-submission']"
-  />
+  <div class="space-y-5">
+    <PageHeader title="资源策略" />
+    <ClientOnly>
+      <AssetRegistrationSummary expected-namespace="gallery" :profile-order="['gallery-submission']" />
+      <template #fallback><USkeleton class="h-56 w-full rounded-xl" /></template>
+    </ClientOnly>
+  </div>
 </template>

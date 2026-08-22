@@ -180,7 +180,7 @@ func main() {
 	assetCfg := appconfig.LoadAssetClient(ctx)
 	assetPort, err := assetclient.NewHTTP(assetclient.Config{
 		BaseURL: assetCfg.BaseURL, TokenURL: assetCfg.TokenURL, ClientID: assetCfg.ClientID,
-		ClientSecret: assetCfg.ClientSecret, Scope: assetCfg.Scope, SiteKey: appconfig.SiteSlug(ctx),
+		ClientSecret: assetCfg.ClientSecret, Scope: assetCfg.Scope, SiteKey: appconfig.AssetNamespace(ctx),
 		HTTPClient: runtime.TelemetryHTTPClient(nil),
 	})
 	if err != nil {
