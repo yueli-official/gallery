@@ -18,6 +18,17 @@
   --gallery-viewer-canvas: #e9edf3;
   --gallery-viewer-panel: #f8fafc;
   --gallery-viewer-overlay: rgb(255 255 255 / 0.88);
+  --ui-bg: var(--gallery-panel-strong);
+  --ui-bg-muted: var(--gallery-panel);
+  --ui-bg-elevated: color-mix(in srgb, var(--gallery-panel) 72%, var(--gallery-panel-strong));
+  --ui-bg-accented: color-mix(in srgb, var(--gallery-accent) 10%, var(--gallery-panel-strong));
+  --ui-border-muted: var(--gallery-line);
+  --ui-border: color-mix(in srgb, var(--gallery-ink) 20%, transparent);
+  --yueli-surface-page: var(--gallery-canvas);
+  --yueli-surface-region: var(--gallery-panel);
+  --yueli-surface-card: var(--gallery-panel-strong);
+  --yueli-surface-inset: var(--ui-bg-elevated);
+  --yueli-surface-overlay: var(--gallery-panel-strong);
 }
 
 .dark {

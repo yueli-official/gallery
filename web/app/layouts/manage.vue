@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { DropdownMenuItem } from "@nuxt/ui";
 import type {
   AdminNavigationItem,
   AdminSearchGroup,
@@ -11,10 +10,24 @@ const { brand } = useSiteRuntime();
 const { can, isAdministrator } = useGalleryMe();
 const sidebarOpen = ref(false);
 
+const currentLabel = computed(() => {
+  if (route.path === "/manage") return "今日运营";
+  if (route.path.startsWith("/manage/images")) return "图片";
+  if (route.path.startsWith("/manage/submissions")) return "投稿审核";
+  if (route.path.startsWith("/manage/collections")) return "专题策展";
+  if (route.path.startsWith("/manage/classification")) return "分类与维度";
+  if (route.path.startsWith("/manage/cases")) return "处理单";
+  if (route.path.startsWith("/manage/discovery")) return "站点与首页";
+  if (route.path.startsWith("/manage/assets")) return "资源策略";
+  if (route.path.startsWith("/manage/authorization")) return "权限与申请";
+  return "今日运营";
+});
+
 const messages: AdminShellMessages = {
   skipToContent: "跳到主要内容",
   search: "搜索图库后台",
   searchPlaceholder: "搜索页面与常用操作",
+  currentLocation: "当前位置",
 };
 
 function closeSidebar() {
@@ -178,103 +191,45 @@ const searchGroups = computed<readonly AdminSearchGroup[]>(() => {
   ];
 });
 
-const workspaceMenuItems = computed<DropdownMenuItem[][]>(() => [
-  [{ type: "label", label: brand.value }],
-  [
-    {
-      label: "图库运营",
-      icon: "i-tabler-photo",
-      type: "checkbox",
-      checked: true,
-      onSelect: (event: Event) => event.preventDefault(),
-    },
-  ],
-  [
-    {
-      label: "打开图库",
-      icon: "i-tabler-external-link",
-      to: "/",
-      onSelect: closeSidebar,
-    },
-  ],
-]);
 </script>
 
 <template>
-  <YAdminShell
-      v-model:open="sidebarOpen"
-      :navigation="navigation"
-      :search-groups="searchGroups"
-      :messages="messages"
-      storage-key="gallery-manage"
-      main-id="manage-main"
-      :default-size="16"
-      :min-size="14"
-      :max-size="20"
-    >
-      <template #brand="{ collapsed }">
-        <UDropdownMenu
-          :items="workspaceMenuItems"
-          :content="{ align: 'center', collisionPadding: 12 }"
-          :ui="{
-            content: collapsed
-              ? 'w-56'
-              : 'w-(--reka-dropdown-menu-trigger-width)',
-          }"
-        >
-          <UButton
-            type="button"
-            color="neutral"
-            variant="ghost"
-            :block="!collapsed"
-            :square="collapsed"
-            :aria-label="`打开${brand}站点菜单`"
-            :class="[
-              'min-h-11 gap-2 px-1.5 data-[state=open]:bg-elevated',
-              !collapsed && 'w-full justify-start',
-              collapsed && 'aspect-square justify-center px-0',
-            ]"
-          >
-            <span
-              class="grid size-7 shrink-0 place-items-center rounded-md bg-primary/10 text-primary"
-            >
-              <UIcon name="i-tabler-photo" class="size-4" />
-            </span>
-            <span
-              v-if="!collapsed"
-              class="min-w-0 truncate text-sm font-semibold text-highlighted"
-            >
-              {{ brand }}
-            </span>
-            <UIcon
-              v-if="!collapsed"
-              name="i-tabler-chevrons-up-down"
-              class="ms-auto size-3.5 text-dimmed"
-            />
-          </UButton>
-        </UDropdownMenu>
-      </template>
-
-      <template #sidebar-footer="{ collapsed }">
-        <ConsumerManageAccountControl
-          home-to=""
-          show-appearance
-          :trigger-mode="collapsed ? 'collapsed' : 'sidebar'"
-        />
-      </template>
-
-      <main
-        id="manage-main"
-        tabindex="-1"
-        class="min-w-0 flex-1 overflow-y-auto p-4 outline-none sm:p-6"
-      >
-        <slot />
-      </main>
-      <YBackToTop
-        target-id="manage-main"
-        scroll-container-id="manage-main"
-        avoid-selector="[data-manage-dock], [data-back-to-top-avoid]"
-        label="返回顶部"
+  <YAdminConsoleLayout
+    :navigation="navigation"
+    :search-groups="searchGroups"
+    :messages="messages"
+    storage-key="gallery-manage"
+    main-id="manage-main"
+    :brand-label="brand"
+    brand-icon="i-tabler-photo"
+    brand-to="/"
+    :context-label="brand"
+    :current-label="currentLabel"
+    back-to-top-label="返回顶部"
+    data-gallery-manage-shell
+  >
+    <template #account="{ collapsed }">
+      <ConsumerManageAccountControl
+        home-to=""
+        show-appearance
+        :trigger-mode="collapsed ? 'collapsed' : 'sidebar'"
       />
-  </YAdminShell>
+    </template>
+    <slot />
+  </YAdminConsoleLayout>
 </template>
+
+<style scoped>
+@media (max-width: 640px) {
+  [data-gallery-manage-shell] :deep(button),
+  [data-gallery-manage-shell] :deep(a[href]),
+  [data-gallery-manage-shell] :deep(summary) {
+    min-height: 44px;
+  }
+
+  [data-gallery-manage-shell] :deep(button[aria-label]),
+  [data-gallery-manage-shell] :deep(a[aria-label]) {
+    min-width: 44px;
+  }
+}
+</style>

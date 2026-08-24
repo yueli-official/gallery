@@ -216,7 +216,7 @@ function revokeGrant(grant: GrantView) {
 </script>
 
 <template>
-  <div id="authorization" class="mx-auto w-full max-w-screen-2xl space-y-4">
+  <div id="authorization" class="w-full space-y-5">
     <PageHeader
       title="权限与申请"
       description="配置本站角色能力、内容运营申请与自动授权；用户中心只提供登录身份。"
