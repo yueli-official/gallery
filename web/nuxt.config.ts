@@ -1,7 +1,16 @@
+import { realpathSync } from "node:fs";
+import { resolve, sep } from "node:path";
+
 const siteBrand = process.env.NUXT_PUBLIC_SITE_BRAND || "月离图库";
 const cookieSecure = process.env.NUXT_COOKIE_SECURE === undefined
   ? process.env.NODE_ENV === "production"
   : process.env.NUXT_COOKIE_SECURE === "true";
+const resolvedNuxt = realpathSync(resolve(process.cwd(), "node_modules/nuxt"));
+const pnpmStoreMarker = `${sep}.pnpm${sep}`;
+const pnpmStoreIndex = resolvedNuxt.indexOf(pnpmStoreMarker);
+const dependencyRoot = pnpmStoreIndex >= 0
+  ? resolvedNuxt.slice(0, pnpmStoreIndex)
+  : resolve(process.cwd(), "node_modules");
 
 export default defineNuxtConfig({
   extends: [
@@ -151,6 +160,16 @@ export default defineNuxtConfig({
       siteSlug: process.env.NUXT_PUBLIC_SITE_SLUG || "gallery-main",
       assetNamespace: process.env.NUXT_PUBLIC_ASSET_NAMESPACE || "gallery",
       siteBrand,
+    },
+  },
+  vite: {
+    resolve: {
+      dedupe: ["vue", "vue-router", "@vue/runtime-core", "@vue/runtime-dom"],
+    },
+    server: {
+      fs: {
+        allow: [resolve(process.cwd(), "../../foundation"), dependencyRoot],
+      },
     },
   },
   devtools: { enabled: true },

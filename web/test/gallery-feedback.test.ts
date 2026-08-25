@@ -8,16 +8,8 @@ const actions = fs.readFileSync(
   "utf8",
 );
 const app = fs.readFileSync(path.join(root, "app/app.vue"), "utf8");
-const appConfig = fs.readFileSync(
-  path.join(root, "app/app.config.ts"),
-  "utf8",
-);
 const feedback = fs.readFileSync(
   path.join(root, "app/utils/feedback.ts"),
-  "utf8",
-);
-const mainCss = fs.readFileSync(
-  path.join(root, "app/assets/css/main.css"),
   "utf8",
 );
 
@@ -33,17 +25,9 @@ describe("gallery feedback", () => {
     expect(actions).toContain("await login()");
   });
 
-  it("removes countdown bars and uses the Gallery toast treatment", () => {
-    expect(app).toContain("progress: false");
-    expect(feedback).toContain("progress: false");
-    expect(appConfig).toContain('root: "gallery-toast');
-    expect(mainCss).toMatch(
-      /\.gallery-toast\s*\{[\s\S]*?align-items:\s*center;/,
-    );
-    expect(appConfig).toContain(
-      'icon: "size-[1.125rem] shrink-0 self-center"',
-    );
-    expect(appConfig).toContain('close:\n          "self-center');
-    expect(appConfig).toContain('progress: "hidden"');
+  it("uses the shared bounded toast region", () => {
+    expect(app).toContain(':toaster="null"');
+    expect(app).toContain("FeedbackToastRegion");
+    expect(feedback).toContain("createNuxtToastNotifier");
   });
 });

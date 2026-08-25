@@ -8,19 +8,9 @@ const appConfig = fs.readFileSync(
 );
 
 describe("gallery form control theme", () => {
-  it.each(["input", "textarea", "select", "selectMenu"])(
-    "makes %s fill its field container",
-    (component) => {
-      const block = appConfig.match(
-        new RegExp(`${component}: \\{[\\s\\S]*?\\n    \\},`),
-      )?.[0];
-      expect(block).toContain("w-full");
-    },
-  );
-
-  it("uses the existing inset border for focus instead of an outer outline", () => {
-    expect(appConfig.match(/focus-visible:outline-none/g) || []).toHaveLength(4);
-    expect(appConfig.match(/focus-visible:ring-inset/g) || []).toHaveLength(4);
-    expect(appConfig).not.toContain("focus-visible:outline-3");
+  it("delegates form controls to the shared single-border preset", () => {
+    expect(appConfig).toContain("createUiPreset");
+    expect(appConfig).not.toMatch(/\b(?:input|textarea|select|selectMenu):\s*\{/);
+    expect(appConfig).not.toContain("focus-visible:ring-inset");
   });
 });

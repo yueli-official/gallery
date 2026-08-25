@@ -1167,17 +1167,6 @@ h3 {
   color: var(--ui-text-dimmed);
   font-size: 0.72rem;
 }
-.gallery-toast {
-  align-items: center;
-  border: 0;
-  background: color-mix(
-    in srgb,
-    var(--gallery-panel-strong) 94%,
-    transparent
-  );
-  box-shadow: 0 0.8rem 2.4rem rgb(13 24 44 / 0.14);
-  backdrop-filter: blur(1rem);
-}
 .gallery-detail-related-empty {
   padding-block: 2rem;
 }
