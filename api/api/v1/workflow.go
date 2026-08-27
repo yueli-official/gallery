@@ -106,6 +106,25 @@ type GetClassificationCatalogRes struct {
 	Catalog model.ClassificationCatalog `json:"catalog"`
 }
 
+type CreateClassificationIdentityReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/classification/identities" method:"POST" tags:"Gallery admin" summary:"Create a classification category, facet, facet value or tag"`
+	model.ClassificationIdentityCreateInput
+}
+
+type CreateClassificationIdentityRes struct {
+	Identity model.ClassificationIdentityCreateResult `json:"identity"`
+}
+
+type UpdateClassificationIdentityReq struct {
+	g.Meta     `path:"/api/v1/gallery/admin/classification/identities/{identityId}" method:"PATCH" tags:"Gallery admin" summary:"Update the name and slug of a classification identity"`
+	IdentityID string `p:"identityId" v:"required"`
+	model.ClassificationIdentityUpdateInput
+}
+
+type UpdateClassificationIdentityRes struct {
+	Identity model.ClassificationIdentityCreateResult `json:"identity"`
+}
+
 type ListClassificationTagsReq struct {
 	g.Meta `path:"/api/v1/gallery/admin/classification/tags" method:"GET" tags:"Gallery admin" summary:"List classification tags with a stable keyset cursor"`
 	Cursor string `p:"cursor"`
@@ -230,6 +249,16 @@ type UpdateAdminImageReq struct {
 }
 type UpdateAdminImageRes struct {
 	Image model.AdminImage `json:"image"`
+}
+
+type DeleteAdminImageReq struct {
+	g.Meta  `path:"/api/v1/gallery/admin/images/{imageId}" method:"DELETE" tags:"Gallery admin" summary:"Mark a Gallery image as deleted with optimistic concurrency"`
+	ImageID string `p:"imageId" v:"required"`
+	model.AdminImageDeleteInput
+}
+
+type DeleteAdminImageRes struct {
+	Deleted bool `json:"deleted"`
 }
 
 type BulkHideImagesReq struct {

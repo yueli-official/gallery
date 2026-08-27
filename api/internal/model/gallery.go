@@ -22,7 +22,6 @@ type HomeSectionSettings struct {
 	Enabled     bool   `json:"enabled" orm:"enabled"`
 	Position    int    `json:"position" orm:"position"`
 	Title       string `json:"title" orm:"title"`
-	Description string `json:"description" orm:"description"`
 	ActionLabel string `json:"actionLabel" orm:"action_label"`
 	ItemLimit   int    `json:"itemLimit" orm:"item_limit"`
 }
@@ -157,6 +156,10 @@ type AdminImageUpdateInput struct {
 	AltText           string                         `json:"altText"`
 	SourceURL         string                         `json:"sourceUrl"`
 	Classification    *AdminImageClassificationInput `json:"classification,omitempty"`
+}
+
+type AdminImageDeleteInput struct {
+	ExpectedUpdatedAt string `json:"expectedUpdatedAt"`
 }
 
 type AdminImageClassificationInput struct {
@@ -406,6 +409,25 @@ type ClassificationGovernancePreview struct {
 
 type ClassificationGovernanceExecution struct {
 	Applied         bool   `json:"applied"`
+	CatalogRevision uint64 `json:"catalogRevision"`
+}
+
+type ClassificationIdentityCreateInput struct {
+	Kind     string `json:"kind"`
+	Name     string `json:"name"`
+	Slug     string `json:"slug"`
+	ParentID string `json:"parentId"`
+	FacetID  string `json:"facetId"`
+}
+
+type ClassificationIdentityUpdateInput struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+type ClassificationIdentityCreateResult struct {
+	ID              string `json:"id"`
 	CatalogRevision uint64 `json:"catalogRevision"`
 }
 

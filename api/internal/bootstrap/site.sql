@@ -14,9 +14,9 @@ INSERT INTO gallery_home_sections (
 		)
 		VALUES
 		('gallery', 'random', TRUE, 0, '随机看看', '', '换一批', 24),
-		('gallery', 'collections', TRUE, 1, '从专题进入', '沿着一个清晰主题，查看经过整理的图片集合。', '查看全部专题', 4),
-		('gallery', 'latest', TRUE, 2, '最新入库', '最近完成处理和审核的公开图片。', '查看全部图片', 8),
-		('gallery', 'trending', TRUE, 3, '正在被发现', '近期获得更多有效浏览的图片。', '查看排行', 8)
+		('gallery', 'collections', TRUE, 1, '从专题进入', '', '查看全部专题', 4),
+		('gallery', 'latest', TRUE, 2, '最新入库', '', '查看全部图片', 8),
+		('gallery', 'trending', TRUE, 3, '正在被发现', '', '查看排行', 8)
 		ON CONFLICT (site_key, section_key) DO NOTHING;
 
 INSERT INTO gallery_classification_catalogs (id, catalog_key, revision)

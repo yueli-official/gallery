@@ -23,6 +23,7 @@ const emit = defineEmits<{
     item: GalleryClassificationTag,
   ];
   loadMore: [];
+  edit: [kind: IdentityKind, item: GalleryClassificationTag];
 }>();
 
 const statusLabel: Record<string, string> = {
@@ -34,6 +35,11 @@ function moreItems(item: GalleryClassificationTag) {
     item.status === "replaced"
       ? []
       : [
+          {
+            label: "编辑标签",
+            icon: "i-tabler-pencil",
+            onSelect: () => emit("edit", "tag", item),
+          },
           {
             label: item.status === "active" ? "停用标签" : "启用标签",
             icon:
@@ -61,19 +67,7 @@ function moreItems(item: GalleryClassificationTag) {
 </script>
 
 <template>
-  <section aria-labelledby="classification-tag-heading">
-    <div class="mb-3 flex items-end justify-between gap-3">
-      <div>
-        <h2
-          id="classification-tag-heading"
-          class="font-semibold text-highlighted"
-        >
-          标签
-        </h2>
-        <p class="mt-1 text-sm text-muted">扁平管理长尾词和同义词关系。</p>
-      </div>
-      <span class="text-xs text-dimmed">{{ tags.length }} 项</span>
-    </div>
+  <section aria-label="标签列表" data-classification-tags>
     <SkeletonList v-if="!hydrated || pending" :rows="4" />
     <div
       v-else-if="tags.length"
@@ -96,7 +90,7 @@ function moreItems(item: GalleryClassificationTag) {
           </div>
           <p class="mt-1 truncate text-xs text-muted">{{ tag.slug }}</p>
           <p class="mt-1 text-xs text-dimmed">
-            {{ tag.assignmentCount }} 个关系 · {{ tag.aliasCount }} 个 Alias
+            {{ tag.assignmentCount }} 个关系 · {{ tag.aliasCount }} 个别名
           </p>
           <details class="mt-1 text-xs text-dimmed">
             <summary class="cursor-pointer">标识信息</summary>
@@ -106,7 +100,7 @@ function moreItems(item: GalleryClassificationTag) {
         <div class="flex flex-wrap gap-2">
           <UDropdownMenu v-if="canGovern" :items="moreItems(tag)"
             ><UButton
-              class="min-h-11"
+              class="grid size-11 place-items-center"
               color="neutral"
               variant="ghost"
               size="sm"

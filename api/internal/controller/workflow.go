@@ -199,6 +199,30 @@ func (c *Admin) ListClassificationTags(ctx context.Context, req *v1.ListClassifi
 	return &v1.ListClassificationTagsRes{Page: *page}, nil
 }
 
+func (c *Admin) CreateClassificationIdentity(ctx context.Context, req *v1.CreateClassificationIdentityReq) (*v1.CreateClassificationIdentityRes, error) {
+	operator, err := requireCapability(ctx, galleryauthz.CapabilityClassificationGovern)
+	if err != nil {
+		return nil, err
+	}
+	identity, err := c.service.CreateClassificationIdentity(ctx, operator, req.ClassificationIdentityCreateInput)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.CreateClassificationIdentityRes{Identity: *identity}, nil
+}
+
+func (c *Admin) UpdateClassificationIdentity(ctx context.Context, req *v1.UpdateClassificationIdentityReq) (*v1.UpdateClassificationIdentityRes, error) {
+	operator, err := requireCapability(ctx, galleryauthz.CapabilityClassificationGovern)
+	if err != nil {
+		return nil, err
+	}
+	identity, err := c.service.UpdateClassificationIdentity(ctx, operator, req.IdentityID, req.ClassificationIdentityUpdateInput)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.UpdateClassificationIdentityRes{Identity: *identity}, nil
+}
+
 func (c *Admin) ListClassificationTagProposals(ctx context.Context, req *v1.ListClassificationTagProposalsReq) (*v1.ListClassificationTagProposalsRes, error) {
 	if _, err := requireCapability(ctx, galleryauthz.CapabilityClassificationRead); err != nil {
 		return nil, err
@@ -339,6 +363,17 @@ func (c *Admin) UpdateAdminImage(ctx context.Context, req *v1.UpdateAdminImageRe
 		return nil, err
 	}
 	return &v1.UpdateAdminImageRes{Image: *value}, nil
+}
+
+func (c *Admin) DeleteAdminImage(ctx context.Context, req *v1.DeleteAdminImageReq) (*v1.DeleteAdminImageRes, error) {
+	operator, err := requireCapability(ctx, galleryauthz.CapabilityImageHide)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.service.DeleteAdminImage(ctx, operator, req.ImageID, req.AdminImageDeleteInput); err != nil {
+		return nil, err
+	}
+	return &v1.DeleteAdminImageRes{Deleted: true}, nil
 }
 
 func (c *Admin) BulkHideImages(ctx context.Context, req *v1.BulkHideImagesReq) (*v1.BulkHideImagesRes, error) {

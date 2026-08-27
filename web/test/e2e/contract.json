@@ -88,6 +88,14 @@
         "viewports": ["mobile", "desktop"]
       },
       {
+        "key": "manage-collections-create",
+        "path": "/manage/collections",
+        "readySelector": "[role=dialog]",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"],
+        "actions": [{ "role": "button", "name": "新建专题" }]
+      },
+      {
         "key": "manage-collection-detail",
         "path": "/manage/collections",
         "readySelector": "text=图片与顺序",
@@ -105,6 +113,16 @@
         "viewports": ["mobile", "desktop"]
       },
       {
+        "key": "manage-image-editor",
+        "path": "/manage/images",
+        "readySelector": "[data-image-editor-preview]",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"],
+        "actions": [
+          { "role": "button", "name": "编辑图片：远方公路 120" }
+        ]
+      },
+      {
         "key": "classification",
         "path": "/manage/classification",
         "readySelector": "text=壁纸",
@@ -112,11 +130,48 @@
         "viewports": ["mobile", "desktop"]
       },
       {
-        "key": "manage-discovery",
-        "path": "/manage/discovery",
-        "readySelector": "text=站点内容",
+        "key": "classification-facets",
+        "path": "/manage/classification?section=facets",
+        "readySelector": "text=场景",
         "authenticated": true,
         "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "classification-tags",
+        "path": "/manage/classification?section=tags",
+        "readySelector": "[data-classification-tags]",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "classification-proposals",
+        "path": "/manage/classification?section=proposals",
+        "readySelector": "[data-classification-proposals]",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "manage-discovery",
+        "path": "/manage/discovery",
+        "readySelector": "[data-manage-surface=site-settings]",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "manage-discovery-home",
+        "path": "/manage/discovery",
+        "readySelector": "text=首页板块",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"],
+        "actions": [{ "role": "tab", "name": "首页" }]
+      },
+      {
+        "key": "manage-discovery-random",
+        "path": "/manage/discovery",
+        "readySelector": "text=候选池数量",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"],
+        "actions": [{ "role": "tab", "name": "发现" }]
       },
       {
         "key": "manage-assets",
@@ -128,7 +183,7 @@
       {
         "key": "manage-authorization",
         "path": "/manage/authorization",
-        "readySelector": "text=成员授权",
+        "readySelector": "[data-manage-surface=authorization]",
         "authenticated": true,
         "viewports": ["mobile", "desktop"]
       },

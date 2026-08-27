@@ -2,7 +2,6 @@
 defineProps<{
   eyebrow?: string;
   title: string;
-  description?: string;
   to?: string;
   actionLabel?: string;
 }>();
@@ -12,7 +11,6 @@ defineProps<{
   <header class="gallery-section-header">
     <div>
       <h2>{{ title }}</h2>
-      <p v-if="description">{{ description }}</p>
     </div>
     <slot name="action">
       <UButton

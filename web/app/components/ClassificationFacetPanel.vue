@@ -16,6 +16,8 @@ defineProps<{
 }>();
 const emit = defineEmits<{
   action: [operation: Operation, kind: IdentityKind, item: ManagedIdentity];
+  createValue: [facet: GalleryClassificationCatalogFacet];
+  edit: [kind: IdentityKind, item: ManagedIdentity];
 }>();
 
 const statusLabel: Record<string, string> = {
@@ -26,6 +28,11 @@ const statusLabel: Record<string, string> = {
 function facetMore(item: GalleryClassificationCatalogFacet) {
   return [
     [
+      {
+        label: "编辑维度",
+        icon: "i-tabler-pencil",
+        onSelect: () => emit("edit", "facet", item),
+      },
       {
         label: item.status === "active" ? "停用维度" : "启用维度",
         icon: item.status === "active" ? "i-tabler-eye-off" : "i-tabler-eye",
@@ -47,6 +54,11 @@ function valueMore(item: GalleryClassificationCatalogNode) {
     item.status === "replaced"
       ? []
       : [
+          {
+            label: "编辑维度值",
+            icon: "i-tabler-pencil",
+            onSelect: () => emit("edit", "facet_value", item),
+          },
           {
             label: item.status === "active" ? "停用维度值" : "启用维度值",
             icon:
@@ -79,23 +91,11 @@ function valueMore(item: GalleryClassificationCatalogNode) {
 </script>
 
 <template>
-  <section aria-labelledby="classification-facet-heading">
-    <div class="mb-3">
-      <h2
-        id="classification-facet-heading"
-        class="font-semibold text-highlighted"
-      >
-        维度
-      </h2>
-      <p class="mt-1 text-sm text-muted">
-        每个维度是一条筛选轴，维度值按行扫描和治理。
-      </p>
-    </div>
-    <div class="overflow-hidden rounded-xl border border-default bg-default">
+  <section aria-label="维度列表">
+    <div class="divide-y divide-default border-y border-default">
       <section
         v-for="facet in facets"
         :key="facet.id"
-        class="border-b border-default last:border-b-0"
       >
         <header
           class="flex flex-wrap items-center justify-between gap-3 bg-elevated/50 px-4 py-3"
@@ -115,9 +115,18 @@ function valueMore(item: GalleryClassificationCatalogNode) {
             </p>
           </div>
           <div class="flex items-center gap-1">
+            <UButton
+              v-if="canGovern"
+              label="新增值"
+              icon="i-tabler-plus"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              @click="emit('createValue', facet)"
+            />
             <UDropdownMenu v-if="canGovern" :items="facetMore(facet)"
               ><UButton
-                class="min-h-11"
+                class="grid size-11 place-items-center"
                 color="neutral"
                 variant="ghost"
                 size="sm"
@@ -154,7 +163,7 @@ function valueMore(item: GalleryClassificationCatalogNode) {
           <div class="flex items-center gap-1">
             <UDropdownMenu v-if="canGovern" :items="valueMore(value)"
               ><UButton
-                class="min-h-11"
+                class="grid size-11 place-items-center"
                 color="neutral"
                 variant="ghost"
                 size="xs"

@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { PageHeader } from "@yueli/ui/dashboard/pattern";
+import { ManagePage, TabbedSurface } from "@yueli/ui/admin";
 import {
   ManageEmpty,
-  ManageTabs,
   SkeletonList,
 } from "~/utils/manageComponents";
 import {
@@ -97,8 +96,22 @@ const statusModel = computed({
   set: (value: string) => setQuery({ status: value }),
 });
 const tabItems = statusTabs.map((item) => ({
-  key: item.value,
+  value: item.value,
   label: item.label,
+  ui: {
+    trigger: "gap-1 px-1.5 text-xs sm:gap-1.5 sm:px-3 sm:text-sm",
+    leadingIcon: "size-4 sm:size-5",
+  },
+  icon:
+    item.value === "open"
+      ? "i-tabler-inbox"
+      : item.value === "reviewing"
+        ? "i-tabler-progress"
+          : item.value === "resolved"
+            ? "i-tabler-circle-check"
+            : item.value === "dismissed"
+              ? "i-tabler-eye-off"
+              : "i-tabler-shield-check",
 }));
 const filterCount = computed(() => [kind.value].filter(Boolean).length);
 
@@ -190,48 +203,53 @@ async function resolve(
 </script>
 
 <template>
-  <div>
-    <PageHeader title="处理单" />
-
-    <ManageTabs v-model="statusModel" :items="tabItems" class="mb-4" />
-    <CollectionTableToolbar
-      v-model:search="qDraft"
-      label="处理单工具栏"
-      search-placeholder="搜索原因、说明或处理结论…"
-      search-action="搜索"
-      :filter-count="filterCount"
-      filter-label="筛选"
-      class="mb-3"
-      @search="search"
+  <ManagePage id="cases" title="处理单" icon="i-tabler-shield-check">
+    <TabbedSurface
+      v-model="statusModel"
+      :items="tabItems"
+      navigation-label="处理单队列"
+      data-manage-surface="cases"
     >
-      <template #filters>
-        <div class="w-72 max-w-[calc(100vw-2rem)]">
-          <UFormField label="处理单类型">
-            <USelect
-              :model-value="kind || 'all'"
-              :items="kindItems"
-              value-key="value"
-              class="w-full"
-              aria-label="处理单类型"
-              @update:model-value="setQuery({ kind: String($event) })"
-            />
-          </UFormField>
-        </div>
-      </template>
-    </CollectionTableToolbar>
-    <SkeletonList v-if="!hydrated || pending" :rows="6" />
-    <UAlert
-      v-else-if="error"
-      color="error"
-      variant="subtle"
-      title="处理单加载失败"
-      ><template #actions><UButton label="重试" @click="refresh()" /></template
-    ></UAlert>
-    <section
-      v-else-if="data.items.length"
-      class="overflow-hidden rounded-xl border border-default bg-default"
-      aria-label="信任处理单队列"
-    >
+      <CollectionTableToolbar
+        v-model:search="qDraft"
+        label="处理单工具栏"
+        search-placeholder="搜索原因、说明或处理结论…"
+        search-action="搜索"
+        :filter-count="filterCount"
+        filter-label="筛选"
+        @search="search"
+      >
+        <template #filters>
+          <div class="w-72 max-w-[calc(100vw-2rem)]">
+            <UFormField label="处理单类型">
+              <USelect
+                :model-value="kind || 'all'"
+                :items="kindItems"
+                value-key="value"
+                class="w-full"
+                aria-label="处理单类型"
+                @update:model-value="setQuery({ kind: String($event) })"
+              />
+            </UFormField>
+          </div>
+        </template>
+      </CollectionTableToolbar>
+      <div v-if="!hydrated || pending" class="p-4 sm:p-5">
+        <SkeletonList :rows="6" />
+      </div>
+      <UAlert
+        v-else-if="error"
+        class="m-4 sm:m-5"
+        color="error"
+        variant="subtle"
+        title="处理单加载失败"
+        ><template #actions><UButton label="重试" @click="refresh()" /></template
+      ></UAlert>
+      <section
+        v-else-if="data.items.length"
+        class="overflow-hidden"
+        aria-label="信任处理单队列"
+      >
       <div
         class="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 border-b border-default bg-elevated/50 px-4 py-2 text-xs font-medium text-muted md:grid-cols-[minmax(0,1fr)_8rem_8rem_7rem]"
       >
@@ -336,55 +354,66 @@ async function resolve(
         <span class="hidden text-xs text-muted md:block">{{ kindLabel[item.kind] }}</span>
         <span class="hidden text-xs text-muted md:block">{{ statusLabel[item.status] }}</span>
         <div class="flex flex-wrap items-center gap-1 md:justify-end">
-          <UButton
+          <UTooltip
             v-if="canResolveCases && item.status === 'open'"
-            icon="i-tabler-hand-click"
-            aria-label="接手处理"
-            size="xs"
-            square
-            :loading="acting === item.id"
-            :disabled="!item.updatedAt"
-            @click="resolve(item, 'reviewing')"
-          />
-          <UButton
+            text="接手处理"
+          >
+            <UButton
+              icon="i-tabler-hand-click"
+              aria-label="接手处理"
+              size="xs"
+              square
+              :loading="acting === item.id"
+              :disabled="!item.updatedAt"
+              @click="resolve(item, 'reviewing')"
+            />
+          </UTooltip>
+          <UTooltip
             v-else-if="canResolveCases && item.status === 'reviewing'"
-            icon="i-tabler-check"
-            aria-label="完成处理"
-            size="xs"
-            square
-            @click="toggleResolution(item.id)"
-          />
-          <UButton
-            v-if="item.imageId"
-            :to="`/images/${item.imageId}`"
-            target="_blank"
-            color="neutral"
-            variant="ghost"
-            icon="i-tabler-photo"
-            size="xs"
-            square
-            aria-label="查看关联图片"
-          />
+            text="填写处理结论"
+          >
+            <UButton
+              icon="i-tabler-check"
+              aria-label="填写处理结论"
+              size="xs"
+              square
+              @click="toggleResolution(item.id)"
+            />
+          </UTooltip>
+          <UTooltip v-if="item.imageId" text="查看关联图片">
+            <UButton
+              :to="`/images/${item.imageId}`"
+              target="_blank"
+              color="neutral"
+              variant="ghost"
+              icon="i-tabler-photo"
+              size="xs"
+              square
+              aria-label="查看关联图片"
+            />
+          </UTooltip>
         </div>
       </article>
-    </section>
-    <ManageEmpty
-      v-else
-      icon="i-tabler-flag-off"
-      title="当前队列为空"
-      description="选择其他状态或类型可以查看已处理记录。"
-    />
-
-    <nav
-      v-if="data.totalPages > 1"
-      class="mt-6 flex items-center justify-center gap-3"
-      aria-label="处理单分页"
-    >
-      <CollectionPagination
-        :model-value="page"
-        :total-pages="data.totalPages"
-        @update:model-value="setQuery({ page: $event })"
+      </section>
+      <ManageEmpty
+        v-else
+        class="m-4 sm:m-5"
+        icon="i-tabler-flag-off"
+        title="当前队列为空"
+        description="选择其他状态或类型可以查看已处理记录。"
       />
-    </nav>
-  </div>
+
+      <nav
+        v-if="data.totalPages > 1"
+        class="flex items-center justify-center gap-3 border-t border-default p-4"
+        aria-label="处理单分页"
+      >
+        <CollectionPagination
+          :model-value="page"
+          :total-pages="data.totalPages"
+          @update:model-value="setQuery({ page: $event })"
+        />
+      </nav>
+    </TabbedSurface>
+  </ManagePage>
 </template>

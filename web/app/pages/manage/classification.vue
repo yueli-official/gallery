@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { PageHeader } from "@yueli/ui/dashboard/pattern";
+import { ManagePage, TabbedSurface } from "@yueli/ui/admin";
 import { SkeletonList } from "~/utils/manageComponents";
-import { CollectionToolbar } from "@yueli/ui/collection/pattern";
+import { classificationMutationErrorMessage } from "~/utils/classificationMutation";
 import type {
   GalleryClassificationCatalog,
   GalleryClassificationCatalogFacet,
@@ -121,6 +121,16 @@ const editorKind = ref<IdentityKind>("category");
 const editorIdentity = ref<ManagedIdentity>();
 const loadingMoreTags = ref(false);
 const reviewingProposal = ref("");
+const createOpen = ref(false);
+const creating = ref(false);
+const createError = ref("");
+const identityFormMode = ref<"create" | "edit">("create");
+const editingIdentityID = ref("");
+const createKind = ref<"category" | "facet" | "facet_value" | "tag">(
+  "category",
+);
+const createFacetID = ref("");
+const createForm = reactive({ name: "", slug: "", parentId: "__root__" });
 
 const catalog = computed(() => data.value.catalog);
 const query = computed(() =>
@@ -158,44 +168,155 @@ const visibleProposals = computed(() =>
 const tabs = computed(() =>
   [
     {
-      key: "categories",
-      label: "分类树",
-      description: "维护公开浏览的主路径",
+      value: "categories",
+      label: "分类",
       icon: "i-tabler-sitemap",
-      count: catalog.value.categories.length,
     },
     {
-      key: "facets",
-      label: "筛选维度",
-      description: "维护结构化筛选轴和值",
+      value: "facets",
+      label: "维度",
       icon: "i-tabler-adjustments-horizontal",
-      count: catalog.value.facets.length,
     },
     {
-      key: "tags",
-      label: "规范标签",
-      description: "治理长尾词与同义关系",
+      value: "tags",
+      label: "标签",
       icon: "i-tabler-tags",
-      count: tagData.value.page.items.length,
     },
     canReviewProposals.value
       ? {
-          key: "proposals",
-          label: "待审词",
-          description: "决定新词创建或归并",
+          value: "proposals",
+          label: "标签提案",
           icon: "i-tabler-tag-starred",
-          count: proposalData.value.total,
         }
       : undefined,
   ].filter((item): item is NonNullable<typeof item> => Boolean(item)),
 );
+
+const createTitle = computed(() =>
+  `${identityFormMode.value === "create" ? "新增" : "编辑"}${
+    createKind.value === "category"
+      ? "分类"
+      : createKind.value === "facet"
+        ? "维度"
+        : createKind.value === "facet_value"
+          ? "维度值"
+          : "标签"
+  }`,
+);
+const identityFormHint = computed(() =>
+  identityFormMode.value === "edit"
+    ? "名称和标识会同步用于后台检索与公开筛选。"
+    : createKind.value === "tag"
+      ? "新标签创建后立即可用于图片分类。"
+      : "新建内容先保存为草稿，确认后再从列表启用。",
+);
+const createParentItems = computed(() => {
+  const root = [{ label: "顶级", value: "__root__" }];
+  if (createKind.value === "category") {
+    return [
+      ...root,
+      ...catalog.value.categories
+        .filter((item) => item.status !== "replaced")
+        .map((item) => ({ label: item.name, value: item.id })),
+    ];
+  }
+  if (createKind.value === "facet_value") {
+    const facet = catalog.value.facets.find(
+      (item) => item.id === createFacetID.value,
+    );
+    return [
+      ...root,
+      ...(facet?.values || [])
+        .filter((item) => item.status !== "replaced")
+        .map((item) => ({ label: item.name, value: item.id })),
+    ];
+  }
+  return root;
+});
+
+function openCreateIdentity(
+  kind: "category" | "facet" | "facet_value" | "tag",
+  facetID = "",
+) {
+  identityFormMode.value = "create";
+  editingIdentityID.value = "";
+  createKind.value = kind;
+  createFacetID.value = facetID;
+  createError.value = "";
+  Object.assign(createForm, { name: "", slug: "", parentId: "__root__" });
+  createOpen.value = true;
+}
+
+function openEditIdentity(kind: IdentityKind, item: ManagedIdentity) {
+  if (!canGovern.value || !["category", "facet", "facet_value", "tag"].includes(kind))
+    return;
+  identityFormMode.value = "edit";
+  editingIdentityID.value = item.id;
+  createKind.value = kind as "category" | "facet" | "facet_value" | "tag";
+  createFacetID.value = "";
+  createError.value = "";
+  Object.assign(createForm, {
+    name: item.name,
+    slug: item.slug,
+    parentId: "__root__",
+  });
+  createOpen.value = true;
+}
+
+function closeCreateIdentity() {
+  createOpen.value = false;
+}
+
+async function saveIdentity() {
+  if (
+    !canGovern.value ||
+    creating.value ||
+    !createForm.name.trim() ||
+    !createForm.slug.trim()
+  )
+    return;
+  creating.value = true;
+  createError.value = "";
+  try {
+    await call(
+      identityFormMode.value === "create"
+        ? "/admin/classification/identities"
+        : `/admin/classification/identities/${encodeURIComponent(editingIdentityID.value)}`,
+      {
+      method: identityFormMode.value === "create" ? "POST" : "PATCH",
+      body: {
+        kind: createKind.value,
+        name: createForm.name.trim(),
+        slug: createForm.slug.trim(),
+        ...(identityFormMode.value === "create"
+          ? {
+              parentId:
+                createForm.parentId === "__root__" ? "" : createForm.parentId,
+              facetId: createFacetID.value,
+            }
+          : {}),
+      },
+    },
+    );
+    createOpen.value = false;
+    await (createKind.value === "tag" ? refreshTags() : refresh());
+    actionSuccess.value = `${createTitle.value}完成。`;
+  } catch (cause) {
+    createError.value = classificationMutationErrorMessage(
+      cause,
+      `${createTitle.value}失败`,
+    );
+  } finally {
+    creating.value = false;
+  }
+}
 const searchPlaceholder = computed(
   () =>
     ({
       categories: "搜索分类名称或标识…",
       facets: "搜索维度或维度值…",
       tags: "搜索标签…",
-      proposals: "搜索待审词…",
+      proposals: "搜索标签提案…",
     })[section.value],
 );
 const destructivePreview = computed(
@@ -433,78 +554,48 @@ async function reviewTagProposal(
 </script>
 
 <template>
-  <div>
-    <PageHeader title="分类与维度">
-    </PageHeader>
+  <ManagePage id="classification" title="分类与维度" icon="i-tabler-category">
+    <template #actions>
+      <UButton
+        v-if="canGovern && section === 'categories'"
+        icon="i-tabler-plus"
+        label="新增分类"
+        @click="openCreateIdentity('category')"
+      />
+      <UButton
+        v-else-if="canGovern && section === 'facets'"
+        icon="i-tabler-plus"
+        label="新增维度"
+        @click="openCreateIdentity('facet')"
+      />
+      <UButton
+        v-else-if="canGovern && section === 'tags'"
+        icon="i-tabler-plus"
+        label="新增标签"
+        @click="openCreateIdentity('tag')"
+      />
+    </template>
 
-    <USelect
+    <TabbedSurface
       v-model="section"
-      :items="
-        tabs.map((item) => ({
-          label: `${item.label} · ${item.count}`,
-          value: item.key,
-        }))
-      "
-      value-key="value"
-      icon="i-tabler-category"
-      class="mb-4 w-full lg:hidden"
-      aria-label="选择目录治理任务"
-    />
-    <div class="grid gap-6 lg:grid-cols-[13.5rem_minmax(0,1fr)] lg:items-start">
-      <aside class="hidden lg:block lg:sticky lg:top-20">
-        <nav class="space-y-1" aria-label="目录治理任务">
-          <button
-            v-for="item in tabs"
-            :key="item.key"
-            type="button"
-            class="group grid w-full grid-cols-[2rem_minmax(0,1fr)_auto] gap-2 rounded-lg px-2.5 py-3 text-left transition"
-            :class="
-              section === item.key
-                ? 'bg-elevated text-highlighted ring-1 ring-default'
-                : 'text-muted hover:bg-elevated/55 hover:text-default'
-            "
-            @click="section = item.key"
-          >
-            <UIcon :name="item.icon" class="mt-0.5 size-4.5 text-primary" />
-            <span class="min-w-0">
-              <span class="block text-sm font-semibold">{{ item.label }}</span>
-              <span class="mt-0.5 block text-xs leading-4 text-muted">{{
-                item.description
-              }}</span>
-            </span>
-            <span class="text-xs tabular-nums text-dimmed">{{
-              item.count
-            }}</span>
-          </button>
-        </nav>
-        <details
-          class="group mt-5 border-t border-default pt-3 text-xs text-muted"
-        >
-          <summary
-            class="flex cursor-pointer list-none items-center justify-between py-2"
-          >
-            目录协议
-            <UIcon
-              name="i-tabler-chevron-down"
-              class="size-4 transition group-open:rotate-180"
-            />
-          </summary>
-          <p class="mt-2 leading-5">
-            revision
-            {{
-              catalog.revision
-            }}。停用保留历史关系，合并迁移归属，关联删除必须二次确认。
-          </p>
-        </details>
-      </aside>
-
-      <div class="min-w-0">
-        <CollectionToolbar
-          v-model:search="searchInput"
-          :search-placeholder="searchPlaceholder"
-          compact-filters
-          class="mb-4"
+      :items="tabs"
+      navigation-label="分类治理"
+      data-manage-surface="classification"
+    >
+      <div
+        data-classification-search
+        class="border-b border-default p-3 sm:p-4"
+      >
+        <UInput
+          v-model="searchInput"
+          icon="i-tabler-search"
+          size="sm"
+          :placeholder="searchPlaceholder"
+          class="w-full"
         />
+      </div>
+
+      <div class="min-w-0 p-4 sm:p-5">
         <UAlert
           v-if="actionError && !previewOpen"
           class="mb-5"
@@ -539,12 +630,15 @@ async function reviewTagProposal(
             :items="visibleCategories"
             :can-govern="canGovern"
             @action="handleIdentityAction"
+            @edit="openEditIdentity"
           />
           <ClassificationFacetPanel
             v-else-if="section === 'facets'"
             :facets="visibleFacets"
             :can-govern="canGovern"
             @action="handleIdentityAction"
+            @create-value="openCreateIdentity('facet_value', $event.id)"
+            @edit="openEditIdentity"
           />
           <ClassificationProposalPanel
             v-else-if="section === 'proposals'"
@@ -566,10 +660,66 @@ async function reviewTagProposal(
             :can-govern="canGovern"
             @action="handleIdentityAction"
             @load-more="loadMoreTags"
+            @edit="openEditIdentity"
           />
         </div>
       </div>
-    </div>
+    </TabbedSurface>
+
+    <UModal v-model:open="createOpen" :title="createTitle">
+      <template #body>
+        <form id="classification-create-form" class="space-y-4" @submit.prevent="saveIdentity">
+          <UAlert
+            v-if="createError"
+            color="error"
+            variant="subtle"
+            title="创建失败"
+            :description="createError"
+          />
+          <UFormField label="名称" required>
+            <UInput v-model="createForm.name" class="w-full" autofocus />
+          </UFormField>
+          <UFormField label="标识" required>
+            <UInput
+              v-model="createForm.slug"
+              class="w-full"
+              placeholder="例如 landscape"
+            />
+          </UFormField>
+          <UFormField
+            v-if="identityFormMode === 'create' && !['facet', 'tag'].includes(createKind)"
+            :label="createKind === 'category' ? '上级分类' : '上级维度值'"
+          >
+            <USelect
+              v-model="createForm.parentId"
+              :items="createParentItems"
+              value-key="value"
+              class="w-full"
+            />
+          </UFormField>
+          <p class="text-xs leading-5 text-muted">
+            {{ identityFormHint }}
+          </p>
+        </form>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton
+            label="取消"
+            color="neutral"
+            variant="ghost"
+            @click="closeCreateIdentity"
+          />
+          <UButton
+            form="classification-create-form"
+            type="submit"
+            :label="createTitle"
+            :loading="creating"
+            :disabled="!createForm.name.trim() || !createForm.slug.trim()"
+          />
+        </div>
+      </template>
+    </UModal>
 
     <ClassificationEditorModal
       v-if="canGovern"
@@ -591,5 +741,5 @@ async function reviewTagProposal(
       @delete-all="confirmDeleteAllRelated"
       @execute="executePreview"
     />
-  </div>
+  </ManagePage>
 </template>

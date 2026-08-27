@@ -100,9 +100,6 @@ function nextBatch() {
           <div class="gallery-random-heading">
             <div>
               <h2 :id="`${homeSection.key}-title`">{{ homeSection.title }}</h2>
-              <p v-if="homeSection.description">
-                {{ homeSection.description }}
-              </p>
             </div>
           </div>
           <UButton
@@ -201,7 +198,6 @@ function nextBatch() {
       >
         <GallerySectionHeader
           :title="homeSection.title"
-          :description="homeSection.description"
           to="/collections"
           :action-label="homeSection.actionLabel"
         />
@@ -236,7 +232,6 @@ function nextBatch() {
       >
         <GallerySectionHeader
           :title="homeSection.title"
-          :description="homeSection.description"
           to="/images"
           :action-label="homeSection.actionLabel"
         />
@@ -255,7 +250,6 @@ function nextBatch() {
       >
         <GallerySectionHeader
           :title="homeSection.title"
-          :description="homeSection.description"
           to="/rankings?kind=trending&window=7d"
           :action-label="homeSection.actionLabel"
         />

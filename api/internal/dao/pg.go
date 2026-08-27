@@ -232,7 +232,6 @@ UPDATE gallery_home_sections
 SET enabled = ?,
     position = ?,
     title = ?,
-    description = ?,
     action_label = ?,
     item_limit = ?,
     updated_at = NOW()
@@ -240,7 +239,6 @@ WHERE site_key = 'gallery' AND section_key = ?`,
 				section.Enabled,
 				section.Position,
 				section.Title,
-				section.Description,
 				section.ActionLabel,
 				section.ItemLimit,
 				section.Key,
@@ -1589,6 +1587,32 @@ RETURNING id`, input.Title, input.Description, input.AltText, input.SourceURL, i
 		return nil, err
 	}
 	return p.AdminImage(ctx, id)
+}
+
+func (p *PG) DeleteAdminImage(ctx context.Context, operator, id, expectedUpdatedAt string) error {
+	result, err := p.db.Exec(ctx, `
+WITH deleted AS (
+    UPDATE gallery_images
+    SET publication_state = 'deleted', deleted_at = NOW(), updated_at = NOW()
+    WHERE id = ?::uuid
+      AND updated_at = ?::timestamptz
+      AND publication_state <> 'deleted'
+    RETURNING id
+)
+INSERT INTO gallery_cases (id, image_id, kind, status, reporter_kind, reporter_id, reason, operator_sub)
+SELECT ?::uuid, id, 'takedown', 'resolved', 'operator', ?, '管理员删除图片', ? FROM deleted`,
+		id, expectedUpdatedAt, newIdentifier(), operator, operator)
+	if err != nil {
+		return gerror.Wrap(err, "delete admin gallery image")
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return gerror.Wrap(err, "read gallery image delete result")
+	}
+	if rows == 0 {
+		return galleryerr.Conflict("image_version")
+	}
+	return nil
 }
 
 func (p *PG) ReviewQueue(ctx context.Context, input model.AdminSubmissionQuery) ([]model.Submission, int, error) {

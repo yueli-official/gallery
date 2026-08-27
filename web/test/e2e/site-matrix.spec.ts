@@ -28,6 +28,26 @@ export function registerJourneySuite(product: string) {
         expect(errors).toEqual([]);
       });
 
+      test("公开首页板块只保留标题与动作", async ({ page }) => {
+        await page.goto(new URL("/?seed=section-copy", site.url).toString(), {
+          waitUntil: "domcontentloaded",
+        });
+        await settleNuxt(page);
+        const collections = page.getByRole("heading", {
+          name: "从专题进入",
+          exact: true,
+        });
+        await collections.scrollIntoViewIfNeeded();
+        await expect(collections).toBeVisible();
+        for (const copy of [
+          "沿着一个清晰主题，查看经过整理的图片集合。",
+          "最近完成处理和审核的公开图片。",
+          "近期获得更多有效浏览的图片。",
+        ]) {
+          await expect(page.getByText(copy, { exact: true })).toHaveCount(0);
+        }
+      });
+
       test("匿名访问管理入口进入账户登录流程", async ({ page }) => {
         const errors = capturePageFailures(page);
         await page.goto(new URL(contract.manage.path, site.url).toString(), {

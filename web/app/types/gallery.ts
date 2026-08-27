@@ -20,7 +20,6 @@ export interface GalleryHomeSection {
   enabled: boolean;
   position: number;
   title: string;
-  description: string;
   actionLabel: string;
   itemLimit: number;
 }

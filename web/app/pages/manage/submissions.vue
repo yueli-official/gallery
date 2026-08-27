@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { PageHeader } from "@yueli/ui/dashboard/pattern";
-import { ManageTabs } from "~/utils/manageComponents";
+import { ManagePage, TabbedSurface } from "@yueli/ui/admin";
 import {
   createCollectionRouteQueryCodec,
   createJsonCollectionQueryPolicy,
@@ -261,10 +260,42 @@ const presetModel = computed({
   },
 });
 const presetItems = [
-  { key: "review", label: "待审核" },
-  { key: "failed", label: "处理失败" },
-  { key: "uncertain", label: "安全不确定" },
-  { key: "all", label: "全部投稿" },
+  {
+    value: "review",
+    label: "待审核",
+    icon: "i-tabler-inbox",
+    ui: {
+      trigger: "gap-1 px-1.5 text-xs sm:gap-1.5 sm:px-3 sm:text-sm",
+      leadingIcon: "size-4 sm:size-5",
+    },
+  },
+  {
+    value: "failed",
+    label: "处理失败",
+    icon: "i-tabler-alert-triangle",
+    ui: {
+      trigger: "gap-1 px-1.5 text-xs sm:gap-1.5 sm:px-3 sm:text-sm",
+      leadingIcon: "size-4 sm:size-5",
+    },
+  },
+  {
+    value: "uncertain",
+    label: "安全不确定",
+    icon: "i-tabler-shield-check",
+    ui: {
+      trigger: "gap-1 px-1.5 text-xs sm:gap-1.5 sm:px-3 sm:text-sm",
+      leadingIcon: "size-4 sm:size-5",
+    },
+  },
+  {
+    value: "all",
+    label: "全部投稿",
+    icon: "i-tabler-photo",
+    ui: {
+      trigger: "gap-1 px-1.5 text-xs sm:gap-1.5 sm:px-3 sm:text-sm",
+      leadingIcon: "size-4 sm:size-5",
+    },
+  },
 ];
 
 const selectedIds = computed<readonly string[]>(() =>
@@ -523,201 +554,207 @@ function formatDateTime(value?: string) {
 </script>
 
 <template>
-  <div>
-    <PageHeader title="投稿审核">
-    </PageHeader>
-
-    <ManageTabs v-model="presetModel" :items="presetItems" class="mb-4" />
-    <CollectionPanel
-      v-model:search="qDraft"
-      :items="submissionCollection.items"
-      :item-key="submissionKey"
-      :item-label="submissionLabel"
-      :controls="controls"
-      :messages="messages"
-      :state="panelState"
-      error-message="请确认 Gallery API、数据库和登录状态正常。"
-      :total="submissionCollection.total"
-      :page="page"
-      :page-size="size"
-      :page-sizes="pageSizes"
-      :active-filter-count="filterCount"
-      :selection-count="selectionCount"
-      :page-selected="isPageSelected"
-      :page-indeterminate="isPageIndeterminate"
-      :is-selected="submissionWorkflow.isSelected"
-      :is-item-selectable="(item) => submissionReviewAction(item).canApprove"
-      label="投稿审核队列"
-      :selectable="canReviewSubmissions && panelState === 'ready'"
-      @search="search"
-      @control-change="changeControl"
-      @clear-filters="clearFilters"
-      @retry="refresh"
-      @toggle-page="togglePage"
-      @toggle-item="toggleOne"
-      @clear-selection="clearSelection"
-      @page-change="page = $event"
-      @page-size-change="size = $event"
+  <ManagePage id="submissions" title="投稿审核" icon="i-tabler-photo-check">
+    <TabbedSurface
+      v-model="presetModel"
+      :items="presetItems"
+      navigation-label="投稿审核队列"
+      data-manage-surface="submissions"
     >
-      <template #columns>
-        <div
-          class="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 md:grid-cols-[minmax(0,1fr)_9rem_7rem]"
-        >
-          <CollectionSortHeader
-            label="投稿"
-            :active="sortBy === 'title'"
-            :sort-order="sortOrder"
-            @sort="changeColumnSort('title')"
-          />
-          <CollectionSortHeader
-            class="hidden md:inline-flex"
-            label="提交时间"
-            :active="sortBy === 'createdAt'"
-            :sort-order="sortOrder"
-            @sort="changeColumnSort('createdAt')"
-          />
-          <span class="text-right">操作</span>
-        </div>
-      </template>
-      <template #bulk-actions
-        ><UButton
-          v-if="canReviewSubmissions"
-          size="xs"
-          icon="i-tabler-checks"
-          label="批量批准"
-          :loading="bulkPending"
-          @click="bulkApprove"
-      /></template>
-      <template #item="{ item }">
-        <article class="space-y-3">
+      <CollectionPanel
+        v-model:search="qDraft"
+        :items="submissionCollection.items"
+        :item-key="submissionKey"
+        :item-label="submissionLabel"
+        :controls="controls"
+        :messages="messages"
+        :state="panelState"
+        error-message="请确认 Gallery API、数据库和登录状态正常。"
+        :total="submissionCollection.total"
+        :page="page"
+        :page-size="size"
+        :page-sizes="pageSizes"
+        :active-filter-count="filterCount"
+        :selection-count="selectionCount"
+        :page-selected="isPageSelected"
+        :page-indeterminate="isPageIndeterminate"
+        :is-selected="submissionWorkflow.isSelected"
+        :is-item-selectable="(item) => submissionReviewAction(item).canApprove"
+        label="投稿审核队列"
+        :selectable="canReviewSubmissions && panelState === 'ready'"
+        class="rounded-none border-0 shadow-none"
+        @search="search"
+        @control-change="changeControl"
+        @clear-filters="clearFilters"
+        @retry="refresh"
+        @toggle-page="togglePage"
+        @toggle-item="toggleOne"
+        @clear-selection="clearSelection"
+        @page-change="page = $event"
+        @page-size-change="size = $event"
+      >
+        <template #columns>
           <div
             class="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 md:grid-cols-[minmax(0,1fr)_9rem_7rem]"
           >
-            <div class="flex min-w-0 items-center gap-3">
-              <div
-                class="relative hidden aspect-[4/3] w-20 shrink-0 overflow-hidden rounded-lg bg-elevated sm:block"
-              >
-                <GallerySubmissionPreview
-                  :submission-id="item.id"
-                  :alt="item.altText"
-                />
-              </div>
-              <div class="min-w-0">
-                <div class="flex min-w-0 items-center gap-2">
-                  <h2 class="truncate text-sm font-medium text-highlighted">
-                    {{ item.title }}
-                  </h2>
-                  <UBadge
-                    v-if="item.safetyState !== 'safe'"
-                    :color="item.safetyState === 'blocked' ? 'error' : 'warning'"
-                    variant="soft"
-                    :label="safetyLabel[item.safetyState]"
+            <CollectionSortHeader
+              label="投稿"
+              :active="sortBy === 'title'"
+              :sort-order="sortOrder"
+              @sort="changeColumnSort('title')"
+            />
+            <CollectionSortHeader
+              class="hidden md:inline-flex"
+              label="提交时间"
+              :active="sortBy === 'createdAt'"
+              :sort-order="sortOrder"
+              @sort="changeColumnSort('createdAt')"
+            />
+            <span class="text-right">操作</span>
+          </div>
+        </template>
+        <template #bulk-actions
+          ><UButton
+            v-if="canReviewSubmissions"
+            size="xs"
+            icon="i-tabler-checks"
+            label="批量批准"
+            :loading="bulkPending"
+            @click="bulkApprove"
+        /></template>
+        <template #item="{ item }">
+          <article class="space-y-3">
+            <div
+              class="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 md:grid-cols-[minmax(0,1fr)_9rem_7rem]"
+            >
+              <div class="flex min-w-0 items-center gap-3">
+                <div
+                  class="relative hidden aspect-[4/3] w-20 shrink-0 overflow-hidden rounded-lg bg-elevated sm:block"
+                >
+                  <GallerySubmissionPreview
+                    :submission-id="item.id"
+                    :alt="item.altText"
                   />
                 </div>
-                <p class="mt-1 truncate text-xs text-muted">
-                  {{ item.description || item.altText }}
-                </p>
-                <p class="mt-1 flex items-center gap-1.5 text-xs text-dimmed">
-                  <UIcon
-                    :name="
-                      submissionReviewAction(item).canApprove
-                        ? 'i-tabler-circle-check'
-                        : item.failureCode || item.safetyState === 'blocked'
-                          ? 'i-tabler-alert-triangle'
-                          : 'i-tabler-progress'
-                    "
-                    class="size-3.5 shrink-0"
+                <div class="min-w-0">
+                  <div class="flex min-w-0 items-center gap-2">
+                    <h2 class="truncate text-sm font-medium text-highlighted">
+                      {{ item.title }}
+                    </h2>
+                    <UBadge
+                      v-if="item.safetyState !== 'safe'"
+                      :color="
+                        item.safetyState === 'blocked' ? 'error' : 'warning'
+                      "
+                      variant="soft"
+                      :label="safetyLabel[item.safetyState]"
+                    />
+                  </div>
+                  <p class="mt-1 truncate text-xs text-muted">
+                    {{ item.description || item.altText }}
+                  </p>
+                  <p class="mt-1 flex items-center gap-1.5 text-xs text-dimmed">
+                    <UIcon
+                      :name="
+                        submissionReviewAction(item).canApprove
+                          ? 'i-tabler-circle-check'
+                          : item.failureCode || item.safetyState === 'blocked'
+                            ? 'i-tabler-alert-triangle'
+                            : 'i-tabler-progress'
+                      "
+                      class="size-3.5 shrink-0"
+                    />
+                    <span class="truncate">{{ decisionSummary(item) }}</span>
+                  </p>
+                </div>
+              </div>
+              <time
+                class="hidden text-xs text-muted md:block"
+                :datetime="item.createdAt"
+              >
+                {{ formatDateTime(item.createdAt) }}
+              </time>
+              <div class="flex justify-end gap-1">
+                <UTooltip v-if="item.imageId" text="查看公开图片">
+                  <UButton
+                    :to="`/images/${item.imageId}`"
+                    target="_blank"
+                    rel="noopener"
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    icon="i-tabler-external-link"
+                    square
+                    :aria-label="`查看公开图片：${item.title}`"
                   />
-                  <span class="truncate">{{ decisionSummary(item) }}</span>
-                </p>
+                </UTooltip>
+                <UButton
+                  v-if="
+                    canReviewSubmissions &&
+                    item.reviewState === 'pending' &&
+                    item.outcome === 'pending'
+                  "
+                  size="xs"
+                  :label="submissionReviewAction(item).label"
+                  :loading="acting === item.id"
+                  :disabled="!submissionReviewAction(item).canApprove"
+                  @click="review(item, 'approve')"
+                />
               </div>
             </div>
-            <time
-              class="hidden text-xs text-muted md:block"
-              :datetime="item.createdAt"
-            >
-              {{ formatDateTime(item.createdAt) }}
-            </time>
-            <div class="flex justify-end gap-1">
-              <UTooltip v-if="item.imageId" text="查看公开图片">
-                <UButton
-                  :to="`/images/${item.imageId}`"
-                  target="_blank"
-                  rel="noopener"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  icon="i-tabler-external-link"
-                  square
-                  :aria-label="`查看公开图片：${item.title}`"
-                />
-              </UTooltip>
-              <UButton
-                v-if="
-                  canReviewSubmissions &&
-                  item.reviewState === 'pending' &&
-                  item.outcome === 'pending'
-                "
-                size="xs"
-                :label="submissionReviewAction(item).label"
-                :loading="acting === item.id"
-                :disabled="!submissionReviewAction(item).canApprove"
-                @click="review(item, 'approve')"
-              />
-            </div>
-          </div>
 
-          <UAlert
-            v-if="item.failureCode"
-            color="error"
-            variant="subtle"
-            icon="i-tabler-alert-triangle"
-            title="媒体处理失败"
-            :description="item.failureCode"
-          />
-          <UAlert
-            v-if="actionErrors[item.id]"
-            color="error"
-            variant="subtle"
-            title="本项操作失败"
-            :description="actionErrors[item.id]"
-          />
-          <details
-            v-if="
-              canReviewSubmissions &&
-              item.reviewState === 'pending' &&
-              item.outcome === 'pending'
-            "
-            class="group rounded-lg border border-default bg-elevated/35 px-3 py-2"
-          >
-            <summary
-              class="flex min-h-8 cursor-pointer list-none items-center justify-between gap-2 text-sm font-medium text-default"
+            <UAlert
+              v-if="item.failureCode"
+              color="error"
+              variant="subtle"
+              icon="i-tabler-alert-triangle"
+              title="媒体处理失败"
+              :description="item.failureCode"
+            />
+            <UAlert
+              v-if="actionErrors[item.id]"
+              color="error"
+              variant="subtle"
+              title="本项操作失败"
+              :description="actionErrors[item.id]"
+            />
+            <details
+              v-if="
+                canReviewSubmissions &&
+                item.reviewState === 'pending' &&
+                item.outcome === 'pending'
+              "
+              class="group rounded-lg border border-default bg-elevated/35 px-3 py-2"
             >
-              备注或拒绝
-              <UIcon
-                name="i-tabler-chevron-down"
-                class="size-4 text-muted transition group-open:rotate-180"
-              />
-            </summary>
-            <div class="space-y-2 border-t border-default pt-3">
-              <UTextarea
-                v-model="note[item.id]"
-                :rows="3"
-                placeholder="记录判断；拒绝时必须填写原因"
-              />
-              <UButton
-                color="error"
-                variant="outline"
-                label="拒绝"
-                :loading="acting === item.id"
-                :disabled="!note[item.id]?.trim()"
-                @click="review(item, 'reject')"
-              />
-            </div>
-          </details>
-        </article>
-      </template>
-    </CollectionPanel>
+              <summary
+                class="flex min-h-8 cursor-pointer list-none items-center justify-between gap-2 text-sm font-medium text-default"
+              >
+                备注或拒绝
+                <UIcon
+                  name="i-tabler-chevron-down"
+                  class="size-4 text-muted transition group-open:rotate-180"
+                />
+              </summary>
+              <div class="space-y-2 border-t border-default pt-3">
+                <UTextarea
+                  v-model="note[item.id]"
+                  :rows="3"
+                  placeholder="记录判断；拒绝时必须填写原因"
+                />
+                <UButton
+                  color="error"
+                  variant="outline"
+                  label="拒绝"
+                  :loading="acting === item.id"
+                  :disabled="!note[item.id]?.trim()"
+                  @click="review(item, 'reject')"
+                />
+              </div>
+            </details>
+          </article>
+        </template>
+      </CollectionPanel>
+    </TabbedSurface>
     <div
       v-if="bulkResult"
       class="mt-3 flex items-center justify-between gap-2 rounded-lg border border-default bg-elevated px-3 py-2.5 text-xs"
@@ -738,5 +775,5 @@ function formatDateTime(value?: string) {
         @click="bulkResult = undefined"
       />
     </div>
-  </div>
+  </ManagePage>
 </template>

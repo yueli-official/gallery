@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PageHeader } from "@yueli/ui/dashboard/pattern";
+import { ManagePage, TabbedSurface } from "@yueli/ui/admin";
 
 interface RoleView {
   key: string;
@@ -36,6 +36,8 @@ useSeoMeta({ title: "权限与申请" });
 
 const { call } = useApi("gallery-authorization");
 const { isAdministrator } = useGalleryMe();
+const route = useRoute();
+const router = useRouter();
 const hydrated = useClientHydrated();
 const toast = useToast();
 const busy = ref(false);
@@ -54,6 +56,62 @@ const { data, pending, error, refresh } = await useAsyncData(
 );
 const state = computed(() => data.value);
 const draft = computed(() => state.value?.policy.state === "draft");
+type AuthorizationTab = "applications" | "permissions" | "users";
+const authorizationTabs: readonly AuthorizationTab[] = [
+  "applications",
+  "permissions",
+  "users",
+];
+const activeTab = computed<AuthorizationTab>({
+  get: () => {
+    const value = String(route.query.tab || "applications");
+    return authorizationTabs.includes(value as AuthorizationTab)
+      ? (value as AuthorizationTab)
+      : "applications";
+  },
+  set: (value) => {
+    void router.replace({
+      query: {
+        ...route.query,
+        tab: value === "applications" ? undefined : value,
+      },
+    });
+  },
+});
+const tabItems = computed(() => [
+  {
+    label: "申请",
+    value: "applications",
+    icon: "i-tabler-inbox",
+    badge: state.value?.applications.length || undefined,
+  },
+  { label: "权限", value: "permissions", icon: "i-tabler-shield-lock" },
+  {
+    label: "用户管理",
+    value: "users",
+    icon: "i-tabler-users",
+    badge: state.value?.grants.length || undefined,
+  },
+]);
+
+function roleName(roleKey: string) {
+  return (
+    state.value?.roles.find((role) => role.key === roleKey)?.displayName ||
+    roleKey
+  );
+}
+
+function grantSourceLabel(source: string) {
+  return (
+    {
+      application: "申请批准",
+      invitation: "邀请",
+      direct: "直接授予",
+      automatic: "自动授权",
+      bootstrap: "初始化",
+    }[source] || source
+  );
+}
 
 async function mutate(task: () => Promise<unknown>, _success: string) {
   if (busy.value) return;
@@ -215,270 +273,296 @@ function revokeGrant(grant: GrantView) {
 </script>
 
 <template>
-  <div id="authorization" class="w-full space-y-5">
-    <PageHeader title="权限与申请">
-      <template #actions>
-        <UButton
-          v-if="state && !draft"
-          label="创建策略草稿"
-          icon="i-tabler-file-plus"
-          :loading="busy"
-          @click="createDraft"
-        />
-        <UButton
-          v-else-if="draft"
-          label="验证并发布"
-          icon="i-tabler-rocket"
-          :loading="busy"
-          @click="validateAndActivate"
-        />
-      </template>
-    </PageHeader>
-
-    <div>
-      <SkeletonList v-if="!hydrated || pending" :rows="8" />
-      <UAlert
-        v-else-if="!isAdministrator"
-        color="error"
-        icon="i-tabler-lock"
-        title="只有管理员可以管理本站权限"
-        description="图库权限独立存储，不继承用户中心或其他站点的管理员角色。"
+  <ManagePage id="authorization" title="权限与申请" icon="i-tabler-shield-lock">
+    <template #actions>
+      <UButton
+        v-if="activeTab === 'permissions' && state && !draft"
+        label="创建策略草稿"
+        icon="i-tabler-file-plus"
+        :loading="busy"
+        @click="createDraft"
       />
-      <UAlert
-        v-else-if="error || !state"
-        color="error"
-        icon="i-tabler-alert-circle"
-        title="权限配置加载失败"
-        description="请检查 Gallery API 与本站数据库状态。"
+      <UButton
+        v-else-if="activeTab === 'permissions' && draft"
+        label="验证并发布"
+        icon="i-tabler-rocket"
+        :loading="busy"
+        @click="validateAndActivate"
       />
+    </template>
 
-      <template v-else>
-        <section class="rounded-xl border border-default bg-default p-4 sm:p-5">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 class="text-sm font-semibold text-highlighted">策略发布</h2>
+    <div v-if="!hydrated || pending" class="yueli-card p-4 sm:p-5">
+      <SkeletonList :rows="8" />
+    </div>
+    <UAlert
+      v-else-if="!isAdministrator"
+      color="error"
+      icon="i-tabler-lock"
+      title="只有管理员可以管理本站权限"
+      description="图库权限独立存储，不继承用户中心或其他站点的管理员角色。"
+    />
+    <UAlert
+      v-else-if="error || !state"
+      color="error"
+      icon="i-tabler-alert-circle"
+      title="权限配置加载失败"
+      description="请检查 Gallery API 与本站数据库状态。"
+    />
+
+    <TabbedSurface
+      v-else
+      v-model="activeTab"
+      :items="tabItems"
+      navigation-label="权限管理"
+      data-manage-surface="authorization"
+    >
+      <section
+        v-if="activeTab === 'applications'"
+        aria-labelledby="authorization-applications-title"
+      >
+        <div
+          class="flex items-center justify-between gap-3 border-b border-default px-4 py-3 sm:px-5"
+        >
+          <h2
+            id="authorization-applications-title"
+            class="text-sm font-semibold text-highlighted"
+          >
+            待处理申请
+          </h2>
+          <UBadge
+            :label="String(state.applications.length)"
+            color="neutral"
+            variant="soft"
+          />
+        </div>
+        <div v-if="state.applications.length" class="divide-y divide-default">
+          <article
+            v-for="application in state.applications"
+            :key="application.id"
+            class="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5"
+          >
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <p class="truncate text-sm font-medium text-highlighted">
+                  {{ application.subject }}
+                </p>
+                <UBadge
+                  :label="roleName(application.role)"
+                  color="neutral"
+                  variant="outline"
+                  size="sm"
+                />
+              </div>
               <p class="mt-1 text-sm text-muted">
-                生效修订 {{ state.activeRevision }}，当前查看修订
-                {{ state.policy.number }}。
+                {{ application.reason || "未填写申请理由" }}
               </p>
             </div>
+            <div class="flex gap-2">
+              <UButton
+                label="拒绝"
+                color="neutral"
+                variant="outline"
+                :disabled="busy"
+                @click="review(application, 'reject')"
+              />
+              <UButton
+                label="批准"
+                :disabled="busy"
+                @click="review(application, 'approve')"
+              />
+            </div>
+          </article>
+        </div>
+        <ManageEmpty
+          v-else
+          class="m-4 sm:m-5"
+          icon="i-tabler-user-check"
+          text="当前没有待处理申请"
+        />
+      </section>
+
+      <section
+        v-else-if="activeTab === 'permissions'"
+        aria-labelledby="authorization-permissions-title"
+      >
+        <div
+          class="flex flex-wrap items-center justify-between gap-3 border-b border-default px-4 py-3 sm:px-5"
+        >
+          <div class="min-w-0">
+            <h2
+              id="authorization-permissions-title"
+              class="text-sm font-semibold text-highlighted"
+            >
+              角色与能力
+            </h2>
+            <p class="mt-0.5 text-xs text-muted">
+              生效修订 {{ state.activeRevision }} · 当前修订
+              {{ state.policy.number }}
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
             <UBadge
               :label="draft ? '草稿' : '已生效'"
               :color="draft ? 'warning' : 'success'"
               variant="subtle"
             />
-          </div>
-          <p class="mt-3 text-xs leading-5 text-muted">
-            角色与自动规则先进入草稿，验证影响后一次发布，不会逐项改变线上权限。
-          </p>
-        </section>
-
-        <section class="space-y-3">
-          <div>
-            <h2 class="text-sm font-semibold text-highlighted">成员授权</h2>
-            <p class="mt-1 text-xs text-muted">
-              可直接授予管理员、内容运营者或自定义角色；申请审批与自动授权也会出现在这里。
-            </p>
-          </div>
-          <div
-            class="grid gap-3 rounded-xl border border-default bg-default p-4 sm:grid-cols-[minmax(0,1fr)_14rem_auto]"
-          >
-            <UFormField label="用户标识">
-              <UInput
-                v-model="grantForm.subject"
-                placeholder="Identity subject"
-                class="w-full"
-              />
-            </UFormField>
-            <UFormField label="角色">
-              <USelect
-                v-model="grantForm.role"
-                value-key="value"
-                :items="
-                  state.roles
-                    .filter(
-                      (role) =>
-                        role.kind !== 'custom' || role.capabilities.length,
-                    )
-                    .map((role) => ({
-                      label: role.displayName,
-                      value: role.key,
-                    }))
-                "
-                class="w-full"
-              />
-            </UFormField>
-            <div class="flex items-end">
-              <UButton
-                label="直接授予"
-                icon="i-tabler-user-plus"
-                :disabled="!grantForm.subject.trim() || busy"
-                @click="grantRole"
-              />
-            </div>
-          </div>
-          <ManageEmpty
-            v-if="!state.grants.length"
-            icon="i-tabler-users"
-            text="当前没有角色授权"
-          />
-          <div
-            v-else
-            class="divide-y divide-default overflow-hidden rounded-xl border border-default bg-default"
-          >
-            <article
-              v-for="grant in state.grants"
-              :key="grant.id"
-              class="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-            >
-              <div class="min-w-0">
-                <p class="truncate text-sm font-medium text-highlighted">
-                  {{ grant.subject }}
-                </p>
-                <p class="mt-1 text-xs text-muted">
-                  {{
-                    state.roles.find((role) => role.key === grant.role)
-                      ?.displayName || grant.role
-                  }}
-                  · {{ grant.source }}
-                </p>
-              </div>
-              <UButton
-                label="撤销"
-                color="error"
-                variant="ghost"
-                :disabled="busy"
-                @click="revokeGrant(grant)"
-              />
-            </article>
-          </div>
-        </section>
-
-        <section class="space-y-3">
-          <div class="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 class="text-sm font-semibold text-highlighted">角色与能力</h2>
-              <p class="mt-1 text-xs text-muted">
-                内容运营者负责日常图片、投稿、专题与分类提案；高风险治理仍由受保护管理员承担。
-              </p>
-            </div>
             <UButton
               v-if="draft"
-              label="新建自定义角色"
+              label="新建角色"
               icon="i-tabler-user-plus"
               color="neutral"
               variant="soft"
+              size="sm"
               @click="openCreateRole"
             />
           </div>
-          <div class="grid gap-3 lg:grid-cols-2">
-            <article
-              v-for="role in state.roles"
-              :key="role.key"
-              class="rounded-xl border border-default bg-default p-4"
-            >
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <p class="font-medium text-highlighted">
-                    {{ role.displayName }}
-                  </p>
-                  <p class="mt-0.5 text-xs text-muted">{{ role.key }}</p>
-                </div>
-                <UBadge
-                  :label="
-                    role.protected
-                      ? '受保护'
-                      : role.kind === 'custom'
-                        ? '自定义'
-                        : '内置'
-                  "
-                  color="neutral"
-                  variant="soft"
-                />
-              </div>
-              <div class="mt-4 grid gap-2 sm:grid-cols-2">
-                <UCheckbox
-                  v-for="capability in state.capabilities"
-                  :key="capability.key"
-                  :model-value="role.capabilities.includes(capability.key)"
-                  :label="capability.displayName"
-                  :disabled="role.protected || !draft || busy"
-                  @update:model-value="
-                    toggleRoleCapability(role, capability.key)
-                  "
-                />
-              </div>
-            </article>
-          </div>
-        </section>
+        </div>
 
-        <section class="rounded-xl border border-default bg-default p-4 sm:p-5">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-sm font-semibold text-highlighted">
-                注册用户自动成为内容运营者
-              </h2>
-              <p class="mt-1 text-xs leading-5 text-muted">
-                默认开启以保留登录即可贡献的体验。关闭后，新用户需要申请或由管理员直接授权。
-              </p>
+        <div class="grid gap-3 p-4 sm:p-5 lg:grid-cols-2">
+          <article
+            v-for="role in state.roles"
+            :key="role.key"
+            class="rounded-xl border border-default p-4"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="truncate font-medium text-highlighted">
+                  {{ role.displayName }}
+                </p>
+                <p class="mt-0.5 truncate text-xs text-muted">
+                  {{ role.key }}
+                </p>
+              </div>
+              <UBadge
+                :label="
+                  role.protected
+                    ? '受保护'
+                    : role.kind === 'custom'
+                      ? '自定义'
+                      : '内置'
+                "
+                color="neutral"
+                variant="soft"
+              />
             </div>
-            <USwitch
-              :model-value="state.automaticRules[0]?.enabled ?? false"
-              :disabled="!draft || busy"
-              @update:model-value="toggleAutomatic(Boolean($event))"
-            />
-          </div>
-        </section>
+            <div class="mt-4 grid gap-2 sm:grid-cols-2">
+              <UCheckbox
+                v-for="capability in state.capabilities"
+                :key="capability.key"
+                :model-value="role.capabilities.includes(capability.key)"
+                :label="capability.displayName"
+                :disabled="role.protected || !draft || busy"
+                @update:model-value="toggleRoleCapability(role, capability.key)"
+              />
+            </div>
+          </article>
+        </div>
 
-        <section class="space-y-3">
+        <div
+          class="flex items-start justify-between gap-4 border-t border-default px-4 py-4 sm:px-5"
+        >
           <div>
-            <h2 class="text-sm font-semibold text-highlighted">待处理申请</h2>
-            <p class="mt-1 text-xs text-muted">
-              批准后本站授权立即生效，不修改用户中心角色。
+            <h3 class="text-sm font-semibold text-highlighted">
+              注册用户自动成为内容运营者
+            </h3>
+            <p class="mt-1 max-w-2xl text-xs leading-5 text-muted">
+              关闭后，新用户需要申请或由管理员直接授权。
             </p>
           </div>
-          <ManageEmpty
-            v-if="!state.applications.length"
-            icon="i-tabler-user-check"
-            text="当前没有待处理申请"
+          <USwitch
+            :model-value="state.automaticRules[0]?.enabled ?? false"
+            :disabled="!draft || busy"
+            aria-label="注册用户自动成为内容运营者"
+            @update:model-value="toggleAutomatic(Boolean($event))"
           />
-          <div
-            v-else
-            class="divide-y divide-default overflow-hidden rounded-xl border border-default bg-default"
-          >
-            <article
-              v-for="application in state.applications"
-              :key="application.id"
-              class="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-            >
-              <div class="min-w-0">
-                <p class="truncate text-sm font-medium text-highlighted">
-                  {{ application.subject }}
-                </p>
-                <p class="mt-1 text-xs text-muted">
-                  申请 {{ application.role }} ·
-                  {{ application.reason || "未填写原因" }}
-                </p>
-              </div>
-              <div class="flex gap-2">
-                <UButton
-                  label="拒绝"
-                  color="neutral"
-                  variant="outline"
-                  :disabled="busy"
-                  @click="review(application, 'reject')"
-                />
-                <UButton
-                  label="批准"
-                  :disabled="busy"
-                  @click="review(application, 'approve')"
-                />
-              </div>
-            </article>
+        </div>
+      </section>
+
+      <section v-else aria-labelledby="authorization-users-title">
+        <div
+          class="grid gap-3 border-b border-default p-4 sm:grid-cols-[minmax(0,1fr)_14rem_auto] sm:p-5"
+        >
+          <UFormField label="用户标识">
+            <UInput
+              v-model="grantForm.subject"
+              placeholder="Identity subject"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="角色">
+            <USelect
+              v-model="grantForm.role"
+              value-key="value"
+              :items="
+                state.roles
+                  .filter(
+                    (role) =>
+                      role.kind !== 'custom' || role.capabilities.length,
+                  )
+                  .map((role) => ({
+                    label: role.displayName,
+                    value: role.key,
+                  }))
+              "
+              class="w-full"
+            />
+          </UFormField>
+          <div class="flex items-end">
+            <UButton
+              label="直接授予"
+              icon="i-tabler-user-plus"
+              :disabled="!grantForm.subject.trim() || busy"
+              @click="grantRole"
+            />
           </div>
-        </section>
-      </template>
-    </div>
+        </div>
+
+        <div
+          class="flex items-center justify-between gap-3 border-b border-default px-4 py-3 sm:px-5"
+        >
+          <h2
+            id="authorization-users-title"
+            class="text-sm font-semibold text-highlighted"
+          >
+            已授权用户
+          </h2>
+          <UBadge
+            :label="String(state.grants.length)"
+            color="neutral"
+            variant="soft"
+          />
+        </div>
+        <div v-if="state.grants.length" class="divide-y divide-default">
+          <article
+            v-for="grant in state.grants"
+            :key="grant.id"
+            class="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5"
+          >
+            <div class="min-w-0">
+              <p class="truncate text-sm font-medium text-highlighted">
+                {{ grant.subject }}
+              </p>
+              <p class="mt-1 text-xs text-muted">
+                {{ roleName(grant.role) }} · {{ grantSourceLabel(grant.source) }}
+              </p>
+            </div>
+            <UButton
+              label="撤销"
+              color="error"
+              variant="ghost"
+              :disabled="busy"
+              @click="revokeGrant(grant)"
+            />
+          </article>
+        </div>
+        <ManageEmpty
+          v-else
+          class="m-4 sm:m-5"
+          icon="i-tabler-users"
+          text="当前没有角色授权"
+        />
+      </section>
+    </TabbedSurface>
 
     <UModal
       v-model:open="createRoleOpen"
@@ -537,5 +621,5 @@ function revokeGrant(grant: GrantView) {
         </div>
       </template>
     </UModal>
-  </div>
+  </ManagePage>
 </template>

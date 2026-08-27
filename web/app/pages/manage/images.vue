@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { galleryAdminMutationErrorMessage } from "~/utils/galleryAdminErrors";
-import { PageHeader } from "@yueli/ui/dashboard/pattern";
+import { ManagePage } from "@yueli/ui/admin";
 import { createGalleryNotifier } from "~/utils/feedback";
 import {
   createCollectionRouteQueryCodec,
@@ -389,6 +389,9 @@ const imageLabel = (image: GalleryAdminImage) => image.title;
 const editing = shallowRef<GalleryAdminImage>();
 const editPending = ref(false);
 const editLoading = ref(false);
+const deleteConfirming = ref(false);
+const deletePending = ref(false);
+const deleteError = ref("");
 const editForm = reactive({
   title: "",
   description: "",
@@ -400,6 +403,8 @@ const editForm = reactive({
 });
 function hydrateEditForm(item: GalleryAdminImage) {
   editing.value = item;
+  deleteConfirming.value = false;
+  deleteError.value = "";
   Object.assign(editForm, {
     title: item.title,
     description: item.description,
@@ -414,6 +419,25 @@ function hydrateEditForm(item: GalleryAdminImage) {
     ),
     tagIds: (item.tags || []).map((tag) => tag.id),
   });
+}
+
+function closeEdit() {
+  editing.value = undefined;
+  deleteConfirming.value = false;
+  deleteError.value = "";
+}
+
+function setEditOpen(open: boolean) {
+  if (!open) closeEdit();
+}
+
+function beginDelete() {
+  deleteConfirming.value = true;
+}
+
+function cancelDelete() {
+  deleteConfirming.value = false;
+  deleteError.value = "";
 }
 async function openEdit(item: GalleryAdminImage) {
   if (!canImageUpdate.value) return;
@@ -478,6 +502,29 @@ async function saveEdit() {
     await refresh();
   } finally {
     editPending.value = false;
+  }
+}
+
+async function deleteEditingImage() {
+  if (
+    !canImageHide.value ||
+    !editing.value?.updatedAt ||
+    deletePending.value
+  )
+    return;
+  deletePending.value = true;
+  deleteError.value = "";
+  try {
+    await call(`/admin/images/${encodeURIComponent(editing.value.id)}`, {
+      method: "DELETE",
+      body: { expectedUpdatedAt: editing.value.updatedAt },
+    });
+    closeEdit();
+    await refresh();
+  } catch (reason: any) {
+    deleteError.value = galleryAdminMutationErrorMessage(reason);
+  } finally {
+    deletePending.value = false;
   }
 }
 
@@ -579,12 +626,15 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
 </script>
 
 <template>
-  <div :data-manage-images-state="panelState">
-    <PageHeader title="图片">
-      <template #actions
-        ><UButton to="/submit" icon="i-tabler-upload" label="投稿图片"
-      /></template>
-    </PageHeader>
+  <ManagePage
+    id="images"
+    title="图片"
+    icon="i-tabler-photo"
+    :data-manage-images-state="panelState"
+  >
+    <template #actions>
+      <UButton to="/submit" icon="i-tabler-upload" label="投稿图片" />
+    </template>
 
     <CollectionPanel
       v-model:search="searchInput"
@@ -804,11 +854,8 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
       :open="canImageUpdate && Boolean(editing)"
       title="编辑图片"
       description="统一维护目录文案、主分类、维度和标签。"
-      @update:open="
-        (open) => {
-          if (!open) editing = undefined;
-        }
-      "
+      :ui="{ content: 'sm:max-w-3xl' }"
+      @update:open="setEditOpen"
     >
       <template #body>
         <div v-if="editLoading" class="space-y-3 py-2">
@@ -816,7 +863,30 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
           <USkeleton class="h-24 rounded-lg" />
           <USkeleton class="h-32 rounded-lg" />
         </div>
-        <form v-else class="space-y-5" @submit.prevent="saveEdit">
+        <form
+          v-else
+          id="gallery-image-edit-form"
+          class="space-y-5"
+          @submit.prevent="saveEdit"
+        >
+          <div
+            v-if="editing"
+            data-image-editor-preview
+            class="grid max-h-72 min-h-48 place-items-center overflow-hidden rounded-xl bg-elevated p-2"
+          >
+            <img
+              :src="galleryRendition(editing.assetId, 'preview')"
+              :alt="editForm.altText || editing.title"
+              class="max-h-68 max-w-full rounded-lg object-contain"
+            />
+          </div>
+          <UAlert
+            v-if="deleteError"
+            color="error"
+            variant="subtle"
+            title="图片没有删除"
+            :description="deleteError"
+          />
           <UFormField label="标题" required
             ><UInput v-model="editForm.title" maxlength="160" class="w-full"
           /></UFormField>
@@ -881,20 +951,58 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
               placeholder="选择标签"
             />
           </UFormField>
-          <div class="flex justify-end gap-2">
+        </form>
+      </template>
+      <template v-if="!editLoading" #footer>
+        <div
+          v-if="deleteConfirming"
+          class="flex w-full flex-wrap items-center justify-between gap-3"
+        >
+          <p class="min-w-0 text-sm font-medium text-error">
+            确定删除「{{ editing?.title }}」吗？
+          </p>
+          <div class="flex gap-2">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              label="取消删除"
+              @click="cancelDelete"
+            />
+            <UButton
+              color="error"
+              icon="i-tabler-trash"
+              label="确认删除"
+              :loading="deletePending"
+              @click="deleteEditingImage"
+            />
+          </div>
+        </div>
+        <div v-else class="flex w-full items-center justify-between gap-3">
+          <UButton
+            v-if="canImageHide"
+            color="error"
+            variant="ghost"
+            icon="i-tabler-trash"
+            label="删除图片"
+            @click="beginDelete"
+          />
+          <span v-else />
+          <div class="flex gap-2">
             <UButton
               color="neutral"
               variant="outline"
               label="取消"
-              @click="editing = undefined"
-            /><UButton
+              @click="closeEdit"
+            />
+            <UButton
+              form="gallery-image-edit-form"
               type="submit"
               label="保存更改"
               :loading="editPending"
               :disabled="editForm.primaryCategoryId === ALL"
             />
           </div>
-        </form>
+        </div>
       </template>
     </UModal>
 
@@ -944,5 +1052,5 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
           </div></form
       ></template>
     </UModal>
-  </div>
+  </ManagePage>
 </template>

@@ -14,10 +14,10 @@ const currentLabel = computed(() => {
   if (route.path === "/manage") return "控制台";
   if (route.path.startsWith("/manage/images")) return "图片";
   if (route.path.startsWith("/manage/submissions")) return "投稿审核";
-  if (route.path.startsWith("/manage/collections")) return "专题策展";
+  if (route.path.startsWith("/manage/collections")) return "专题";
   if (route.path.startsWith("/manage/classification")) return "分类与维度";
   if (route.path.startsWith("/manage/cases")) return "处理单";
-  if (route.path.startsWith("/manage/discovery")) return "站点与首页";
+  if (route.path.startsWith("/manage/discovery")) return "站点设置";
   if (route.path.startsWith("/manage/assets")) return "资源策略";
   if (route.path.startsWith("/manage/authorization")) return "权限与申请";
   return "控制台";
@@ -79,7 +79,7 @@ const navigation = computed<readonly AdminNavigationItem[]>(() => [
   ...(can("gallery.collection.read") || can("gallery.collection.manage")
     ? [
         {
-          label: "专题策展",
+          label: "专题",
           icon: "i-tabler-folders",
           to: "/manage/collections",
           active: active("/manage/collections"),
@@ -114,8 +114,8 @@ const navigation = computed<readonly AdminNavigationItem[]>(() => [
   ...(can("gallery.discovery.read") || can("gallery.discovery.manage")
     ? [
         {
-          label: "站点与首页",
-          icon: "i-tabler-layout-dashboard",
+          label: "站点设置",
+          icon: "i-tabler-settings",
           to: "/manage/discovery",
           active: active("/manage/discovery"),
           onSelect: closeSidebar,
@@ -240,7 +240,13 @@ const searchGroups = computed<readonly AdminSearchGroup[]>(() => {
     min-height: 1rem;
   }
 
-  [data-gallery-manage-shell] :deep(button[role="checkbox"])::after {
+  [data-gallery-manage-shell] :deep(button[role="switch"]) {
+    position: relative;
+    min-height: 1.25rem;
+  }
+
+  [data-gallery-manage-shell]
+    :deep(:is(button[role="checkbox"], button[role="switch"]))::after {
     position: absolute;
     inset: -0.875rem;
     content: "";

@@ -144,45 +144,48 @@ func TestClaimGuestSubmissionsTransfersOwnership(t *testing.T) {
 }
 
 type fakeStore struct {
-	settings               *model.SiteSettings
-	settingsUpdateSeen     model.SiteSettingsUpdateInput
-	candidates             []model.ImageCard
-	image                  *model.ImageDetail
-	relatedImages          []model.RelatedImage
-	relatedLimitSeen       int
-	collectionDetail       *model.CollectionDetail
-	collectionUpdateSeen   model.EditorialCollectionUpdateInput
-	collectionOrderSeen    []string
-	tombstone              bool
-	submission             *model.Submission
-	reviewSeen             string
-	submitSeen             model.SubmissionInput
-	classificationSnapshot classification.Snapshot
-	tagMatches             []classification.TagMatch
-	candidateCountCalls    int
-	filterPlanSeen         classification.FilterPlan
-	governanceImpacts      []classification.ReferenceImpact
-	governanceToken        string
-	governanceExecuted     bool
-	governanceFactRequest  classification.GovernFactRequest
-	governancePlan         classification.GovernancePlan
-	classificationTags     []model.ClassificationTag
-	tagProposals           []model.ClassificationTagProposal
-	tagProposalReviewSeen  model.ClassificationTagProposalReviewInput
-	mySubmissionsQuerySeen model.MySubmissionQuery
-	adminImages            []model.AdminImage
-	adminImageQuerySeen    model.AdminImageQuery
-	adminImageUpdateSeen   model.AdminImageUpdateInput
-	adminImageCounts       map[string]int
-	primaryCategorySeen    string
-	adminSubmissions       []model.Submission
-	adminSubmissionQuery   model.AdminSubmissionQuery
-	adminCases             []model.Case
-	adminCaseQuery         model.AdminCaseQuery
-	caseResolutionSeen     model.CaseResolutionInput
-	publicRenditionReadyID string
-	adminOverview          *model.AdminOverview
-	adminOverviewDays      int
+	settings                 *model.SiteSettings
+	settingsUpdateSeen       model.SiteSettingsUpdateInput
+	candidates               []model.ImageCard
+	image                    *model.ImageDetail
+	relatedImages            []model.RelatedImage
+	relatedLimitSeen         int
+	collectionDetail         *model.CollectionDetail
+	collectionUpdateSeen     model.EditorialCollectionUpdateInput
+	collectionOrderSeen      []string
+	tombstone                bool
+	submission               *model.Submission
+	reviewSeen               string
+	submitSeen               model.SubmissionInput
+	classificationSnapshot   classification.Snapshot
+	classificationCreateSeen model.ClassificationIdentityCreateInput
+	classificationUpdateSeen model.ClassificationIdentityUpdateInput
+	tagMatches               []classification.TagMatch
+	candidateCountCalls      int
+	filterPlanSeen           classification.FilterPlan
+	governanceImpacts        []classification.ReferenceImpact
+	governanceToken          string
+	governanceExecuted       bool
+	governanceFactRequest    classification.GovernFactRequest
+	governancePlan           classification.GovernancePlan
+	classificationTags       []model.ClassificationTag
+	tagProposals             []model.ClassificationTagProposal
+	tagProposalReviewSeen    model.ClassificationTagProposalReviewInput
+	mySubmissionsQuerySeen   model.MySubmissionQuery
+	adminImages              []model.AdminImage
+	adminImageQuerySeen      model.AdminImageQuery
+	adminImageUpdateSeen     model.AdminImageUpdateInput
+	adminImageDeleteSeen     string
+	adminImageCounts         map[string]int
+	primaryCategorySeen      string
+	adminSubmissions         []model.Submission
+	adminSubmissionQuery     model.AdminSubmissionQuery
+	adminCases               []model.Case
+	adminCaseQuery           model.AdminCaseQuery
+	caseResolutionSeen       model.CaseResolutionInput
+	publicRenditionReadyID   string
+	adminOverview            *model.AdminOverview
+	adminOverviewDays        int
 }
 
 func (f *fakeStore) SiteSettings(context.Context) (*model.SiteSettings, error) {
@@ -212,6 +215,14 @@ func (f *fakeStore) ClassificationRevision(context.Context) (uint64, error) {
 }
 func (f *fakeStore) ClassificationSnapshot(context.Context) (classification.Snapshot, error) {
 	return f.classificationSnapshot, nil
+}
+func (f *fakeStore) CreateClassificationIdentity(_ context.Context, _ string, input model.ClassificationIdentityCreateInput) (*model.ClassificationIdentityCreateResult, error) {
+	f.classificationCreateSeen = input
+	return &model.ClassificationIdentityCreateResult{ID: testCategoryID, CatalogRevision: 9}, nil
+}
+func (f *fakeStore) UpdateClassificationIdentity(_ context.Context, _ string, _ string, input model.ClassificationIdentityUpdateInput) (*model.ClassificationIdentityCreateResult, error) {
+	f.classificationUpdateSeen = input
+	return &model.ClassificationIdentityCreateResult{ID: testCategoryID, CatalogRevision: 10}, nil
 }
 func (f *fakeStore) ClassificationTagMatches(_ context.Context, _ []classification.TagLookupRequest) ([]classification.TagMatch, string, error) {
 	return append([]classification.TagMatch(nil), f.tagMatches...), "tags:test", nil
@@ -386,6 +397,10 @@ func (f *fakeStore) MarkImagePublicRenditionReady(_ context.Context, imageID str
 	return nil
 }
 func (f *fakeStore) HideImage(context.Context, string, string, string) error { return nil }
+func (f *fakeStore) DeleteAdminImage(_ context.Context, _ string, _ string, expectedUpdatedAt string) error {
+	f.adminImageDeleteSeen = expectedUpdatedAt
+	return nil
+}
 func (f *fakeStore) Cases(_ context.Context, query model.AdminCaseQuery) ([]model.Case, int, error) {
 	f.adminCaseQuery = query
 	return f.adminCases, len(f.adminCases), nil
@@ -677,6 +692,21 @@ func TestUpdateAdminImageValidatesAndNormalizesMetadata(t *testing.T) {
 	}
 	_, err = service.UpdateAdminImage(context.Background(), PublicID(testCategoryID), model.AdminImageUpdateInput{ExpectedUpdatedAt: "stale", Title: "雨夜", AltText: "雨夜"})
 	assertCode(t, err, "common.validation_failed")
+}
+
+func TestDeleteAdminImageRequiresOperatorAndVersion(t *testing.T) {
+	store := validSubmissionStore()
+	service := New(store)
+	if err := service.DeleteAdminImage(context.Background(), "operator-1", PublicID(testCategoryID), model.AdminImageDeleteInput{
+		ExpectedUpdatedAt: "2026-08-28T04:00:00Z",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if store.adminImageDeleteSeen != "2026-08-28T04:00:00Z" {
+		t.Fatalf("delete version = %q", store.adminImageDeleteSeen)
+	}
+	assertCode(t, service.DeleteAdminImage(context.Background(), "", PublicID(testCategoryID), model.AdminImageDeleteInput{ExpectedUpdatedAt: "2026-08-28T04:00:00Z"}), "gallery.forbidden")
+	assertCode(t, service.DeleteAdminImage(context.Background(), "operator-1", PublicID(testCategoryID), model.AdminImageDeleteInput{}), "common.validation_failed")
 }
 
 func TestAdminImageUpdatedAtRoundTripsIntoOptimisticUpdate(t *testing.T) {
@@ -989,6 +1019,52 @@ func TestClassificationCatalogIncludesInactiveManagementIdentities(t *testing.T)
 	}
 	if len(catalog.Facets) != 1 || len(catalog.Facets[0].Values) != 1 {
 		t.Fatalf("facets = %#v", catalog.Facets)
+	}
+}
+
+func TestCreateClassificationIdentityNormalizesDraftInput(t *testing.T) {
+	store := validSubmissionStore()
+	service := New(store)
+	if _, err := service.classificationCatalog(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	created, err := service.CreateClassificationIdentity(context.Background(), " operator-1 ", model.ClassificationIdentityCreateInput{
+		Kind: "category", Name: " 风景 ", Slug: " LANDSCAPE ", ParentID: PublicID(testCategoryID),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.ID != PublicID(testCategoryID) || created.CatalogRevision != 9 {
+		t.Fatalf("created = %#v", created)
+	}
+	if store.classificationCreateSeen.Name != "风景" || store.classificationCreateSeen.Slug != "landscape" || store.classificationCreateSeen.ParentID != testCategoryID {
+		t.Fatalf("creation input = %#v", store.classificationCreateSeen)
+	}
+	if service.catalog != nil || service.catalogRevision != 0 {
+		t.Fatal("classification creation must invalidate the local catalog")
+	}
+}
+
+func TestCreateClassificationIdentityRequiresFacetForValue(t *testing.T) {
+	_, err := New(validSubmissionStore()).CreateClassificationIdentity(context.Background(), "operator-1", model.ClassificationIdentityCreateInput{
+		Kind: "facet_value", Name: "横图", Slug: "landscape",
+	})
+	assertCode(t, err, "common.validation_failed")
+}
+
+func TestUpdateClassificationIdentityNormalizesTag(t *testing.T) {
+	store := validSubmissionStore()
+	updated, err := New(store).UpdateClassificationIdentity(context.Background(), "operator-1", PublicID(testCategoryID), model.ClassificationIdentityUpdateInput{
+		Kind: "tag", Name: " 角色 ", Slug: " CHARACTER ",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.ID != PublicID(testCategoryID) || updated.CatalogRevision != 10 {
+		t.Fatalf("updated = %#v", updated)
+	}
+	if store.classificationUpdateSeen.Name != "角色" || store.classificationUpdateSeen.Slug != "character" {
+		t.Fatalf("update input = %#v", store.classificationUpdateSeen)
 	}
 }
 

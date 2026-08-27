@@ -21,28 +21,46 @@ const emit = defineEmits<{
   ];
 }>();
 const targets = reactive<Record<string, string>>({});
+const createNewValue = "__create__";
 
 const review = (
   item: GalleryClassificationTagProposal,
   decision: "approve" | "reject",
-) => emit("review", item, decision, targets[item.id] || "");
+) => {
+  const target = targets[item.id] || createNewValue;
+  emit("review", item, decision, target === createNewValue ? "" : target);
+};
 const activeTags = computed(() =>
   props.tags.filter((entry) => entry.status === "active"),
 );
+const approvalOptions = computed(() => [
+  { label: "创建新标签", value: createNewValue },
+  ...activeTags.value.map((tag) => ({
+    label: `归入「${tag.name}」`,
+    value: tag.id,
+  })),
+]);
+
+function updateTarget(itemID: string, value: unknown) {
+  targets[itemID] = String(value || createNewValue);
+}
 </script>
 
 <template>
-  <section aria-labelledby="classification-proposal-heading">
+  <section
+    aria-labelledby="classification-proposal-heading"
+    data-classification-proposals
+  >
     <div class="mb-3 flex items-end justify-between gap-3">
       <div>
         <h2
           id="classification-proposal-heading"
           class="font-semibold text-highlighted"
         >
-          待审标签提案
+          标签提案
         </h2>
         <p class="mt-1 text-sm text-muted">
-          批准为新标签，或归并为已有标签的同义词。
+          投稿中未收录的标签会进入这里；通过时创建新标签或归入现有标签。
         </p>
       </div>
       <span class="text-xs text-dimmed">{{ total }} 条待审</span>
@@ -66,17 +84,15 @@ const activeTags = computed(() =>
             </p>
           </details>
         </div>
-        <UFormField label="批准方式">
-          <select
-            v-model="targets[item.id]"
-            class="h-11 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted"
-            :aria-label="`选择 ${item.inputValue} 的 Tag 处理方式`"
-          >
-            <option value="">创建新标签</option>
-            <option v-for="tag in activeTags" :key="tag.id" :value="tag.id">
-              作为「{{ tag.name }}」的同义词
-            </option>
-          </select>
+        <UFormField label="处理为">
+          <USelect
+            :model-value="targets[item.id] || createNewValue"
+            :items="approvalOptions"
+            value-key="value"
+            class="w-full"
+            :aria-label="`选择 ${item.inputValue} 的标签处理方式`"
+            @update:model-value="updateTarget(item.id, $event)"
+          />
         </UFormField>
         <div class="flex gap-2">
           <UButton
@@ -89,7 +105,7 @@ const activeTags = computed(() =>
           />
           <UButton
             class="min-h-11"
-            label="批准"
+            label="通过"
             :loading="reviewingId === item.id"
             @click="review(item, 'approve')"
           />

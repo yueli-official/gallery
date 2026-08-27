@@ -1,7 +1,9 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 @import "@yueli/asset-nuxt/tailwind.css";
+@import "@yueli/ui/tailwind.css";
 @import "@yueli/ui/theme.css";
+@import "@fontsource-variable/space-grotesk";
 @import "@fontsource-variable/dm-sans";
 
 :root {
@@ -119,10 +121,7 @@ body {
   font-family: "DM Sans Variable", ui-sans-serif, system-ui, sans-serif;
 }
 
-.font-display,
-h1,
-h2,
-h3 {
+body:not(.gallery-manage-active) :is(h1, h2, h3) {
   font-family:
     "DM Sans Variable", "PingFang SC", "Microsoft YaHei UI", ui-sans-serif,
     system-ui, sans-serif;

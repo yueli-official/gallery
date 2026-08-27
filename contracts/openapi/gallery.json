@@ -460,6 +460,40 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.api.v1.CreateClassificationIdentityReq": {
+        "properties": {
+          "facetId": {
+            "format": "string",
+            "type": "string"
+          },
+          "kind": {
+            "format": "string",
+            "type": "string"
+          },
+          "name": {
+            "format": "string",
+            "type": "string"
+          },
+          "parentId": {
+            "format": "string",
+            "type": "string"
+          },
+          "slug": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.CreateClassificationIdentityRes": {
+        "properties": {
+          "identity": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationIdentityCreateResult",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.api.v1.CreateEditorialCollectionReq": {
         "properties": {
           "description": {
@@ -562,6 +596,31 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.api.v1.DeleteAdminImageReq": {
+        "properties": {
+          "expectedUpdatedAt": {
+            "format": "string",
+            "type": "string"
+          },
+          "imageId": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "required": [
+          "imageId"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.DeleteAdminImageRes": {
+        "properties": {
+          "deleted": {
+            "format": "bool",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.api.v1.ExecuteClassificationGovernanceReq": {
         "properties": {
           "command": {
@@ -614,7 +673,13 @@
         "type": "object"
       },
       "github.com.yueli-official.gallery.api.api.v1.GetAdminOverviewReq": {
-        "properties": {},
+        "properties": {
+          "days": {
+            "default": 14,
+            "format": "int",
+            "type": "integer"
+          }
+        },
         "type": "object"
       },
       "github.com.yueli-official.gallery.api.api.v1.GetAdminOverviewRes": {
@@ -1052,8 +1117,13 @@
             "format": "int",
             "type": "integer"
           },
-          "sort": {
-            "default": "newest",
+          "sortBy": {
+            "default": "createdAt",
+            "format": "string",
+            "type": "string"
+          },
+          "sortOrder": {
+            "default": "desc",
             "format": "string",
             "type": "string"
           }
@@ -1117,8 +1187,13 @@
             "format": "int",
             "type": "integer"
           },
-          "sort": {
-            "default": "oldest",
+          "sortBy": {
+            "default": "createdAt",
+            "format": "string",
+            "type": "string"
+          },
+          "sortOrder": {
+            "default": "asc",
             "format": "string",
             "type": "string"
           },
@@ -1494,8 +1569,13 @@
             "format": "int",
             "type": "integer"
           },
-          "sort": {
-            "default": "oldest",
+          "sortBy": {
+            "default": "createdAt",
+            "format": "string",
+            "type": "string"
+          },
+          "sortOrder": {
+            "default": "asc",
             "format": "string",
             "type": "string"
           }
@@ -2055,6 +2135,39 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.api.v1.UpdateClassificationIdentityReq": {
+        "properties": {
+          "identityId": {
+            "format": "string",
+            "type": "string"
+          },
+          "kind": {
+            "format": "string",
+            "type": "string"
+          },
+          "name": {
+            "format": "string",
+            "type": "string"
+          },
+          "slug": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "required": [
+          "identityId"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.UpdateClassificationIdentityRes": {
+        "properties": {
+          "identity": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationIdentityCreateResult",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.api.v1.UpdateEditorialCollectionReq": {
         "properties": {
           "collectionId": {
@@ -2325,6 +2438,14 @@
       },
       "github.com.yueli-official.gallery.api.internal.model.AdminOverview": {
         "properties": {
+          "allTimeViews": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "days": {
+            "format": "int",
+            "type": "integer"
+          },
           "failedProcessing": {
             "format": "int",
             "type": "integer"
@@ -2337,8 +2458,78 @@
             "format": "int",
             "type": "integer"
           },
+          "periodFavorites": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "periodViews": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "previousPeriodFavorites": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "previousPeriodViews": {
+            "format": "int64",
+            "type": "integer"
+          },
           "publishedImages": {
             "format": "int",
+            "type": "integer"
+          },
+          "series": {
+            "format": "[]model.AdminTrafficPoint",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.AdminTrafficPoint",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "topImages": {
+            "format": "[]model.AdminTrafficImage",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.AdminTrafficImage",
+              "description": ""
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.internal.model.AdminTrafficImage": {
+        "properties": {
+          "favorites": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "format": "string",
+            "type": "string"
+          },
+          "title": {
+            "format": "string",
+            "type": "string"
+          },
+          "views": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.internal.model.AdminTrafficPoint": {
+        "properties": {
+          "day": {
+            "format": "string",
+            "type": "string"
+          },
+          "favorites": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "views": {
+            "format": "int64",
             "type": "integer"
           }
         },
@@ -2764,6 +2955,19 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.internal.model.ClassificationIdentityCreateResult": {
+        "properties": {
+          "catalogRevision": {
+            "format": "uint64",
+            "type": "integer"
+          },
+          "id": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.internal.model.ClassificationNode": {
         "properties": {
           "count": {
@@ -3156,10 +3360,6 @@
       "github.com.yueli-official.gallery.api.internal.model.HomeSectionSettings": {
         "properties": {
           "actionLabel": {
-            "format": "string",
-            "type": "string"
-          },
-          "description": {
             "format": "string",
             "type": "string"
           },
@@ -4220,9 +4420,18 @@
           },
           {
             "in": "query",
-            "name": "sort",
+            "name": "sortBy",
             "schema": {
-              "default": "oldest",
+              "default": "createdAt",
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sortOrder",
+            "schema": {
+              "default": "asc",
               "format": "string",
               "type": "string"
             }
@@ -4415,6 +4624,92 @@
           }
         },
         "summary": "Preview an immutable classification governance plan",
+        "tags": [
+          "Gallery admin"
+        ]
+      }
+    },
+    "/api/v1/gallery/admin/classification/identities": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.CreateClassificationIdentityReq",
+                "description": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.CreateClassificationIdentityRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Create a classification category, facet, facet value or tag",
+        "tags": [
+          "Gallery admin"
+        ]
+      }
+    },
+    "/api/v1/gallery/admin/classification/identities/{identityId}": {
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identityId",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "kind": {
+                    "format": "string",
+                    "type": "string"
+                  },
+                  "name": {
+                    "format": "string",
+                    "type": "string"
+                  },
+                  "slug": {
+                    "format": "string",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.UpdateClassificationIdentityRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Update the name and slug of a classification identity",
         "tags": [
           "Gallery admin"
         ]
@@ -4865,9 +5160,18 @@
           },
           {
             "in": "query",
-            "name": "sort",
+            "name": "sortBy",
             "schema": {
-              "default": "newest",
+              "default": "createdAt",
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sortOrder",
+            "schema": {
+              "default": "desc",
               "format": "string",
               "type": "string"
             }
@@ -5021,6 +5325,44 @@
       }
     },
     "/api/v1/gallery/admin/images/{imageId}": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "imageId",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expectedUpdatedAt",
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.DeleteAdminImageRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Mark a Gallery image as deleted with optimistic concurrency",
+        "tags": [
+          "Gallery admin"
+        ]
+      },
       "get": {
         "parameters": [
           {
@@ -5169,6 +5511,17 @@
     },
     "/api/v1/gallery/admin/overview": {
       "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "schema": {
+              "default": 14,
+              "format": "int",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -5251,9 +5604,18 @@
           },
           {
             "in": "query",
-            "name": "sort",
+            "name": "sortBy",
             "schema": {
-              "default": "oldest",
+              "default": "createdAt",
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sortOrder",
+            "schema": {
+              "default": "asc",
               "format": "string",
               "type": "string"
             }
@@ -5840,6 +6202,27 @@
         ]
       }
     },
+    "/api/v1/gallery/me": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.GetGalleryMeRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Get my Gallery access",
+        "tags": [
+          "gallery"
+        ]
+      }
+    },
     "/api/v1/gallery/me/favorites": {
       "get": {
         "parameters": [
@@ -6183,27 +6566,6 @@
         "summary": "Submit one uploaded image",
         "tags": [
           "Gallery submissions"
-        ]
-      }
-    },
-    "/api/v1/me": {
-      "get": {
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.GetGalleryMeRes",
-                  "description": ""
-                }
-              }
-            },
-            "description": ""
-          }
-        },
-        "summary": "Get my Gallery access",
-        "tags": [
-          "gallery"
         ]
       }
     }

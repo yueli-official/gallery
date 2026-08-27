@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import DashboardTrendChart from "~/components/DashboardTrendChart.vue";
-import { PageHeader } from "@yueli/ui/dashboard/pattern";
+import { ManagePage } from "@yueli/ui/admin";
 import type { GalleryAdminOverview } from "~/types/gallery";
 
 definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
@@ -101,8 +101,12 @@ const metricCards = computed(() => [
 </script>
 
 <template>
-  <div class="space-y-5" data-gallery-dashboard-analytics>
-    <PageHeader title="控制台" />
+  <ManagePage
+    id="dashboard"
+    title="控制台"
+    icon="i-tabler-dashboard"
+    data-gallery-dashboard-analytics
+  >
 
     <UAlert
       v-if="!can('gallery.dashboard.read')"
@@ -142,26 +146,23 @@ const metricCards = computed(() => [
           v-for="card in metricCards"
           :key="card.label"
           :to="card.to"
-          class="group grid min-h-28 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 rounded-xl border border-default bg-default p-4 shadow-sm transition-colors hover:bg-elevated"
+          class="relative grid min-w-0 grid-cols-[2.625rem_minmax(0,1fr)] gap-3 overflow-hidden rounded-xl bg-default p-4 shadow-sm transition-colors hover:bg-elevated"
+          data-gallery-dashboard-metric
         >
           <span
-            class="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary"
+            class="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary"
           >
             <UIcon :name="card.icon" class="size-5" />
           </span>
           <div class="min-w-0">
             <p class="text-xs text-muted">{{ card.label }}</p>
             <p
-              class="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-highlighted"
+              class="mt-0.5 text-2xl font-bold leading-tight tabular-nums tracking-[-0.03em] text-highlighted"
             >
               {{ card.value }}
             </p>
-            <p class="mt-1 truncate text-xs text-muted">{{ card.detail }}</p>
+            <p class="mt-0.5 truncate text-xs text-dimmed">{{ card.detail }}</p>
           </div>
-          <UIcon
-            name="i-tabler-arrow-up-right"
-            class="mt-1 size-4 text-dimmed transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-          />
         </NuxtLink>
       </div>
 
@@ -297,5 +298,5 @@ const metricCards = computed(() => [
         </p>
       </UCard>
     </template>
-  </div>
+  </ManagePage>
 </template>

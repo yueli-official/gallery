@@ -24,9 +24,10 @@ describe("Gallery mobile header", () => {
     expect(home).toMatch(/<h1[^>]*class="sr-only"[^>]*>/);
   });
 
-  it("renders home discovery copy from operator-managed settings", () => {
+  it("renders only operator-managed titles and actions for home sections", () => {
     expect(home).toContain("homeSection.title");
     expect(home).toContain(":label=\"homeSection.actionLabel\"");
+    expect(home).not.toContain("homeSection.description");
     expect(home).not.toContain(">随机看看</h2>");
     expect(home).not.toContain('label="换一批"');
     expect(home).not.toContain('title="从专题进入"');

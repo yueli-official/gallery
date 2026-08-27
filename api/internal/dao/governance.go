@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/yueli-official/foundation/go/classification"
 	"github.com/yueli-official/gallery/api/internal/galleryerr"
+	"github.com/yueli-official/gallery/api/internal/model"
 )
 
 type governanceRaw func(string, ...any) *gdb.Model
@@ -247,6 +249,238 @@ RETURNING revision`, catalog["id"].String(), plan.ExpectedCatalogRevision)
 		return 0, err
 	}
 	return nextRevision, nil
+}
+
+func (p *PG) CreateClassificationIdentity(ctx context.Context, operator string, input model.ClassificationIdentityCreateInput) (*model.ClassificationIdentityCreateResult, error) {
+	result := &model.ClassificationIdentityCreateResult{ID: newIdentifier()}
+	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		tx = tx.Ctx(ctx)
+		catalog, err := tx.GetOne(`
+SELECT id::text AS id, revision
+FROM gallery_classification_catalogs
+WHERE catalog_key = 'gallery'
+FOR UPDATE`)
+		if err != nil {
+			return gerror.Wrap(err, "lock gallery classification catalog")
+		}
+		if len(catalog) == 0 {
+			return galleryerr.NotInitialized("classification_catalog")
+		}
+		catalogID := catalog["id"].String()
+
+		switch input.Kind {
+		case "category":
+			if input.ParentID != "" {
+				exists, err := tx.GetValue(`
+SELECT EXISTS (
+    SELECT 1 FROM gallery_categories
+    WHERE catalog_id = ?::uuid AND id = ?::uuid AND status <> 'replaced'
+)`, catalogID, input.ParentID)
+				if err != nil {
+					return gerror.Wrap(err, "validate gallery category parent")
+				}
+				if !exists.Bool() {
+					return galleryerr.Validation("parentId", "parent category does not exist")
+				}
+			}
+			_, err = tx.Exec(`
+INSERT INTO gallery_categories (id, catalog_id, parent_id, slug, name, status)
+VALUES (?::uuid, ?::uuid, NULLIF(?, '')::uuid, ?, ?, 'draft')`,
+				result.ID, catalogID, input.ParentID, input.Slug, input.Name)
+		case "facet":
+			_, err = tx.Exec(`
+INSERT INTO gallery_facets (id, catalog_id, slug, name, status)
+VALUES (?::uuid, ?::uuid, ?, ?, 'draft')`,
+				result.ID, catalogID, input.Slug, input.Name)
+		case "facet_value":
+			exists, lookupErr := tx.GetValue(`
+SELECT EXISTS (
+    SELECT 1 FROM gallery_facets
+    WHERE catalog_id = ?::uuid AND id = ?::uuid AND status <> 'replaced'
+)`, catalogID, input.FacetID)
+			if lookupErr != nil {
+				return gerror.Wrap(lookupErr, "validate gallery facet")
+			}
+			if !exists.Bool() {
+				return galleryerr.Validation("facetId", "facet does not exist")
+			}
+			if input.ParentID != "" {
+				parentExists, lookupErr := tx.GetValue(`
+SELECT EXISTS (
+    SELECT 1 FROM gallery_facet_values
+    WHERE catalog_id = ?::uuid AND facet_id = ?::uuid AND id = ?::uuid AND status <> 'replaced'
+)`, catalogID, input.FacetID, input.ParentID)
+				if lookupErr != nil {
+					return gerror.Wrap(lookupErr, "validate gallery facet value parent")
+				}
+				if !parentExists.Bool() {
+					return galleryerr.Validation("parentId", "parent facet value does not exist")
+				}
+			}
+			_, err = tx.Exec(`
+INSERT INTO gallery_facet_values (id, catalog_id, facet_id, parent_id, slug, name, status)
+VALUES (?::uuid, ?::uuid, ?::uuid, NULLIF(?, '')::uuid, ?, ?, 'draft')`,
+				result.ID, catalogID, input.FacetID, input.ParentID, input.Slug, input.Name)
+		case "tag":
+			_, err = tx.Exec(`
+INSERT INTO gallery_tags (id, catalog_id, current_name, current_slug, status)
+VALUES (?::uuid, ?::uuid, ?, ?, 'active')`,
+				result.ID, catalogID, input.Name, input.Slug)
+			if err == nil {
+				_, err = tx.Exec(`
+INSERT INTO gallery_tag_lookup_entries (catalog_id, lookup_key, target_tag_id, kind, display_value)
+VALUES (?::uuid, ?, ?::uuid, 'canonical', ?)`,
+					catalogID, input.Slug, result.ID, input.Name)
+			}
+		}
+		if err != nil {
+			var postgresError *pq.Error
+			if errors.As(err, &postgresError) && postgresError.Code == "23505" {
+				return galleryerr.Conflict("classification_slug")
+			}
+			return gerror.Wrap(err, "create gallery classification identity")
+		}
+
+		revisionRecord, err := tx.GetOne(`
+UPDATE gallery_classification_catalogs
+SET revision = revision + 1, updated_at = NOW()
+WHERE id = ?::uuid AND revision = ?
+RETURNING revision`, catalogID, catalog["revision"].Uint64())
+		if err != nil {
+			return gerror.Wrap(err, "advance gallery classification revision")
+		}
+		if len(revisionRecord) == 0 {
+			return galleryerr.Conflict("classification_revision")
+		}
+		result.CatalogRevision = revisionRecord["revision"].Uint64()
+		payload, err := json.Marshal(map[string]any{
+			"operator": operator,
+			"identity": map[string]string{
+				"id": result.ID, "kind": input.Kind, "name": input.Name, "slug": input.Slug,
+			},
+		})
+		if err != nil {
+			return gerror.Wrap(err, "encode gallery classification creation payload")
+		}
+		if err := p.enqueueClassificationRefresh(
+			ctx, tx, catalogID, result.CatalogRevision,
+			"classification.identity.created", payload,
+		); err != nil {
+			return gerror.Wrap(err, "enqueue gallery classification refresh")
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (p *PG) UpdateClassificationIdentity(ctx context.Context, operator, id string, input model.ClassificationIdentityUpdateInput) (*model.ClassificationIdentityCreateResult, error) {
+	result := &model.ClassificationIdentityCreateResult{ID: id}
+	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		tx = tx.Ctx(ctx)
+		catalog, err := tx.GetOne(`
+SELECT id::text AS id, revision
+FROM gallery_classification_catalogs
+WHERE catalog_key = 'gallery'
+FOR UPDATE`)
+		if err != nil {
+			return gerror.Wrap(err, "lock gallery classification catalog")
+		}
+		if len(catalog) == 0 {
+			return galleryerr.NotInitialized("classification_catalog")
+		}
+		catalogID := catalog["id"].String()
+
+		if input.Kind == "tag" {
+			current, err := tx.GetOne(`
+SELECT current_slug, status
+FROM gallery_tags
+WHERE catalog_id = ?::uuid AND id = ?::uuid
+FOR UPDATE`, catalogID, id)
+			if err != nil {
+				return gerror.Wrap(err, "lock gallery tag")
+			}
+			if len(current) == 0 {
+				return galleryerr.NotFound("tag", "")
+			}
+			if current["status"].String() == "replaced" {
+				return galleryerr.InvalidState("tag", "replaced")
+			}
+			if _, err = tx.Exec(`
+UPDATE gallery_tags
+SET current_name = ?, current_slug = ?, updated_at = NOW()
+WHERE catalog_id = ?::uuid AND id = ?::uuid`, input.Name, input.Slug, catalogID, id); err != nil {
+				return err
+			}
+			if _, err = tx.Exec(`
+UPDATE gallery_tag_lookup_entries
+SET lookup_key = ?, display_value = ?
+WHERE catalog_id = ?::uuid AND target_tag_id = ?::uuid AND kind = 'canonical'`,
+				input.Slug, input.Name, catalogID, id); err != nil {
+				return err
+			}
+		} else {
+			table := map[string]string{
+				"category":    "gallery_categories",
+				"facet":       "gallery_facets",
+				"facet_value": "gallery_facet_values",
+			}[input.Kind]
+			update, err := tx.Exec(fmt.Sprintf(`
+UPDATE %s
+SET name = ?, slug = ?, updated_at = NOW()
+WHERE catalog_id = ?::uuid AND id = ?::uuid AND status <> 'replaced'`, table),
+				input.Name, input.Slug, catalogID, id)
+			if err != nil {
+				return err
+			}
+			rows, err := update.RowsAffected()
+			if err != nil {
+				return gerror.Wrap(err, "count updated gallery classification identity")
+			}
+			if rows == 0 {
+				return galleryerr.NotFound(input.Kind, "")
+			}
+		}
+
+		revisionRecord, err := tx.GetOne(`
+UPDATE gallery_classification_catalogs
+SET revision = revision + 1, updated_at = NOW()
+WHERE id = ?::uuid AND revision = ?
+RETURNING revision`, catalogID, catalog["revision"].Uint64())
+		if err != nil {
+			return gerror.Wrap(err, "advance gallery classification revision")
+		}
+		if len(revisionRecord) == 0 {
+			return galleryerr.Conflict("classification_revision")
+		}
+		result.CatalogRevision = revisionRecord["revision"].Uint64()
+		payload, err := json.Marshal(map[string]any{
+			"operator": operator,
+			"identity": map[string]string{
+				"id": id, "kind": input.Kind, "name": input.Name, "slug": input.Slug,
+			},
+		})
+		if err != nil {
+			return gerror.Wrap(err, "encode gallery classification update payload")
+		}
+		if err := p.enqueueClassificationRefresh(
+			ctx, tx, catalogID, result.CatalogRevision,
+			"classification.identity.updated", payload,
+		); err != nil {
+			return gerror.Wrap(err, "enqueue gallery classification refresh")
+		}
+		return nil
+	})
+	if err != nil {
+		var postgresError *pq.Error
+		if errors.As(err, &postgresError) && postgresError.Code == "23505" {
+			return nil, galleryerr.Conflict("classification_slug")
+		}
+		return nil, err
+	}
+	return result, nil
 }
 
 func executeClassificationGovernanceStep(ctx context.Context, tx gdb.TX, step classification.GovernStep) error {

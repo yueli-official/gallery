@@ -60,6 +60,7 @@ type Store interface {
 	AdminImage(context.Context, string) (*model.AdminImage, error)
 	AdminImageCounts(context.Context) (map[string]int, error)
 	UpdateAdminImage(context.Context, string, model.AdminImageUpdateInput) (*model.AdminImage, error)
+	DeleteAdminImage(context.Context, string, string, string) error
 	SetImagePrimaryCategory(context.Context, string, string) error
 	ReviewQueue(context.Context, model.AdminSubmissionQuery) ([]model.Submission, int, error)
 	ReviewSubmission(context.Context, string, string, model.SubmissionReviewInput) (*model.Submission, error)
@@ -68,6 +69,14 @@ type Store interface {
 	Cases(context.Context, model.AdminCaseQuery) ([]model.Case, int, error)
 	ResolveCase(context.Context, string, string, model.CaseResolutionInput) (*model.Case, error)
 	RecordEvent(context.Context, model.Subject, string, model.EventInput) error
+}
+
+type ClassificationCreationStore interface {
+	CreateClassificationIdentity(context.Context, string, model.ClassificationIdentityCreateInput) (*model.ClassificationIdentityCreateResult, error)
+}
+
+type ClassificationUpdateStore interface {
+	UpdateClassificationIdentity(context.Context, string, string, model.ClassificationIdentityUpdateInput) (*model.ClassificationIdentityCreateResult, error)
 }
 
 type Service struct {
@@ -353,7 +362,6 @@ func (s *Service) UpdateSiteSettings(ctx context.Context, input model.SiteSettin
 		section := &input.HomeSections[index]
 		section.Key = strings.TrimSpace(section.Key)
 		section.Title = strings.TrimSpace(section.Title)
-		section.Description = strings.TrimSpace(section.Description)
 		section.ActionLabel = strings.TrimSpace(section.ActionLabel)
 		if _, ok := expected[section.Key]; !ok {
 			return nil, galleryerr.Validation("homeSections", "unsupported or duplicate home section")
@@ -369,8 +377,8 @@ func (s *Service) UpdateSiteSettings(ctx context.Context, input model.SiteSettin
 		if section.Title == "" || len([]rune(section.Title)) > 80 {
 			return nil, galleryerr.Validation("homeSections", "section title is required and must be at most 80 characters")
 		}
-		if len([]rune(section.Description)) > 240 || len([]rune(section.ActionLabel)) > 40 {
-			return nil, galleryerr.Validation("homeSections", "section description or action label is too long")
+		if len([]rune(section.ActionLabel)) > 40 {
+			return nil, galleryerr.Validation("homeSections", "section action label is too long")
 		}
 		minimum, maximum := 1, 24
 		if section.Key == "random" {
@@ -961,6 +969,86 @@ func (s *Service) ClassificationCatalog(ctx context.Context) (*model.Classificat
 			EditorialPosition: facet.EditorialPosition, ReplacementID: facet.ReplacementID, Values: values,
 		})
 	}
+	return result, nil
+}
+
+func (s *Service) CreateClassificationIdentity(ctx context.Context, operator string, input model.ClassificationIdentityCreateInput) (*model.ClassificationIdentityCreateResult, error) {
+	operator = strings.TrimSpace(operator)
+	if operator == "" {
+		return nil, galleryerr.Forbidden()
+	}
+	creationStore, ok := s.store.(ClassificationCreationStore)
+	if !ok {
+		return nil, galleryerr.NotInitialized("classification_creation")
+	}
+	input.Kind = strings.TrimSpace(input.Kind)
+	input.Name = strings.TrimSpace(input.Name)
+	input.Slug = strings.ToLower(strings.TrimSpace(input.Slug))
+	if !oneOf(input.Kind, "category", "facet", "facet_value", "tag") {
+		return nil, galleryerr.Validation("kind", "unsupported classification identity kind")
+	}
+	if input.Name == "" || len([]rune(input.Name)) > 80 {
+		return nil, galleryerr.Validation("name", "name is required and must be at most 80 characters")
+	}
+	if input.Slug == "" || len([]rune(input.Slug)) > 80 || strings.ContainsAny(input.Slug, " /?#") {
+		return nil, galleryerr.Validation("slug", "a URL-safe slug is required and must be at most 80 characters")
+	}
+	var err error
+	if input.ParentID, err = governanceDatabaseID("parentId", input.ParentID, true); err != nil {
+		return nil, err
+	}
+	if input.FacetID, err = governanceDatabaseID("facetId", input.FacetID, input.Kind != "facet_value"); err != nil {
+		return nil, err
+	}
+	if input.Kind == "facet" && (input.ParentID != "" || input.FacetID != "") {
+		return nil, galleryerr.Validation("classification", "a facet cannot have a parent or owning facet")
+	}
+	if input.Kind == "category" && input.FacetID != "" {
+		return nil, galleryerr.Validation("facetId", "a category cannot belong to a facet")
+	}
+	if input.Kind == "tag" && (input.ParentID != "" || input.FacetID != "") {
+		return nil, galleryerr.Validation("classification", "a tag cannot have a parent or owning facet")
+	}
+	result, err := creationStore.CreateClassificationIdentity(ctx, operator, input)
+	if err != nil {
+		return nil, err
+	}
+	s.invalidateClassificationCatalog()
+	result.ID = PublicID(result.ID)
+	return result, nil
+}
+
+func (s *Service) UpdateClassificationIdentity(ctx context.Context, operator, rawID string, input model.ClassificationIdentityUpdateInput) (*model.ClassificationIdentityCreateResult, error) {
+	operator = strings.TrimSpace(operator)
+	if operator == "" {
+		return nil, galleryerr.Forbidden()
+	}
+	updateStore, ok := s.store.(ClassificationUpdateStore)
+	if !ok {
+		return nil, galleryerr.NotInitialized("classification_update")
+	}
+	id, err := DatabaseID(rawID)
+	if err != nil {
+		return nil, galleryerr.Validation("identityId", "identity ID must be a UUID or compact UUID")
+	}
+	input.Kind = strings.TrimSpace(input.Kind)
+	input.Name = strings.TrimSpace(input.Name)
+	input.Slug = strings.ToLower(strings.TrimSpace(input.Slug))
+	if !oneOf(input.Kind, "category", "facet", "facet_value", "tag") {
+		return nil, galleryerr.Validation("kind", "unsupported classification identity kind")
+	}
+	if input.Name == "" || len([]rune(input.Name)) > 80 {
+		return nil, galleryerr.Validation("name", "name is required and must be at most 80 characters")
+	}
+	if input.Slug == "" || len([]rune(input.Slug)) > 80 || strings.ContainsAny(input.Slug, " /?#") {
+		return nil, galleryerr.Validation("slug", "a URL-safe slug is required and must be at most 80 characters")
+	}
+	result, err := updateStore.UpdateClassificationIdentity(ctx, operator, id, input)
+	if err != nil {
+		return nil, err
+	}
+	s.invalidateClassificationCatalog()
+	result.ID = PublicID(result.ID)
 	return result, nil
 }
 
@@ -1574,6 +1662,22 @@ func (s *Service) UpdateAdminImage(ctx context.Context, rawID string, input mode
 		normalizeAdminImage(value)
 	}
 	return value, err
+}
+
+func (s *Service) DeleteAdminImage(ctx context.Context, operator, rawID string, input model.AdminImageDeleteInput) error {
+	operator = strings.TrimSpace(operator)
+	if operator == "" {
+		return galleryerr.Forbidden()
+	}
+	id, err := DatabaseID(rawID)
+	if err != nil {
+		return galleryerr.NotFound("image", rawID)
+	}
+	input.ExpectedUpdatedAt = strings.TrimSpace(input.ExpectedUpdatedAt)
+	if input.ExpectedUpdatedAt == "" {
+		return galleryerr.Validation("expectedUpdatedAt", "expected update time is required")
+	}
+	return s.store.DeleteAdminImage(ctx, operator, id, input.ExpectedUpdatedAt)
 }
 
 func normalizeAdminImage(value *model.AdminImage) {

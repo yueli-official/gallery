@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PageHeader } from "@yueli/ui/dashboard/pattern";
+import { ManagePage } from "@yueli/ui/admin";
 import { SkeletonList } from "~/utils/manageComponents";
 import { createGalleryNotifier } from "~/utils/feedback";
 import type {
@@ -239,27 +239,29 @@ async function openPicker(): Promise<void> {
 </script>
 
 <template>
-  <div>
-    <PageHeader :title="collection?.name || '专题编辑'">
-      <template #actions>
-        <UButton
-          color="neutral"
-          variant="ghost"
-          to="/manage/collections"
-          icon="i-tabler-arrow-left"
-          label="返回列表"
-        />
-        <UButton
-          v-if="collection?.slug"
-          :to="`/collections/${collection.slug}`"
-          target="_blank"
-          color="neutral"
-          variant="ghost"
-          icon="i-tabler-external-link"
-          label="公开预览"
-        />
-      </template>
-    </PageHeader>
+  <ManagePage
+    id="collection-editor"
+    :title="collection?.name || '专题编辑'"
+    icon="i-tabler-folder-cog"
+  >
+    <template #actions>
+      <UButton
+        color="neutral"
+        variant="ghost"
+        to="/manage/collections"
+        icon="i-tabler-arrow-left"
+        label="返回列表"
+      />
+      <UButton
+        v-if="collection?.slug"
+        :to="`/collections/${collection.slug}`"
+        target="_blank"
+        color="neutral"
+        variant="ghost"
+        icon="i-tabler-external-link"
+        label="公开预览"
+      />
+    </template>
 
     <SkeletonList v-if="!hydrated || (pending && !collection)" :rows="7" />
     <UAlert
@@ -520,5 +522,5 @@ async function openPicker(): Promise<void> {
         </p>
       </template>
     </UModal>
-  </div>
+  </ManagePage>
 </template>

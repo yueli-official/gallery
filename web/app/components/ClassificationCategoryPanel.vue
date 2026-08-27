@@ -17,6 +17,7 @@ const emit = defineEmits<{
     kind: IdentityKind,
     item: GalleryClassificationCatalogNode,
   ];
+  edit: [kind: IdentityKind, item: GalleryClassificationCatalogNode];
 }>();
 
 const statusLabel: Record<string, string> = {
@@ -40,6 +41,11 @@ function moreItems(item: GalleryClassificationCatalogNode) {
     item.status === "replaced"
       ? []
       : [
+          {
+            label: "编辑分类",
+            icon: "i-tabler-pencil",
+            onSelect: () => emit("edit", "category", item),
+          },
           {
             label: item.status === "active" ? "停用分类" : "启用分类",
             icon:
@@ -72,19 +78,7 @@ function moreItems(item: GalleryClassificationCatalogNode) {
 </script>
 
 <template>
-  <section aria-labelledby="classification-category-heading">
-    <div class="mb-3 flex items-end justify-between gap-3">
-      <div>
-        <h2
-          id="classification-category-heading"
-          class="font-semibold text-highlighted"
-        >
-          分类
-        </h2>
-        <p class="mt-1 text-sm text-muted">用树形层级组织主要浏览入口。</p>
-      </div>
-      <span class="text-xs text-dimmed">{{ items.length }} 项</span>
-    </div>
+  <section aria-label="分类列表">
     <div class="divide-y divide-default border-y border-default">
       <article
         v-for="item in items"
@@ -113,7 +107,7 @@ function moreItems(item: GalleryClassificationCatalogNode) {
         <div class="flex items-center justify-end gap-1">
           <UDropdownMenu v-if="canGovern" :items="moreItems(item)"
             ><UButton
-              class="min-h-11"
+              class="grid size-11 place-items-center"
               color="neutral"
               variant="ghost"
               size="sm"

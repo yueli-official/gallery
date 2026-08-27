@@ -19,6 +19,15 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ preview: [targetId: string] }>();
 const targetId = ref("");
+const targetItems = computed(() => [
+  ...(props.mode === "reparent"
+    ? [{ label: "设为根节点", value: "root" }]
+    : []),
+  ...props.targets.map((target) => ({
+    label: `${target.name} · ${target.slug}`,
+    value: target.id,
+  })),
+]);
 
 watch(
   () => [open.value, props.identity?.id],
@@ -53,20 +62,13 @@ function close() {
           :label="mode === 'merge' ? '合并目标' : '新父节点'"
           required
         >
-          <select
+          <USelect
             v-model="targetId"
-            class="h-11 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted"
-          >
-            <option value="" disabled>请选择</option>
-            <option v-if="mode === 'reparent'" value="root">设为根节点</option>
-            <option
-              v-for="target in targets"
-              :key="target.id"
-              :value="target.id"
-            >
-              {{ target.name }} · {{ target.slug }}
-            </option>
-          </select>
+            :items="targetItems"
+            value-key="value"
+            placeholder="请选择"
+            class="w-full"
+          />
         </UFormField>
         <p v-if="mode === 'merge' && childCount" class="text-xs text-muted">
           其直接子节点将显式移动到目标；预览会再次验证完整性和环。

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PageHeader } from "@yueli/ui/dashboard/pattern";
+import { ManagePage } from "@yueli/ui/admin";
 import { CollectionTableToolbar } from "@yueli/ui/collection/pattern";
 import { ManageEmpty, SkeletonList } from "~/utils/manageComponents";
 import type { GalleryCollection } from "~/types/gallery";
@@ -12,6 +12,8 @@ const hydrated = useClientHydrated();
 const canManageCollections = computed(() => can("gallery.collection.manage"));
 const createOpen = ref(false);
 const creating = ref(false);
+const createError = ref("");
+const slugTouched = ref(false);
 const form = reactive({
   name: "",
   slug: "",
@@ -39,10 +41,43 @@ const filteredCollections = computed(() => {
           .includes(query)),
   );
 });
+
+function clientSlug(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+watch(
+  () => form.name,
+  (name) => {
+    if (!slugTouched.value) form.slug = clientSlug(name);
+  },
+);
+
+function openCreateCollection() {
+  createError.value = "";
+  slugTouched.value = false;
+  Object.assign(form, {
+    name: "",
+    slug: "",
+    description: "",
+    visibility: "private",
+  });
+  createOpen.value = true;
+}
+
+function closeCreateCollection() {
+  createOpen.value = false;
+}
+
 async function createCollection() {
   if (!canManageCollections.value || !form.name.trim() || !form.slug.trim())
     return;
   creating.value = true;
+  createError.value = "";
   try {
     await call("/admin/collections", {
       method: "POST",
@@ -56,6 +91,9 @@ async function createCollection() {
       visibility: "private",
     });
     await refresh();
+  } catch (reason: any) {
+    createError.value =
+      reason?.data?.message || reason?.message || "专题没有创建，请重试。";
   } finally {
     creating.value = false;
   }
@@ -63,18 +101,15 @@ async function createCollection() {
 </script>
 
 <template>
-  <div>
-    <PageHeader title="专题策展"
-      ><template #actions
-        ><UButton
-          v-if="canManageCollections"
-          icon="i-tabler-plus"
-          label="新建专题"
-          @click="
-            createOpen = true;
-            void 0;
-          " /></template
-    ></PageHeader>
+  <ManagePage id="collections" title="专题" icon="i-tabler-folders">
+    <template #actions>
+      <UButton
+        v-if="canManageCollections"
+        icon="i-tabler-plus"
+        label="新建专题"
+        @click="openCreateCollection"
+      />
+    </template>
     <SkeletonList v-if="!hydrated || pending" :rows="5" />
     <UAlert
       v-else-if="error"
@@ -198,41 +233,82 @@ async function createCollection() {
       title="还没有专题"
       description="从私有专题开始整理，准备好后再公开。"
     />
-    <UModal
+    <USlideover
       v-if="canManageCollections"
       v-model:open="createOpen"
       title="新建专题"
-      description="专题默认可以保持私有；公开后会出现在前台。"
-      ><template #body
-        ><form class="space-y-4" @submit.prevent="createCollection">
-          <UFormField label="名称" required
-            ><UInput v-model="form.name" /></UFormField
-          ><UFormField label="Slug" required
-            ><UInput
+    >
+      <template #body>
+        <form
+          id="create-gallery-collection"
+          class="space-y-4"
+          @submit.prevent="createCollection"
+        >
+          <UAlert
+            v-if="createError"
+            color="error"
+            variant="subtle"
+            icon="i-tabler-alert-circle"
+            title="创建失败"
+            :description="createError"
+          />
+          <UFormField label="名称" required>
+            <UInput
+              v-model="form.name"
+              placeholder="专题名称"
+              class="w-full"
+              autofocus
+            />
+          </UFormField>
+          <UFormField
+            label="Slug"
+            help="英文名称会自动生成；中文名称请手动填写。"
+            required
+          >
+            <UInput
               v-model="form.slug"
-              placeholder="night-colors" /></UFormField
-          ><UFormField label="说明"
-            ><UTextarea v-model="form.description" :rows="4" /></UFormField
-          ><UFormField label="可见性"
-            ><USelect
+              placeholder="例如 night-colors"
+              class="w-full"
+              @input="slugTouched = true"
+            />
+          </UFormField>
+          <UFormField label="说明">
+            <UTextarea
+              v-model="form.description"
+              :rows="4"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField label="可见性">
+            <USelect
               v-model="form.visibility"
               :items="[
                 { label: '私有', value: 'private' },
                 { label: '公开', value: 'public' },
               ]"
               value-key="value"
-          /></UFormField>
-          <div class="flex justify-end gap-2">
-            <UButton
-              color="neutral"
-              variant="ghost"
-              label="取消"
-              @click="
-                createOpen = false;
-                void 0;
-              "
-            /><UButton type="submit" label="创建专题" :loading="creating" />
-          </div></form></template
-    ></UModal>
-  </div>
+              class="w-full"
+            />
+          </UFormField>
+        </form>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            label="取消"
+            @click="closeCreateCollection"
+          />
+          <UButton
+            form="create-gallery-collection"
+            type="submit"
+            label="创建专题"
+            :loading="creating"
+            :disabled="!form.name.trim() || !form.slug.trim()"
+          />
+        </div>
+      </template>
+    </USlideover>
+  </ManagePage>
 </template>
