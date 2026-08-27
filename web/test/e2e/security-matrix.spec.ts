@@ -54,7 +54,8 @@ export function registerSecuritySuite(product: string) {
           expectNoBrowserVisibleToken(await browserVisibleState(page));
           expect(
             (await context.cookies(site.url)).filter((cookie) =>
-              browserSessionCookies.has(cookie.name),
+              browserSessionCookies.has(cookie.name) ||
+              cookie.name.startsWith("ys_"),
             ),
           ).toEqual([]);
 
@@ -97,7 +98,7 @@ export function registerSecuritySuite(product: string) {
         });
         try {
           const sessionCookie = (await context.cookies(site.url)).find(
-            (cookie) => cookie.name === "rs_session",
+            (cookie) => cookie.name.startsWith("ys_gallery-main_"),
           );
           expect(sessionCookie).toMatchObject({
             httpOnly: true,
@@ -111,6 +112,53 @@ export function registerSecuritySuite(product: string) {
           await settleNuxt(page);
           expectNoBrowserVisibleToken(await browserVisibleState(page));
           expect(browserAuthorizations).toEqual([]);
+        } finally {
+          await context.close();
+        }
+      });
+
+      test("旧共享会话 Cookie 在公开页水合后迁移到产品命名空间", async ({
+        browser,
+      }) => {
+        const context = await loginE2E(browser, {}, undefined, site.url);
+        const current = (await context.cookies(site.url)).find((cookie) =>
+          cookie.name.startsWith("ys_gallery-main_"),
+        );
+        expect(current).toBeTruthy();
+        if (!current) return;
+
+        await context.clearCookies({
+          name: current.name,
+          domain: current.domain,
+          path: current.path,
+        });
+        await context.addCookies([
+          {
+            name: "rs_session",
+            value: current.value,
+            domain: current.domain,
+            path: "/",
+            httpOnly: true,
+            sameSite: "Lax",
+            expires: current.expires,
+          },
+        ]);
+
+        const page = await context.newPage();
+        try {
+          await page.goto(new URL("/", site.url).toString(), {
+            waitUntil: "networkidle",
+          });
+          await expect(
+            page.getByRole("button", { name: /测试管理员|用户菜单/ }),
+          ).toBeVisible();
+          const cookies = await context.cookies(site.url);
+          expect(cookies.some((cookie) => cookie.name === "rs_session")).toBe(
+            false,
+          );
+          expect(cookies.some((cookie) => cookie.name === current.name)).toBe(
+            true,
+          );
         } finally {
           await context.close();
         }

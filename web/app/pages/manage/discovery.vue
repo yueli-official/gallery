@@ -1,10 +1,6 @@
 <script setup lang="ts">
 import { PageHeader } from "@yueli/ui/dashboard/pattern";
 import { bindSettingsBeforeUnload } from "@yueli/ui/settings/browser";
-import {
-  SettingsSaveDock,
-  type SettingsSaveDockMessages,
-} from "@yueli/ui/settings/pattern";
 import { useVueSettingsWorkflow } from "@yueli/ui/settings/vue";
 import { useSettingsLeaveGuard } from "@yueli/ui/settings/vue-router";
 import { onMounted, onScopeDispose } from "vue";
@@ -47,18 +43,6 @@ const form = reactive<GallerySite>({
   homeSections: [],
 });
 
-const saveMessages: SettingsSaveDockMessages = {
-  region: "站点与首页保存操作",
-  unsaved: "有未保存的站点与首页设置",
-  saving: "正在保存站点与首页设置",
-  saved: "站点与首页设置已保存",
-  failed: "站点与首页设置保存失败",
-  discard: "放弃更改",
-  save: "保存设置",
-  savePending: "保存中",
-  saveSuccess: "已保存",
-};
-
 function snapshotForm(): GallerySite {
   return {
     name: form.name,
@@ -96,9 +80,6 @@ const settingsWorkflow = useVueSettingsWorkflow<GallerySite>({
   restore: restoreForm,
 });
 const dirty = settingsWorkflow.dirty;
-const saveStatus = computed(() =>
-  saving.value ? "pending" : saved.value ? "success" : "idle",
-);
 
 let unbindBeforeUnload: (() => void) | undefined;
 onMounted(() => {
@@ -222,19 +203,11 @@ async function saveSettings(): Promise<void> {
   }
 }
 
-function discardChanges(): void {
-  settingsWorkflow.discard();
-  saved.value = false;
-  saveError.value = "";
-}
 </script>
 
 <template>
   <div>
     <PageHeader title="站点与首页">
-      <template #subtitle>
-        前台标题、说明、板块顺序和展示数量都从这里发布，不再修改页面代码。
-      </template>
       <template #actions>
         <UButton
           v-if="canManageSettings"
@@ -462,15 +435,5 @@ function discardChanges(): void {
       </aside>
     </form>
 
-    <SettingsSaveDock
-      v-if="canManageSettings"
-      :dirty
-      :messages="saveMessages"
-      :status="saveStatus"
-      :error="saveError"
-      :disabled="saving"
-      @discard="discardChanges"
-      @save="saveSettings"
-    />
   </div>
 </template>

@@ -181,6 +181,8 @@ type fakeStore struct {
 	adminCaseQuery         model.AdminCaseQuery
 	caseResolutionSeen     model.CaseResolutionInput
 	publicRenditionReadyID string
+	adminOverview          *model.AdminOverview
+	adminOverviewDays      int
 }
 
 func (f *fakeStore) SiteSettings(context.Context) (*model.SiteSettings, error) {
@@ -343,7 +345,11 @@ func (f *fakeCollectionStore) FavoritesDetail(_ context.Context, _ string, page,
 func (f *fakeStore) CreateCase(context.Context, model.Subject, string, model.CaseInput) (*model.Case, error) {
 	return nil, nil
 }
-func (f *fakeStore) AdminOverview(context.Context) (*model.AdminOverview, error) {
+func (f *fakeStore) AdminOverview(_ context.Context, days int) (*model.AdminOverview, error) {
+	f.adminOverviewDays = days
+	if f.adminOverview != nil {
+		return f.adminOverview, nil
+	}
 	return &model.AdminOverview{}, nil
 }
 func (f *fakeStore) AdminImages(_ context.Context, query model.AdminImageQuery) ([]model.AdminImage, int, error) {
@@ -612,7 +618,7 @@ func TestAdminImagesNormalizesLifecycleQueryAndMetrics(t *testing.T) {
 	store.adminImages = []model.AdminImage{{ImageCard: model.ImageCard{ID: testCategoryID, ViewCount: 42, FavoriteCount: 7}, PrimaryCategoryID: testFacetID}}
 	store.adminImageCounts = map[string]int{"all": 8, "published": 5, "draft": 3}
 	page, err := New(store).AdminImages(context.Background(), model.AdminImageQuery{
-		Search: "  rain  ", Sort: "updated", Page: -1, PageSize: 99,
+		Search: "  rain  ", SortBy: "updatedAt", SortOrder: "asc", Page: -1, PageSize: 99,
 		ProcessingState: "ready", ReviewState: "approved", PublicationState: "hidden", SafetyState: "safe",
 		CategoryID: PublicID(testCategoryID), FacetValueID: PublicID(testValueID),
 	})
@@ -627,6 +633,18 @@ func TestAdminImagesNormalizesLifecycleQueryAndMetrics(t *testing.T) {
 	}
 	_, err = New(store).AdminImages(context.Background(), model.AdminImageQuery{SafetyState: "trusted"})
 	assertCode(t, err, "common.validation_failed")
+}
+
+func TestAdminOverviewBoundsDaysAndNormalizesImageIDs(t *testing.T) {
+	store := validSubmissionStore()
+	store.adminOverview = &model.AdminOverview{TopImages: []model.AdminTrafficImage{{ID: testCategoryID, Title: "雨夜", Views: 42}}}
+	value, err := New(store).AdminOverview(context.Background(), 99)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if store.adminOverviewDays != 30 || value.Days != 30 || value.TopImages[0].ID != PublicID(testCategoryID) {
+		t.Fatalf("overview = %#v days = %d", value, store.adminOverviewDays)
+	}
 }
 
 func TestBulkImagesSupportsPrimaryCategoryAndPerItemFailure(t *testing.T) {
@@ -727,7 +745,7 @@ func TestAdminSubmissionQueueNormalizesFiltersAndPagination(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if store.adminSubmissionQuery.Search != "rain" || store.adminSubmissionQuery.Sort != "oldest" || store.adminSubmissionQuery.Page != 1 || store.adminSubmissionQuery.PageSize != 20 {
+	if store.adminSubmissionQuery.Search != "rain" || store.adminSubmissionQuery.SortBy != "createdAt" || store.adminSubmissionQuery.SortOrder != "asc" || store.adminSubmissionQuery.Page != 1 || store.adminSubmissionQuery.PageSize != 20 {
 		t.Fatalf("normalized submission query = %#v", store.adminSubmissionQuery)
 	}
 	if page.Total != 1 || page.TotalPages != 1 || len(page.Items) != 1 || page.Items[0].ID == testCategoryID {
@@ -742,7 +760,7 @@ func TestAdminCasesNormalizeQueryAndRequireCurrentVersion(t *testing.T) {
 	updatedAt := time.Now().UTC().Format(time.RFC3339Nano)
 	store := &fakeStore{adminCases: []model.Case{{ID: testCategoryID, ImageID: testFacetID, SubmissionID: testValueID}}}
 	page, err := New(store).Cases(context.Background(), model.AdminCaseQuery{
-		Search: "  source  ", Status: "all", Kind: "source_correction", Sort: "updated", Page: 2, PageSize: 10,
+		Search: "  source  ", Status: "all", Kind: "source_correction", SortBy: "updatedAt", SortOrder: "desc", Page: 2, PageSize: 10,
 	})
 	if err != nil {
 		t.Fatal(err)

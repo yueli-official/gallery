@@ -5,7 +5,11 @@ import {
   ManageTabs,
   SkeletonList,
 } from "~/utils/manageComponents";
-import { CollectionToolbar } from "@yueli/ui/collection/pattern";
+import {
+  CollectionPagination,
+  CollectionSortHeader,
+  CollectionTableToolbar,
+} from "@yueli/ui/collection/pattern";
 import type { GalleryAdminCasePage, GalleryCase } from "~/types/gallery";
 
 definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
@@ -21,7 +25,17 @@ const q = computed(() => String(route.query.q || ""));
 const qDraft = ref(q.value);
 const status = computed(() => String(route.query.status || "open"));
 const kind = computed(() => String(route.query.kind || ""));
-const sort = computed(() => String(route.query.sort || "oldest"));
+type CaseSortBy = "createdAt" | "updatedAt" | "kind" | "status";
+type CaseSortOrder = "asc" | "desc";
+const sortBy = computed<CaseSortBy>(() => {
+  const value = String(route.query.sortBy || "createdAt");
+  return ["createdAt", "updatedAt", "kind", "status"].includes(value)
+    ? (value as CaseSortBy)
+    : "createdAt";
+});
+const sortOrder = computed<CaseSortOrder>(() =>
+  String(route.query.sortOrder || "asc") === "desc" ? "desc" : "asc",
+);
 watch(q, (value) => {
   qDraft.value = value;
 });
@@ -36,7 +50,8 @@ const { data, pending, error, refresh } = await useAsyncData(
     call<GalleryAdminCasePage>("/admin/cases", {
       query: {
         q: q.value || undefined,
-        sort: sort.value,
+        sortBy: sortBy.value,
+        sortOrder: sortOrder.value,
         status: status.value,
         kind: kind.value || undefined,
         page: page.value,
@@ -45,7 +60,7 @@ const { data, pending, error, refresh } = await useAsyncData(
     }),
   {
     server: false,
-    watch: [q, sort, status, kind, page],
+    watch: [q, sortBy, sortOrder, status, kind, page],
     default: () => ({
       items: [],
       page: 1,
@@ -71,11 +86,6 @@ const kindItems = [
   { label: "近重复", value: "near_duplicate" },
   { label: "下架调查", value: "takedown" },
 ];
-const sortItems = [
-  { label: "等待最久", value: "oldest" },
-  { label: "最新创建", value: "newest" },
-  { label: "最近变化", value: "updated" },
-];
 const kindLabel = Object.fromEntries(
   kindItems.slice(1).map((item) => [item.value, item.label]),
 );
@@ -90,17 +100,14 @@ const tabItems = statusTabs.map((item) => ({
   key: item.value,
   label: item.label,
 }));
-const filterCount = computed(
-  () =>
-    [kind.value, sort.value !== "oldest" ? sort.value : ""].filter(Boolean)
-      .length,
-);
+const filterCount = computed(() => [kind.value].filter(Boolean).length);
 
 function formatDate(value?: string) {
   if (!value) return "时间未知";
   return new Intl.DateTimeFormat("zh-CN", {
-    month: "short",
-    day: "numeric",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
@@ -128,7 +135,8 @@ function setQuery(values: Record<string, string | number | undefined>) {
       value === "all" ||
       (key === "page" && value === 1) ||
       (key === "status" && value === "open") ||
-      (key === "sort" && value === "oldest")
+      (key === "sortBy" && value === "createdAt") ||
+      (key === "sortOrder" && value === "asc")
     )
       continue;
     query[key] = String(value);
@@ -139,11 +147,12 @@ function setQuery(values: Record<string, string | number | undefined>) {
 function search() {
   setQuery({ q: qDraft.value.trim() || undefined });
 }
-function clearQuery() {
-  qDraft.value = "";
-  void router.push({
-    query: status.value === "open" ? {} : { status: status.value },
-  });
+function changeColumnSort(nextSortBy: CaseSortBy) {
+  if (sortBy.value === nextSortBy) {
+    setQuery({ sortOrder: sortOrder.value === "asc" ? "desc" : "asc" });
+    return;
+  }
+  setQuery({ sortBy: nextSortBy, sortOrder: "desc" });
 }
 async function resolve(
   item: GalleryCase,
@@ -182,69 +191,34 @@ async function resolve(
 
 <template>
   <div>
-    <PageHeader title="信任处理单">
-      <template #subtitle>
-        先接手，再记录判断。举报、来源、安全和下架调查保留同一条审计上下文。
-      </template>
-    </PageHeader>
+    <PageHeader title="处理单" />
 
     <ManageTabs v-model="statusModel" :items="tabItems" class="mb-4" />
-    <CollectionToolbar
+    <CollectionTableToolbar
       v-model:search="qDraft"
+      label="处理单工具栏"
       search-placeholder="搜索原因、说明或处理结论…"
+      search-action="搜索"
       :filter-count="filterCount"
-      filter-label="队列筛选"
-      compact-filters
+      filter-label="筛选"
       class="mb-3"
+      @search="search"
     >
       <template #filters>
-        <USelect
-          :model-value="kind || 'all'"
-          :items="kindItems"
-          value-key="value"
-          aria-label="处理单类型"
-          @update:model-value="setQuery({ kind: String($event) })"
-        /><USelect
-          :model-value="sort"
-          :items="sortItems"
-          value-key="value"
-          aria-label="处理单排序"
-          @update:model-value="setQuery({ sort: String($event) })"
-        />
+        <div class="w-72 max-w-[calc(100vw-2rem)]">
+          <UFormField label="处理单类型">
+            <USelect
+              :model-value="kind || 'all'"
+              :items="kindItems"
+              value-key="value"
+              class="w-full"
+              aria-label="处理单类型"
+              @update:model-value="setQuery({ kind: String($event) })"
+            />
+          </UFormField>
+        </div>
       </template>
-      <template #actions>
-        <UButton
-          label="搜索"
-          color="neutral"
-          variant="outline"
-          size="sm"
-          @click="search"
-        />
-      </template>
-      <template #mobile-actions>
-        <UButton
-          label="搜索"
-          color="neutral"
-          variant="outline"
-          size="sm"
-          @click="search"
-        />
-      </template>
-    </CollectionToolbar>
-    <div
-      class="mb-4 flex min-h-7 items-center justify-between gap-3 px-1 text-xs text-muted"
-    >
-      <span>共 {{ data.total }} 个处理单</span>
-      <UButton
-        v-if="q || kind || sort !== 'oldest'"
-        color="neutral"
-        variant="link"
-        size="xs"
-        label="清除查询"
-        @click="clearQuery"
-      />
-    </div>
-
+    </CollectionTableToolbar>
     <SkeletonList v-if="!hydrated || pending" :rows="6" />
     <UAlert
       v-else-if="error"
@@ -258,34 +232,36 @@ async function resolve(
       class="overflow-hidden rounded-xl border border-default bg-default"
       aria-label="信任处理单队列"
     >
+      <div
+        class="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 border-b border-default bg-elevated/50 px-4 py-2 text-xs font-medium text-muted md:grid-cols-[minmax(0,1fr)_8rem_8rem_7rem]"
+      >
+        <CollectionSortHeader
+          label="处理单"
+          :active="sortBy === 'createdAt'"
+          :sort-order="sortOrder"
+          @sort="changeColumnSort('createdAt')"
+        />
+        <CollectionSortHeader
+          class="hidden md:inline-flex"
+          label="类型"
+          :active="sortBy === 'kind'"
+          :sort-order="sortOrder"
+          @sort="changeColumnSort('kind')"
+        />
+        <CollectionSortHeader
+          class="hidden md:inline-flex"
+          label="状态"
+          :active="sortBy === 'status'"
+          :sort-order="sortOrder"
+          @sort="changeColumnSort('status')"
+        />
+        <span class="text-right">操作</span>
+      </div>
       <article
         v-for="item in data.items"
         :key="item.id"
-        class="grid gap-3 border-b border-default p-4 last:border-b-0 lg:grid-cols-[3rem_minmax(0,1fr)_16rem] lg:items-start"
+        class="grid gap-3 border-b border-default p-4 last:border-b-0 md:grid-cols-[minmax(0,1fr)_8rem_8rem_7rem] md:items-start"
       >
-        <div
-          class="grid size-10 place-items-center rounded-lg"
-          :class="
-            item.kind === 'takedown'
-              ? 'bg-error/10 text-error'
-              : item.kind === 'safety_uncertain'
-                ? 'bg-warning/10 text-warning'
-                : 'bg-primary/10 text-primary'
-          "
-        >
-          <UIcon
-            :name="
-              item.kind === 'source_correction'
-                ? 'i-tabler-link'
-                : item.kind === 'near_duplicate'
-                  ? 'i-tabler-copy'
-                  : item.kind === 'takedown'
-                    ? 'i-tabler-photo-off'
-                    : 'i-tabler-shield-question'
-            "
-            class="size-5"
-          />
-        </div>
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
             <h2 class="font-semibold text-highlighted">
@@ -302,7 +278,6 @@ async function resolve(
           <div
             class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-dimmed"
           >
-            <span>{{ statusLabel[item.status] }}</span>
             <span>创建于 {{ formatDate(item.createdAt) }}</span>
             <a
               v-if="item.proposedSourceUrl"
@@ -358,17 +333,25 @@ async function resolve(
             结论：{{ item.resolutionNote }}
           </p>
         </div>
-        <div class="flex flex-wrap items-center gap-2 lg:justify-end">
+        <span class="hidden text-xs text-muted md:block">{{ kindLabel[item.kind] }}</span>
+        <span class="hidden text-xs text-muted md:block">{{ statusLabel[item.status] }}</span>
+        <div class="flex flex-wrap items-center gap-1 md:justify-end">
           <UButton
             v-if="canResolveCases && item.status === 'open'"
-            label="接手处理"
+            icon="i-tabler-hand-click"
+            aria-label="接手处理"
+            size="xs"
+            square
             :loading="acting === item.id"
             :disabled="!item.updatedAt"
             @click="resolve(item, 'reviewing')"
           />
           <UButton
             v-else-if="canResolveCases && item.status === 'reviewing'"
-            label="完成处理"
+            icon="i-tabler-check"
+            aria-label="完成处理"
+            size="xs"
+            square
             @click="toggleResolution(item.id)"
           />
           <UButton
@@ -378,6 +361,8 @@ async function resolve(
             color="neutral"
             variant="ghost"
             icon="i-tabler-photo"
+            size="xs"
+            square
             aria-label="查看关联图片"
           />
         </div>
@@ -395,22 +380,10 @@ async function resolve(
       class="mt-6 flex items-center justify-center gap-3"
       aria-label="处理单分页"
     >
-      <UButton
-        color="neutral"
-        variant="outline"
-        label="上一页"
-        :disabled="page <= 1"
-        @click="setQuery({ page: page - 1 })"
-      />
-      <span class="text-sm tabular-nums text-muted"
-        >{{ page }} / {{ data.totalPages }}</span
-      >
-      <UButton
-        color="neutral"
-        variant="outline"
-        label="下一页"
-        :disabled="page >= data.totalPages"
-        @click="setQuery({ page: page + 1 })"
+      <CollectionPagination
+        :model-value="page"
+        :total-pages="data.totalPages"
+        @update:model-value="setQuery({ page: $event })"
       />
     </nav>
   </div>

@@ -15,7 +15,7 @@ import { useVueCollectionWorkflow } from "@yueli/ui/collection/vue";
 import { createVueRouterCollectionQuerySync } from "@yueli/ui/collection/vue-router";
 import {
   CollectionPanel,
-  CollectionViewToggle,
+  CollectionSortHeader,
 } from "@yueli/ui/collection/pattern";
 import { ManageTaxonomyChips } from "~/utils/manageComponents";
 import type {
@@ -48,44 +48,33 @@ const canBulkManage = computed(
 );
 
 type ImageStatus = "" | "published" | "draft" | "hidden" | "deleted";
-type ImageSort = "created" | "updated" | "title";
-type ImageDirection = "asc" | "desc";
-type ImageView = "list" | "grid";
+type ImageSortBy = "createdAt" | "updatedAt" | "title" | "views";
+type ImageSortOrder = "asc" | "desc";
 interface ImageCollectionQuery {
   q: string;
   status: ImageStatus;
   page: number;
   size: number;
-  sort: ImageSort;
-  direction: ImageDirection;
-  view: ImageView;
+  sortBy: ImageSortBy;
+  sortOrder: ImageSortOrder;
   category: string;
   facet: string;
 }
 const statuses = ["", "published", "draft", "hidden", "deleted"] as const;
-const sorts = ["created", "updated", "title"] as const;
-const directions = ["asc", "desc"] as const;
-const views = ["list", "grid"] as const;
+const sortByValues = ["createdAt", "updatedAt", "title", "views"] as const;
+const sortOrderValues = ["asc", "desc"] as const;
 const pageSizes = [12, 24, 48, 60] as const;
 const defaultQuery: ImageCollectionQuery = {
   q: "",
   status: "",
   page: 1,
   size: 24,
-  sort: "created",
-  direction: "desc",
-  view: "list",
+  sortBy: "createdAt",
+  sortOrder: "desc",
   category: ALL,
   facet: ALL,
 };
 const counts = ref<Record<string, number>>({});
-function apiSort(query: Readonly<ImageCollectionQuery>) {
-  if (query.sort === "title")
-    return query.direction === "asc" ? "title_asc" : "title_desc";
-  if (query.sort === "updated")
-    return query.direction === "asc" ? "updated_asc" : "updated";
-  return query.direction === "asc" ? "oldest" : "newest";
-}
 async function loadImages(
   nextQuery: Readonly<ImageCollectionQuery>,
   activeWorkflow: CollectionWorkflow<
@@ -101,7 +90,8 @@ async function loadImages(
       {
         query: {
           q: nextQuery.q || undefined,
-          sort: apiSort(nextQuery),
+          sortBy: nextQuery.sortBy,
+          sortOrder: nextQuery.sortOrder,
           page: nextQuery.page,
           size: nextQuery.size,
           publicationState: nextQuery.status || undefined,
@@ -142,13 +132,16 @@ const querySync = createVueRouterCollectionQuerySync({
       values: pageSizes,
       default: defaultQuery.size,
     },
-    sort: { kind: "enum", values: sorts, default: defaultQuery.sort },
-    direction: {
+    sortBy: {
       kind: "enum",
-      values: directions,
-      default: defaultQuery.direction,
+      values: sortByValues,
+      default: defaultQuery.sortBy,
     },
-    view: { kind: "enum", values: views, default: defaultQuery.view },
+    sortOrder: {
+      kind: "enum",
+      values: sortOrderValues,
+      default: defaultQuery.sortOrder,
+    },
     category: {
       kind: "string",
       default: defaultQuery.category,
@@ -167,7 +160,7 @@ const {
   keyOf: (image: GalleryAdminImage) => image.id,
   isSelectable: () => canBulkManage.value,
   querySync,
-  dataQueryKey: (query) => JSON.stringify({ ...query, view: undefined }),
+  dataQueryKey: (query) => JSON.stringify(query),
   load: loadImages,
 });
 const collectionQuery = computed(() => imageCollection.value.query);
@@ -193,18 +186,25 @@ const size = computed({
   get: () => collectionQuery.value.size,
   set: (value: number) => updateCollectionQuery({ size: value }),
 });
-const sort = computed({
-  get: () => collectionQuery.value.sort,
-  set: (value: ImageSort) => updateCollectionQuery({ sort: value }),
+const sortBy = computed({
+  get: () => collectionQuery.value.sortBy,
+  set: (value: ImageSortBy) => updateCollectionQuery({ sortBy: value }),
 });
-const direction = computed({
-  get: () => collectionQuery.value.direction,
-  set: (value: ImageDirection) => updateCollectionQuery({ direction: value }),
+const sortOrder = computed({
+  get: () => collectionQuery.value.sortOrder,
+  set: (value: ImageSortOrder) => updateCollectionQuery({ sortOrder: value }),
 });
-const view = computed({
-  get: () => collectionQuery.value.view,
-  set: (value: ImageView) => updateCollectionQuery({ view: value }, false),
-});
+
+function changeColumnSort(nextSortBy: ImageSortBy) {
+  if (sortBy.value === nextSortBy) {
+    sortOrder.value = sortOrder.value === "asc" ? "desc" : "asc";
+    return;
+  }
+  updateCollectionQuery({
+    sortBy: nextSortBy,
+    sortOrder: nextSortBy === "title" ? "asc" : "desc",
+  });
+}
 const category = computed({
   get: () => collectionQuery.value.category,
   set: (value: string) => updateCollectionQuery({ category: value }),
@@ -273,11 +273,6 @@ const tagOptions = computed(() =>
     .filter((item) => item.status === "active")
     .map((item) => ({ label: item.name, value: item.id })),
 );
-const sortOptions = [
-  { label: "创建时间", value: "created" },
-  { label: "更新时间", value: "updated" },
-  { label: "标题", value: "title" },
-];
 const statusOptions = computed(() => [
   { value: ALL, label: `全部 · ${counts.value.all || 0}` },
   { value: "published", label: `已公开 · ${counts.value.published || 0}` },
@@ -314,23 +309,6 @@ const controls = computed<CollectionControl[]>(() => [
     icon: "i-tabler-adjustments",
     class: "w-40",
   },
-  {
-    kind: "select",
-    id: "sort",
-    label: "图片排序",
-    value: sort.value,
-    options: sortOptions,
-    icon: "i-tabler-arrows-sort",
-    class: "w-32",
-  },
-  {
-    kind: "direction",
-    id: "direction",
-    label: "排序方向",
-    value: direction.value,
-    ascendingLabel: "切换为倒序",
-    descendingLabel: "切换为正序",
-  },
 ]);
 const activeFilterCount = computed(
   () =>
@@ -350,10 +328,6 @@ function changeControl(id: string, value: CollectionControlValue) {
   }
   if (id === "category") category.value = value;
   if (id === "facet") facet.value = value;
-  if (id === "sort" && sorts.includes(value as ImageSort))
-    sort.value = value as ImageSort;
-  if (id === "direction" && directions.includes(value as ImageDirection))
-    direction.value = value as ImageDirection;
 }
 const messages: CollectionPanelMessages = {
   searchPlaceholder: "搜索标题、说明或替代文本…",
@@ -583,26 +557,30 @@ function anomalyBadges(image: GalleryAdminImage) {
     badges.push({ label: "公开版本未就绪", color: "warning" });
   return badges;
 }
-function moreItems(image: GalleryAdminImage) {
-  return image.publicationState === "published"
-    ? [
-        [
-          {
-            label: "打开公开页",
-            icon: "i-tabler-external-link",
-            to: `/images/${image.id}`,
-            target: "_blank",
-          },
-        ],
-      ]
-    : [];
+const timestampFormatter = new Intl.DateTimeFormat("zh-CN", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+function formatTimestamp(value?: string) {
+  return value ? timestampFormatter.format(new Date(value)) : "—";
+}
+function publicationLabel(value: GalleryAdminImage["publicationState"]) {
+  return {
+    published: "已公开",
+    draft: "草稿",
+    hidden: "已隐藏",
+    deleted: "已删除",
+  }[value];
 }
 </script>
 
 <template>
   <div :data-manage-images-state="panelState">
     <PageHeader title="图片">
-      <template #subtitle>管理已审核图片的公开状态、分类、维度与标签</template>
       <template #actions
         ><UButton to="/submit" icon="i-tabler-upload" label="投稿图片"
       /></template>
@@ -622,7 +600,7 @@ function moreItems(image: GalleryAdminImage) {
       :page-size="size"
       :page-sizes="pageSizes"
       :active-filter-count="activeFilterCount"
-      :layout="view === 'grid' ? 'grid' : 'rows'"
+      layout="rows"
       :selection-count="selectionCount"
       :page-selected="isPageSelected"
       :page-indeterminate="isPageIndeterminate"
@@ -639,20 +617,32 @@ function moreItems(image: GalleryAdminImage) {
       @page-change="page = $event"
       @page-size-change="size = $event"
     >
-      <template #view>
-        <CollectionViewToggle
-          v-model="view"
-          :items="[
-            { key: 'list', label: '列表视图', icon: 'i-tabler-list' },
-            { key: 'grid', label: '网格视图', icon: 'i-tabler-layout-grid' },
-          ]"
-        />
-      </template>
-
       <template #columns>
-        <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-          <span>图片、分类与浏览数据</span>
-          <span class="hidden w-32 text-right md:block">状态与操作</span>
+        <div
+          class="grid grid-cols-[minmax(0,1fr)_5rem_5rem] items-center gap-3 md:grid-cols-[minmax(0,1fr)_8rem_5rem_8rem_5rem] lg:grid-cols-[minmax(0,1fr)_8rem_5rem_8rem_8rem_5rem]"
+        >
+          <CollectionSortHeader
+            label="标题"
+            :active="sortBy === 'title'"
+            :sort-order="sortOrder"
+            @sort="changeColumnSort('title')"
+          />
+          <span class="hidden md:inline">分类</span>
+          <CollectionSortHeader
+            label="浏览"
+            :active="sortBy === 'views'"
+            :sort-order="sortOrder"
+            @sort="changeColumnSort('views')"
+          />
+          <CollectionSortHeader
+            class="hidden md:inline-flex"
+            label="更新"
+            :active="sortBy === 'updatedAt'"
+            :sort-order="sortOrder"
+            @sort="changeColumnSort('updatedAt')"
+          />
+          <span class="hidden lg:inline">状态</span>
+          <span class="text-right">操作</span>
         </div>
       </template>
 
@@ -677,38 +667,40 @@ function moreItems(image: GalleryAdminImage) {
 
       <template #item="{ item: image }">
         <div
-          v-if="view === 'list'"
-          class="grid min-w-0 gap-3 sm:grid-cols-[5rem_minmax(0,1fr)] md:grid-cols-[5rem_minmax(0,1fr)_auto] md:items-center"
+          class="grid min-w-0 grid-cols-[minmax(0,1fr)_5rem_5rem] items-center gap-3 md:grid-cols-[minmax(0,1fr)_8rem_5rem_8rem_5rem] lg:grid-cols-[minmax(0,1fr)_8rem_5rem_8rem_8rem_5rem]"
         >
-          <img
-            :src="galleryRendition(image.assetId, 'thumbnail')"
-            :alt="image.altText"
-            class="hidden aspect-[4/3] w-20 rounded-lg bg-elevated object-cover sm:block"
-          />
-          <div class="min-w-0">
-            <div class="flex min-w-0 flex-wrap items-center gap-2">
-              <p class="truncate text-sm font-medium text-highlighted">
+          <div class="flex min-w-0 items-center gap-3">
+            <img
+              :src="galleryRendition(image.assetId, 'thumbnail')"
+              :alt="image.altText"
+              class="hidden aspect-[4/3] w-16 shrink-0 rounded-lg bg-elevated object-cover sm:block"
+            />
+            <div class="min-w-0">
+              <button
+                v-if="canImageUpdate"
+                type="button"
+                class="block max-w-full truncate text-left text-sm font-medium text-highlighted hover:text-primary"
+                @click="openEdit(image)"
+              >
+                {{ image.title }}
+              </button>
+              <p
+                v-else
+                class="truncate text-sm font-medium text-highlighted"
+              >
                 {{ image.title }}
               </p>
-              <UBadge
-                v-for="badge in anomalyBadges(image)"
-                :key="badge.label"
-                :color="badge.color"
-                variant="subtle"
-                :label="badge.label"
-              />
+              <p class="mt-1 truncate text-xs text-muted">
+                {{ image.description || image.altText }}
+              </p>
+              <p class="mt-1 truncate font-mono text-xs text-dimmed md:hidden">
+                {{ image.primaryCategory || "未分类" }} ·
+                {{ formatTimestamp(image.updatedAt) }}
+              </p>
             </div>
-            <div
-              class="mt-1 flex min-w-0 items-center gap-2 text-xs text-muted"
-            >
-              <span class="truncate font-mono">{{ image.id }}</span
-              ><span class="text-dimmed">·</span
-              ><span class="shrink-0"
-                >{{ compactMetric(image.metrics.views) }} 次浏览</span
-              >
-            </div>
+          </div>
+          <div class="hidden min-w-0 md:block">
             <ManageTaxonomyChips
-              class="mt-1.5"
               :items="
                 image.primaryCategory
                   ? [
@@ -722,71 +714,54 @@ function moreItems(image: GalleryAdminImage) {
               "
             />
           </div>
-          <div class="flex justify-end gap-1">
-            <UButton
-              v-if="canImageUpdate"
-              color="primary"
-              variant="soft"
-              size="xs"
-              icon="i-tabler-pencil"
-              label="编辑图片"
-              @click="openEdit(image)"
+          <div class="text-right text-xs tabular-nums text-muted md:text-left">
+            {{ compactMetric(image.metrics.views) }}
+          </div>
+          <time
+            class="hidden text-xs text-muted md:block"
+            :datetime="image.updatedAt"
+          >
+            {{ formatTimestamp(image.updatedAt) }}
+          </time>
+          <div class="hidden lg:block">
+            <UBadge
+              v-if="anomalyBadges(image).length"
+              :color="anomalyBadges(image)[0]!.color"
+              variant="subtle"
+              :label="anomalyBadges(image)[0]!.label"
             />
-            <UDropdownMenu
-              v-if="moreItems(image).length"
-              :items="moreItems(image)"
-              ><UButton
+            <span v-else class="text-xs text-muted">
+              {{ publicationLabel(image.publicationState) }}
+            </span>
+          </div>
+          <div class="flex justify-end gap-1">
+            <UTooltip
+              v-if="image.publicationState === 'published'"
+              text="查看公开图片"
+            >
+              <UButton
+                :to="`/images/${image.id}`"
+                target="_blank"
+                rel="noopener"
                 color="neutral"
                 variant="ghost"
                 size="xs"
-                icon="i-tabler-dots"
+                icon="i-tabler-external-link"
                 square
-                :aria-label="`更多操作：${image.title}`"
-            /></UDropdownMenu>
-          </div>
-        </div>
-
-        <div v-else class="-m-4 overflow-hidden rounded-lg">
-          <div
-            class="group relative aspect-[4/3] overflow-hidden border-b border-default bg-elevated"
-          >
-            <img
-              :src="galleryRendition(image.assetId, 'grid-sm')"
-              :alt="image.altText"
-              class="size-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-            />
-            <UButton
-              v-if="canImageUpdate"
-              class="absolute right-2 top-2"
-              color="primary"
-              variant="solid"
-              size="xs"
-              icon="i-tabler-pencil"
-              square
-              aria-label="编辑图片"
-              @click="openEdit(image)"
-            />
-          </div>
-          <div class="p-3">
-            <h2 class="truncate text-sm font-medium text-highlighted">
-              {{ image.title }}
-            </h2>
-            <p class="mt-1 truncate text-xs text-muted">
-              {{ image.primaryCategory || "未分类" }} ·
-              {{ compactMetric(image.metrics.views) }} 次浏览
-            </p>
-            <div
-              v-if="anomalyBadges(image).length"
-              class="mt-2 flex flex-wrap gap-1"
-            >
-              <UBadge
-                v-for="badge in anomalyBadges(image)"
-                :key="badge.label"
-                :color="badge.color"
-                variant="subtle"
-                :label="badge.label"
+                :aria-label="`查看公开图片：${image.title}`"
               />
-            </div>
+            </UTooltip>
+            <UTooltip v-if="canImageUpdate" text="编辑图片">
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="xs"
+                icon="i-tabler-pencil"
+                square
+                :aria-label="`编辑图片：${image.title}`"
+                @click="openEdit(image)"
+              />
+            </UTooltip>
           </div>
         </div>
       </template>

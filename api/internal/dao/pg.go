@@ -1342,7 +1342,7 @@ RETURNING id::text AS id, COALESCE(image_id::text, '') AS image_id,
 	return recordAs[model.Case](record)
 }
 
-func (p *PG) AdminOverview(ctx context.Context) (*model.AdminOverview, error) {
+func (p *PG) AdminOverview(ctx context.Context, days int) (*model.AdminOverview, error) {
 	const query = `
 SELECT
     (SELECT COUNT(*) FROM gallery_submissions WHERE review_state = 'pending' AND outcome = 'pending')::int AS pending_submissions,
@@ -1352,6 +1352,42 @@ SELECT
 	var value *model.AdminOverview
 	if err := p.db.Ctx(ctx).Raw(query).Scan(&value); err != nil {
 		return nil, gerror.Wrap(err, "query gallery admin overview")
+	}
+	if err := p.db.Ctx(ctx).Raw(`
+SELECT
+    COALESCE(SUM(qualified_views), 0)::bigint AS all_time_views,
+    COALESCE(SUM(qualified_views) FILTER (WHERE metric_date >= CURRENT_DATE - (? - 1) * INTERVAL '1 day'), 0)::bigint AS period_views,
+    COALESCE(SUM(qualified_views) FILTER (WHERE metric_date >= CURRENT_DATE - (? * 2 - 1) * INTERVAL '1 day' AND metric_date < CURRENT_DATE - (? - 1) * INTERVAL '1 day'), 0)::bigint AS previous_period_views,
+    COALESCE(SUM(favorites) FILTER (WHERE metric_date >= CURRENT_DATE - (? - 1) * INTERVAL '1 day'), 0)::bigint AS period_favorites,
+    COALESCE(SUM(favorites) FILTER (WHERE metric_date >= CURRENT_DATE - (? * 2 - 1) * INTERVAL '1 day' AND metric_date < CURRENT_DATE - (? - 1) * INTERVAL '1 day'), 0)::bigint AS previous_period_favorites
+FROM gallery_image_metrics_daily`, days, days, days, days, days, days).Scan(value); err != nil {
+		return nil, gerror.Wrap(err, "query gallery dashboard totals")
+	}
+	if err := p.db.Ctx(ctx).Raw(`
+SELECT day::date::text AS day,
+       COALESCE(SUM(metric.qualified_views), 0)::bigint AS views,
+       COALESCE(SUM(metric.favorites), 0)::bigint AS favorites
+FROM generate_series(CURRENT_DATE - (? - 1) * INTERVAL '1 day', CURRENT_DATE, INTERVAL '1 day') day
+LEFT JOIN gallery_image_metrics_daily metric ON metric.metric_date = day::date
+GROUP BY day ORDER BY day`, days).Scan(&value.Series); err != nil {
+		return nil, gerror.Wrap(err, "query gallery dashboard series")
+	}
+	if err := p.db.Ctx(ctx).Raw(`
+SELECT image.id::text AS id, image.title,
+       COALESCE(SUM(metric.qualified_views), 0)::bigint AS views,
+       COALESCE(SUM(metric.favorites), 0)::bigint AS favorites
+FROM gallery_images image
+JOIN gallery_image_metrics_daily metric ON metric.image_id = image.id
+WHERE metric.metric_date >= CURRENT_DATE - (? - 1) * INTERVAL '1 day'
+  AND image.processing_state = 'ready'
+  AND image.review_state IN ('not_required', 'approved')
+  AND image.publication_state = 'published'
+  AND image.safety_state = 'safe'
+  AND image.public_rendition_ready
+GROUP BY image.id, image.title
+ORDER BY views DESC, favorites DESC, image.id
+LIMIT 8`, days).Scan(&value.TopImages); err != nil {
+		return nil, gerror.Wrap(err, "query gallery dashboard top images")
 	}
 	return value, nil
 }
@@ -1385,11 +1421,13 @@ func (p *PG) AdminImages(ctx context.Context, input model.AdminImageQuery) ([]mo
 	if err != nil {
 		return nil, 0, gerror.Wrap(err, "count admin gallery images")
 	}
-	orders := map[string]string{
-		"newest": "i.created_at DESC, i.id DESC", "oldest": "i.created_at ASC, i.id ASC",
-		"updated": "i.updated_at DESC, i.id DESC", "updated_asc": "i.updated_at ASC, i.id ASC", "title_asc": "LOWER(i.title) ASC, i.id ASC", "title_desc": "LOWER(i.title) DESC, i.id DESC",
+	orders := map[string]map[string]string{
+		"createdAt": {"asc": "i.created_at ASC, i.id ASC", "desc": "i.created_at DESC, i.id DESC"},
+		"updatedAt": {"asc": "i.updated_at ASC, i.id ASC", "desc": "i.updated_at DESC, i.id DESC"},
+		"title":     {"asc": "LOWER(i.title) ASC, i.id ASC", "desc": "LOWER(i.title) DESC, i.id DESC"},
+		"views":     {"asc": "view_count ASC, i.id ASC", "desc": "view_count DESC, i.id DESC"},
 	}
-	query := adminImageSelect + ` WHERE ` + predicate + ` ORDER BY ` + orders[input.Sort] + ` LIMIT ? OFFSET ?`
+	query := adminImageSelect + ` WHERE ` + predicate + ` ORDER BY ` + orders[input.SortBy][input.SortOrder] + ` LIMIT ? OFFSET ?`
 	pageArgs := append(append([]any{}, args...), input.PageSize, (input.Page-1)*input.PageSize)
 	var values []model.AdminImage
 	if err := p.db.Ctx(ctx).Raw(query, pageArgs...).Scan(&values); err != nil {
@@ -1576,10 +1614,10 @@ func (p *PG) ReviewQueue(ctx context.Context, input model.AdminSubmissionQuery) 
 	if err != nil {
 		return nil, 0, gerror.Wrap(err, "count gallery submission workbench")
 	}
-	orders := map[string]string{
-		"oldest":  "submission.created_at ASC, submission.id ASC",
-		"newest":  "submission.created_at DESC, submission.id DESC",
-		"updated": "submission.updated_at DESC, submission.id DESC",
+	orders := map[string]map[string]string{
+		"createdAt": {"asc": "submission.created_at ASC, submission.id ASC", "desc": "submission.created_at DESC, submission.id DESC"},
+		"updatedAt": {"asc": "submission.updated_at ASC, submission.id ASC", "desc": "submission.updated_at DESC, submission.id DESC"},
+		"title":     {"asc": "LOWER(submission.title) ASC, submission.id ASC", "desc": "LOWER(submission.title) DESC, submission.id DESC"},
 	}
 	query := `
 SELECT submission.id::text AS id, submission.subject_kind, submission.subject_id, submission.asset_id::text AS asset_id,
@@ -1591,7 +1629,7 @@ SELECT submission.id::text AS id, submission.subject_kind, submission.subject_id
 FROM gallery_submissions submission
 LEFT JOIN gallery_submission_primary_categories primary_category ON primary_category.submission_id = submission.id
 WHERE ` + predicate + `
-ORDER BY ` + orders[input.Sort] + ` LIMIT ? OFFSET ?`
+ORDER BY ` + orders[input.SortBy][input.SortOrder] + ` LIMIT ? OFFSET ?`
 	pageArgs := append(append([]any{}, args...), input.PageSize, (input.Page-1)*input.PageSize)
 	var values []model.Submission
 	if err := p.db.Ctx(ctx).Raw(query, pageArgs...).Scan(&values); err != nil {
@@ -1831,15 +1869,18 @@ func (p *PG) Cases(ctx context.Context, input model.AdminCaseQuery) ([]model.Cas
 	if err != nil {
 		return nil, 0, gerror.Wrap(err, "count gallery cases")
 	}
-	orders := map[string]string{
-		"oldest": "created_at ASC, id ASC", "newest": "created_at DESC, id DESC", "updated": "updated_at DESC, id DESC",
+	orders := map[string]map[string]string{
+		"createdAt": {"asc": "created_at ASC, id ASC", "desc": "created_at DESC, id DESC"},
+		"updatedAt": {"asc": "updated_at ASC, id ASC", "desc": "updated_at DESC, id DESC"},
+		"kind":      {"asc": "kind ASC, id ASC", "desc": "kind DESC, id DESC"},
+		"status":    {"asc": "status ASC, id ASC", "desc": "status DESC, id DESC"},
 	}
 	query := `
 SELECT id::text AS id, COALESCE(image_id::text, '') AS image_id,
        COALESCE(submission_id::text, '') AS submission_id, kind, status, reason, description,
        COALESCE(proposed_source_url, '') AS proposed_source_url, resolution_note, created_at, updated_at
 FROM gallery_cases WHERE ` + predicate + `
-ORDER BY ` + orders[input.Sort] + ` LIMIT ? OFFSET ?`
+ORDER BY ` + orders[input.SortBy][input.SortOrder] + ` LIMIT ? OFFSET ?`
 	pageArgs := append(append([]any{}, args...), input.PageSize, (input.Page-1)*input.PageSize)
 	var values []model.Case
 	if err := p.db.Ctx(ctx).Raw(query, pageArgs...).Scan(&values); err != nil {

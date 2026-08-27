@@ -216,10 +216,7 @@ function revokeGrant(grant: GrantView) {
 
 <template>
   <div id="authorization" class="w-full space-y-5">
-    <PageHeader
-      title="权限与申请"
-      description="配置本站角色能力、内容运营申请与自动授权；用户中心只提供登录身份。"
-    >
+    <PageHeader title="权限与申请">
       <template #actions>
         <UButton
           v-if="state && !draft"
@@ -238,7 +235,7 @@ function revokeGrant(grant: GrantView) {
       </template>
     </PageHeader>
 
-    <ManageClientBoundary :rows="8">
+    <div>
       <SkeletonList v-if="!hydrated || pending" :rows="8" />
       <UAlert
         v-else-if="!isAdministrator"
@@ -481,7 +478,7 @@ function revokeGrant(grant: GrantView) {
           </div>
         </section>
       </template>
-    </ManageClientBoundary>
+    </div>
 
     <UModal
       v-model:open="createRoleOpen"

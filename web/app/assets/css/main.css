@@ -23,7 +23,7 @@
   --ui-bg-elevated: color-mix(in srgb, var(--gallery-panel) 72%, var(--gallery-panel-strong));
   --ui-bg-accented: color-mix(in srgb, var(--gallery-accent) 10%, var(--gallery-panel-strong));
   --ui-border-muted: var(--gallery-line);
-  --ui-border: color-mix(in srgb, var(--gallery-ink) 20%, transparent);
+  --ui-border: var(--gallery-line);
   --yueli-surface-page: var(--gallery-canvas);
   --yueli-surface-region: var(--gallery-panel);
   --yueli-surface-card: var(--gallery-panel-strong);
@@ -43,6 +43,71 @@
   --gallery-viewer-canvas: #0b1018;
   --gallery-viewer-panel: #111824;
   --gallery-viewer-overlay: rgb(17 24 36 / 0.88);
+}
+
+body.gallery-manage-active {
+  color-scheme: light;
+  --gallery-admin-shell: #ffffff;
+  --gallery-admin-canvas: #f4f6f8;
+  --ui-bg: #ffffff;
+  --ui-bg-muted: #f4f6f8;
+  --ui-bg-elevated: #edf1f5;
+  --ui-bg-accented: #e3e9f1;
+  --ui-bg-inverted: #172033;
+  --ui-border: #d7dee8;
+  --ui-border-muted: #e5eaf0;
+  --ui-border-accented: #c4cfdd;
+  --ui-text: #30394a;
+  --ui-text-muted: #586477;
+  --ui-text-dimmed: #687386;
+  --ui-text-highlighted: #172033;
+  --ui-primary: #2458ff;
+  --yueli-surface-page: var(--gallery-admin-shell);
+  --yueli-surface-region: var(--gallery-admin-canvas);
+  --yueli-surface-card: var(--ui-bg);
+  --yueli-surface-inset: var(--ui-bg-muted);
+  --yueli-surface-overlay: var(--ui-bg);
+  --yueli-border-soft: var(--ui-border-muted);
+  --yueli-border-strong: var(--ui-border);
+  --yueli-shadow-card: 0 1px 2px rgb(23 32 51 / 0.04);
+  --yueli-admin-shell: var(--gallery-admin-shell);
+  --yueli-admin-canvas: var(--gallery-admin-canvas);
+  --yueli-admin-search: var(--ui-bg-muted);
+  background: var(--gallery-admin-canvas);
+}
+
+.gallery-manage-active .admin-shell-sidebar {
+  border-inline-end-color: var(--ui-border-muted);
+}
+
+.dark body.gallery-manage-active {
+  color-scheme: dark;
+  --gallery-admin-shell: #10151f;
+  --gallery-admin-canvas: #161c27;
+  --ui-bg: #1c2431;
+  --ui-bg-muted: #222c3b;
+  --ui-bg-elevated: #293547;
+  --ui-bg-accented: #334158;
+  --ui-bg-inverted: #f4f7fb;
+  --ui-border: #334052;
+  --ui-border-muted: #273243;
+  --ui-border-accented: #46566d;
+  --ui-text: #d7dee9;
+  --ui-text-muted: #aab5c5;
+  --ui-text-dimmed: #8c99ab;
+  --ui-text-highlighted: #f4f7fb;
+  --ui-primary: #7c9fff;
+  --yueli-surface-page: var(--gallery-admin-shell);
+  --yueli-surface-region: var(--gallery-admin-canvas);
+  --yueli-surface-card: var(--ui-bg);
+  --yueli-surface-inset: var(--ui-bg-muted);
+  --yueli-surface-overlay: #253043;
+  --yueli-border-soft: var(--ui-border-muted);
+  --yueli-border-strong: var(--ui-border);
+  --yueli-shadow-card: 0 1px 2px rgb(0 0 0 / 0.28);
+  --yueli-admin-shell: var(--gallery-admin-shell);
+  --yueli-admin-canvas: var(--gallery-admin-canvas);
+  --yueli-admin-search: var(--ui-bg-muted);
 }
 
 html {
@@ -336,13 +401,6 @@ h3 {
   color: var(--ui-text-muted);
   font-size: 0.75rem;
   line-height: 1.45;
-}
-.gallery-demo-label {
-  flex: none;
-  color: var(--gallery-accent);
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
 }
 .gallery-next-batch {
   flex: none;

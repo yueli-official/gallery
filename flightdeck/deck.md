@@ -6,5 +6,6 @@ None.
 
 ## Finished Work
 
+- [Gallery 后台集合与控制台重构](work/2026-08-27-admin-collections-dashboard/index.md)
 - [Gallery Compose-first 试点](work/2026-07-29-gallery-compose-first/index.md)
 - [媒体冷请求 502 回归](../../asset/flightdeck/work/2026-08-02-media-cold-request-regression/index.md)

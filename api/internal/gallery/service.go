@@ -55,7 +55,7 @@ type Store interface {
 	CollectionDetail(context.Context, string, int, int) (*model.CollectionDetail, error)
 	FavoritesDetail(context.Context, string, int, int, string) (*model.CollectionDetail, error)
 	CreateCase(context.Context, model.Subject, string, model.CaseInput) (*model.Case, error)
-	AdminOverview(context.Context) (*model.AdminOverview, error)
+	AdminOverview(context.Context, int) (*model.AdminOverview, error)
 	AdminImages(context.Context, model.AdminImageQuery) ([]model.AdminImage, int, error)
 	AdminImage(context.Context, string) (*model.AdminImage, error)
 	AdminImageCounts(context.Context) (map[string]int, error)
@@ -1428,19 +1428,35 @@ func (s *Service) Report(ctx context.Context, subject model.Subject, rawImageID 
 	return value, err
 }
 
-func (s *Service) AdminOverview(ctx context.Context) (*model.AdminOverview, error) {
-	return s.store.AdminOverview(ctx)
+func (s *Service) AdminOverview(ctx context.Context, days int) (*model.AdminOverview, error) {
+	days = bounded(days, 7, 30, 14)
+	value, err := s.store.AdminOverview(ctx, days)
+	if err != nil {
+		return nil, err
+	}
+	value.Days = days
+	if value.Series == nil {
+		value.Series = []model.AdminTrafficPoint{}
+	}
+	if value.TopImages == nil {
+		value.TopImages = []model.AdminTrafficImage{}
+	}
+	for index := range value.TopImages {
+		value.TopImages[index].ID = PublicID(value.TopImages[index].ID)
+	}
+	return value, nil
 }
 
 func (s *Service) AdminImages(ctx context.Context, query model.AdminImageQuery) (*model.AdminImagePage, error) {
 	query.Search = strings.TrimSpace(query.Search)
-	query.Sort = strings.TrimSpace(query.Sort)
-	if query.Sort == "" {
-		query.Sort = "newest"
-	}
+	query.SortBy = defaultString(strings.TrimSpace(query.SortBy), "createdAt")
+	query.SortOrder = defaultString(strings.TrimSpace(query.SortOrder), "desc")
 	query.Page, query.PageSize = bounded(query.Page, 1, 100000, 1), bounded(query.PageSize, 12, 60, 24)
-	if !oneOf(query.Sort, "newest", "oldest", "title_asc", "title_desc", "updated", "updated_asc") {
-		return nil, galleryerr.Validation("sort", "unsupported admin image sort")
+	if !oneOf(query.SortBy, "createdAt", "updatedAt", "title", "views") {
+		return nil, galleryerr.Validation("sortBy", "unsupported admin image sort field")
+	}
+	if !oneOf(query.SortOrder, "asc", "desc") {
+		return nil, galleryerr.Validation("sortOrder", "sort order must be asc or desc")
 	}
 	query.ProcessingState = strings.TrimSpace(query.ProcessingState)
 	query.ReviewState = strings.TrimSpace(query.ReviewState)
@@ -1648,10 +1664,14 @@ func (s *Service) BulkImages(ctx context.Context, operator string, input model.B
 
 func (s *Service) ReviewQueue(ctx context.Context, query model.AdminSubmissionQuery) (*model.AdminSubmissionPage, error) {
 	query.Search = strings.TrimSpace(query.Search)
-	query.Sort = defaultString(strings.TrimSpace(query.Sort), "oldest")
+	query.SortBy = defaultString(strings.TrimSpace(query.SortBy), "createdAt")
+	query.SortOrder = defaultString(strings.TrimSpace(query.SortOrder), "asc")
 	query.Page, query.PageSize = bounded(query.Page, 1, 100000, 1), bounded(query.PageSize, 10, 60, 20)
-	if !oneOf(query.Sort, "oldest", "newest", "updated") {
-		return nil, galleryerr.Validation("sort", "unsupported submission sort")
+	if !oneOf(query.SortBy, "createdAt", "updatedAt", "title") {
+		return nil, galleryerr.Validation("sortBy", "unsupported submission sort field")
+	}
+	if !oneOf(query.SortOrder, "asc", "desc") {
+		return nil, galleryerr.Validation("sortOrder", "sort order must be asc or desc")
 	}
 	query.ProcessingState = strings.TrimSpace(query.ProcessingState)
 	query.ReviewState = strings.TrimSpace(query.ReviewState)
@@ -1772,12 +1792,16 @@ func (s *Service) HideImage(ctx context.Context, operator, rawID, reason string)
 
 func (s *Service) Cases(ctx context.Context, query model.AdminCaseQuery) (*model.AdminCasePage, error) {
 	query.Search = strings.TrimSpace(query.Search)
-	query.Sort = defaultString(strings.TrimSpace(query.Sort), "oldest")
+	query.SortBy = defaultString(strings.TrimSpace(query.SortBy), "createdAt")
+	query.SortOrder = defaultString(strings.TrimSpace(query.SortOrder), "asc")
 	query.Status = defaultString(strings.TrimSpace(query.Status), "open")
 	query.Kind = strings.TrimSpace(query.Kind)
 	query.Page, query.PageSize = bounded(query.Page, 1, 100000, 1), bounded(query.PageSize, 10, 60, 20)
-	if !oneOf(query.Sort, "oldest", "newest", "updated") {
-		return nil, galleryerr.Validation("sort", "unsupported case sort")
+	if !oneOf(query.SortBy, "createdAt", "updatedAt", "kind", "status") {
+		return nil, galleryerr.Validation("sortBy", "unsupported case sort field")
+	}
+	if !oneOf(query.SortOrder, "asc", "desc") {
+		return nil, galleryerr.Validation("sortOrder", "sort order must be asc or desc")
 	}
 	if query.Status != "all" && !oneOf(query.Status, "open", "reviewing", "resolved", "dismissed") {
 		return nil, galleryerr.Validation("status", "unsupported case status")

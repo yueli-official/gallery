@@ -241,7 +241,6 @@ async function openPicker(): Promise<void> {
 <template>
   <div>
     <PageHeader :title="collection?.name || '专题编辑'">
-      <template #subtitle>先组织图片和顺序，再完成封面与公开叙事。</template>
       <template #actions>
         <UButton
           color="neutral"

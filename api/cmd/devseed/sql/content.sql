@@ -174,8 +174,15 @@ ON CONFLICT (collection_id, image_id) DO UPDATE SET manual_position = EXCLUDED.m
 INSERT INTO gallery_image_metrics_daily (image_id, metric_date, exposures, qualified_views, unique_visitors, favorites, shares, reports)
 SELECT
     ('019b1000-0000-7000-9000-' || lpad(i::text, 12, '0'))::uuid,
-    DATE '2026-07-14', i * 31, i * 17, i * 11, i * 3, i, CASE WHEN i % 19 = 0 THEN 1 ELSE 0 END
+    CURRENT_DATE - day_offset,
+    28 + (i % 17) + (ARRAY[8,12,10,16,14,20,18,28,24,38,31,47,26,19])[((29 - day_offset) % 14) + 1],
+    3 + (i % 11) + (ARRAY[2,4,3,7,5,9,6,16,11,24,18,31,13,8])[((29 - day_offset) % 14) + 1],
+    2 + (i % 7) + (ARRAY[1,2,2,3,3,4,3,6,5,8,7,10,5,4])[((29 - day_offset) % 14) + 1],
+    (i % 3) + (ARRAY[0,0,1,0,1,1,1,2,2,3,2,4,2,1])[((29 - day_offset) % 14) + 1],
+    (i % 2) + (ARRAY[0,1,0,1,1,2,1,2,2,3,2,3,1,1])[((29 - day_offset) % 14) + 1],
+    CASE WHEN (i + day_offset) % 53 = 0 THEN 1 ELSE 0 END
 FROM generate_series(1, 84) AS i
+CROSS JOIN generate_series(0, 29) AS day_offset
 ON CONFLICT (image_id, metric_date) DO UPDATE SET
     exposures = EXCLUDED.exposures, qualified_views = EXCLUDED.qualified_views,
     unique_visitors = EXCLUDED.unique_visitors, favorites = EXCLUDED.favorites,

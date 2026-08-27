@@ -12,7 +12,10 @@ import {
 } from "@yueli/ui/collection";
 import { useVueCollectionWorkflow } from "@yueli/ui/collection/vue";
 import { createVueRouterCollectionQuerySync } from "@yueli/ui/collection/vue-router";
-import { CollectionPanel } from "@yueli/ui/collection/pattern";
+import {
+  CollectionPanel,
+  CollectionSortHeader,
+} from "@yueli/ui/collection/pattern";
 import type {
   GalleryAdminSubmissionPage,
   GallerySubmission,
@@ -25,10 +28,12 @@ const { call } = useGalleryApi();
 const { can } = useGalleryMe();
 const hydrated = useClientHydrated();
 const canReviewSubmissions = computed(() => can("gallery.submission.review"));
-type SubmissionSort = "oldest" | "newest" | "updated";
+type SubmissionSortBy = "createdAt" | "updatedAt" | "title";
+type SubmissionSortOrder = "asc" | "desc";
 interface SubmissionCollectionQuery {
   q: string;
-  sort: SubmissionSort;
+  sortBy: SubmissionSortBy;
+  sortOrder: SubmissionSortOrder;
   page: number;
   size: number;
   processingState: string;
@@ -36,11 +41,13 @@ interface SubmissionCollectionQuery {
   safetyState: string;
   outcome: string;
 }
-const sorts = ["oldest", "newest", "updated"] as const;
+const sortByValues = ["createdAt", "updatedAt", "title"] as const;
+const sortOrderValues = ["asc", "desc"] as const;
 const pageSizes = [20, 40, 60] as const;
 const defaultQuery: SubmissionCollectionQuery = {
   q: "",
-  sort: "oldest",
+  sortBy: "createdAt",
+  sortOrder: "asc",
   page: 1,
   size: 20,
   processingState: "",
@@ -63,7 +70,8 @@ async function loadSubmissions(
       {
         query: {
           q: nextQuery.q || undefined,
-          sort: nextQuery.sort,
+          sortBy: nextQuery.sortBy,
+          sortOrder: nextQuery.sortOrder,
           page: nextQuery.page,
           size: nextQuery.size,
           processingState: nextQuery.processingState || undefined,
@@ -95,7 +103,16 @@ const querySync = createVueRouterCollectionQuerySync({
   router,
   codec: createCollectionRouteQueryCodec({
     q: { kind: "string", default: defaultQuery.q, maxLength: 200 },
-    sort: { kind: "enum", values: sorts, default: defaultQuery.sort },
+    sortBy: {
+      kind: "enum",
+      values: sortByValues,
+      default: defaultQuery.sortBy,
+    },
+    sortOrder: {
+      kind: "enum",
+      values: sortOrderValues,
+      default: defaultQuery.sortOrder,
+    },
     page: { kind: "positive-integer", default: defaultQuery.page },
     size: {
       kind: "positive-integer",
@@ -142,7 +159,8 @@ const size = computed({
   set: (value: number) => updateQuery({ size: value }),
 });
 const q = computed(() => collectionQuery.value.q);
-const sort = computed(() => collectionQuery.value.sort);
+const sortBy = computed(() => collectionQuery.value.sortBy);
+const sortOrder = computed(() => collectionQuery.value.sortOrder);
 const processingState = computed(() => collectionQuery.value.processingState);
 const reviewState = computed(() => collectionQuery.value.reviewState);
 const safetyState = computed(() => collectionQuery.value.safetyState);
@@ -164,11 +182,6 @@ const note = ref<Record<string, string>>({});
 const acting = ref("");
 const actionErrors = ref<Record<string, string>>({});
 
-const sortItems = [
-  { label: "等待最久", value: "oldest" },
-  { label: "最新投稿", value: "newest" },
-  { label: "最近变化", value: "updated" },
-];
 const processingItems = [
   { label: "全部处理状态", value: "all" },
   { label: "排队中", value: "queued" },
@@ -300,7 +313,8 @@ function clearFilters() {
     reviewState: "",
     safetyState: "",
     outcome: "",
-    sort: "oldest",
+    sortBy: "createdAt",
+    sortOrder: "asc",
   });
 }
 function preset(kind: "review" | "failed" | "uncertain" | "all") {
@@ -429,14 +443,6 @@ const controls = computed<CollectionControl[]>(() => [
     options: outcomeItems,
     class: "w-32",
   },
-  {
-    kind: "select",
-    id: "sort",
-    label: "投稿排序",
-    value: sort.value,
-    options: sortItems,
-    class: "w-28",
-  },
 ]);
 function changeControl(id: string, value: CollectionControlValue) {
   if (typeof value !== "string") return;
@@ -445,8 +451,17 @@ function changeControl(id: string, value: CollectionControlValue) {
   if (id === "reviewState") updateQuery({ reviewState: normalized });
   if (id === "safetyState") updateQuery({ safetyState: normalized });
   if (id === "outcome") updateQuery({ outcome: normalized });
-  if (id === "sort" && sorts.includes(value as SubmissionSort))
-    updateQuery({ sort: value as SubmissionSort });
+}
+
+function changeColumnSort(nextSortBy: SubmissionSortBy) {
+  if (sortBy.value === nextSortBy) {
+    updateQuery({ sortOrder: sortOrder.value === "asc" ? "desc" : "asc" });
+    return;
+  }
+  updateQuery({
+    sortBy: nextSortBy,
+    sortOrder: nextSortBy === "title" ? "asc" : "desc",
+  });
 }
 const messages: CollectionPanelMessages = {
   searchPlaceholder: "搜索标题、说明或来源…",
@@ -493,14 +508,23 @@ function decisionSummary(item: GallerySubmission) {
   if (item.outcome === "duplicate") return "重复内容已合并到现有图片";
   return outcomeLabel[item.outcome] || "等待处理";
 }
+
+const dateTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+function formatDateTime(value?: string) {
+  return value ? dateTimeFormatter.format(new Date(value)) : "—";
+}
 </script>
 
 <template>
   <div>
     <PageHeader title="投稿审核">
-      <template #subtitle>
-        先处理能进入目录的投稿；媒体失败和安全不确定保留为独立队列。
-      </template>
     </PageHeader>
 
     <ManageTabs v-model="presetModel" :items="presetItems" class="mb-4" />
@@ -535,12 +559,26 @@ function decisionSummary(item: GallerySubmission) {
       @page-change="page = $event"
       @page-size-change="size = $event"
     >
-      <template #columns
-        ><div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
-          <span>投稿、检查与审核状态</span
-          ><span class="hidden w-48 text-right xl:block">审核操作</span>
-        </div></template
-      >
+      <template #columns>
+        <div
+          class="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 md:grid-cols-[minmax(0,1fr)_9rem_7rem]"
+        >
+          <CollectionSortHeader
+            label="投稿"
+            :active="sortBy === 'title'"
+            :sort-order="sortOrder"
+            @sort="changeColumnSort('title')"
+          />
+          <CollectionSortHeader
+            class="hidden md:inline-flex"
+            label="提交时间"
+            :active="sortBy === 'createdAt'"
+            :sort-order="sortOrder"
+            @sort="changeColumnSort('createdAt')"
+          />
+          <span class="text-right">操作</span>
+        </div>
+      </template>
       <template #bulk-actions
         ><UButton
           v-if="canReviewSubmissions"
@@ -551,140 +589,132 @@ function decisionSummary(item: GallerySubmission) {
           @click="bulkApprove"
       /></template>
       <template #item="{ item }">
-        <article
-          class="grid grid-cols-[5rem_minmax(0,1fr)] gap-3 sm:grid-cols-[6.5rem_minmax(0,1fr)] xl:grid-cols-[6.5rem_minmax(0,1fr)_19rem] xl:items-start"
-        >
+        <article class="space-y-3">
           <div
-            class="relative aspect-[4/3] self-start overflow-hidden rounded-lg bg-elevated"
+            class="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 md:grid-cols-[minmax(0,1fr)_9rem_7rem]"
           >
-            <GallerySubmissionPreview
-              :submission-id="item.id"
-              :alt="item.altText"
-            />
-            <span
-              class="absolute bottom-1.5 left-1.5 rounded bg-default/90 px-1.5 py-0.5 text-[11px] font-medium text-default backdrop-blur"
-            >
-              {{ outcomeLabel[item.outcome] }}
-            </span>
-          </div>
-          <div class="min-w-0">
-            <div class="flex min-w-0 items-center gap-2">
-              <h2 class="truncate font-semibold text-highlighted">
-                {{ item.title }}
-              </h2>
-              <UBadge
-                v-if="item.safetyState !== 'safe'"
-                :color="item.safetyState === 'blocked' ? 'error' : 'warning'"
-                variant="soft"
-                :label="safetyLabel[item.safetyState]"
-              />
+            <div class="flex min-w-0 items-center gap-3">
+              <div
+                class="relative hidden aspect-[4/3] w-20 shrink-0 overflow-hidden rounded-lg bg-elevated sm:block"
+              >
+                <GallerySubmissionPreview
+                  :submission-id="item.id"
+                  :alt="item.altText"
+                />
+              </div>
+              <div class="min-w-0">
+                <div class="flex min-w-0 items-center gap-2">
+                  <h2 class="truncate text-sm font-medium text-highlighted">
+                    {{ item.title }}
+                  </h2>
+                  <UBadge
+                    v-if="item.safetyState !== 'safe'"
+                    :color="item.safetyState === 'blocked' ? 'error' : 'warning'"
+                    variant="soft"
+                    :label="safetyLabel[item.safetyState]"
+                  />
+                </div>
+                <p class="mt-1 truncate text-xs text-muted">
+                  {{ item.description || item.altText }}
+                </p>
+                <p class="mt-1 flex items-center gap-1.5 text-xs text-dimmed">
+                  <UIcon
+                    :name="
+                      submissionReviewAction(item).canApprove
+                        ? 'i-tabler-circle-check'
+                        : item.failureCode || item.safetyState === 'blocked'
+                          ? 'i-tabler-alert-triangle'
+                          : 'i-tabler-progress'
+                    "
+                    class="size-3.5 shrink-0"
+                  />
+                  <span class="truncate">{{ decisionSummary(item) }}</span>
+                </p>
+              </div>
             </div>
-            <p
-              v-if="item.description"
-              class="mt-1 line-clamp-2 text-sm leading-5 text-muted"
+            <time
+              class="hidden text-xs text-muted md:block"
+              :datetime="item.createdAt"
             >
-              {{ item.description }}
-            </p>
-            <p class="mt-2 flex items-center gap-1.5 text-xs text-muted">
-              <UIcon
-                :name="
-                  submissionReviewAction(item).canApprove
-                    ? 'i-tabler-circle-check'
-                    : item.failureCode || item.safetyState === 'blocked'
-                      ? 'i-tabler-alert-triangle'
-                      : 'i-tabler-progress'
-                "
-                class="size-4 shrink-0"
-              />
-              {{ decisionSummary(item) }}
-            </p>
-            <UAlert
-              v-if="item.failureCode"
-              class="mt-3"
-              color="error"
-              variant="subtle"
-              icon="i-tabler-alert-triangle"
-              title="媒体处理失败"
-              :description="item.failureCode"
-            />
-            <p
-              v-if="item.reviewNote"
-              class="mt-3 border-l-2 border-default pl-3 text-sm text-muted"
-            >
-              审核记录：{{ item.reviewNote }}
-            </p>
-            <UAlert
-              v-if="actionErrors[item.id]"
-              class="mt-3"
-              color="error"
-              variant="subtle"
-              title="本项操作失败"
-              :description="actionErrors[item.id]"
-            />
-          </div>
-          <div class="col-span-2 sm:col-span-1 sm:col-start-2 xl:col-start-3">
-            <div class="flex flex-wrap items-center gap-2 xl:justify-end">
+              {{ formatDateTime(item.createdAt) }}
+            </time>
+            <div class="flex justify-end gap-1">
+              <UTooltip v-if="item.imageId" text="查看公开图片">
+                <UButton
+                  :to="`/images/${item.imageId}`"
+                  target="_blank"
+                  rel="noopener"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  icon="i-tabler-external-link"
+                  square
+                  :aria-label="`查看公开图片：${item.title}`"
+                />
+              </UTooltip>
               <UButton
                 v-if="
                   canReviewSubmissions &&
                   item.reviewState === 'pending' &&
                   item.outcome === 'pending'
                 "
+                size="xs"
                 :label="submissionReviewAction(item).label"
                 :loading="acting === item.id"
                 :disabled="!submissionReviewAction(item).canApprove"
                 @click="review(item, 'approve')"
               />
+            </div>
+          </div>
+
+          <UAlert
+            v-if="item.failureCode"
+            color="error"
+            variant="subtle"
+            icon="i-tabler-alert-triangle"
+            title="媒体处理失败"
+            :description="item.failureCode"
+          />
+          <UAlert
+            v-if="actionErrors[item.id]"
+            color="error"
+            variant="subtle"
+            title="本项操作失败"
+            :description="actionErrors[item.id]"
+          />
+          <details
+            v-if="
+              canReviewSubmissions &&
+              item.reviewState === 'pending' &&
+              item.outcome === 'pending'
+            "
+            class="group rounded-lg border border-default bg-elevated/35 px-3 py-2"
+          >
+            <summary
+              class="flex min-h-8 cursor-pointer list-none items-center justify-between gap-2 text-sm font-medium text-default"
+            >
+              备注或拒绝
+              <UIcon
+                name="i-tabler-chevron-down"
+                class="size-4 text-muted transition group-open:rotate-180"
+              />
+            </summary>
+            <div class="space-y-2 border-t border-default pt-3">
+              <UTextarea
+                v-model="note[item.id]"
+                :rows="3"
+                placeholder="记录判断；拒绝时必须填写原因"
+              />
               <UButton
-                v-if="item.imageId"
-                :to="`/images/${item.imageId}`"
-                target="_blank"
-                color="neutral"
-                variant="ghost"
-                icon="i-tabler-external-link"
-                aria-label="查看公开图片"
+                color="error"
+                variant="outline"
+                label="拒绝"
+                :loading="acting === item.id"
+                :disabled="!note[item.id]?.trim()"
+                @click="review(item, 'reject')"
               />
             </div>
-            <p
-              v-if="submissionReviewAction(item).reason"
-              class="mt-2 text-xs leading-5 text-muted xl:text-right"
-            >
-              {{ submissionReviewAction(item).reason }}
-            </p>
-            <details
-              v-if="
-                canReviewSubmissions &&
-                item.reviewState === 'pending' &&
-                item.outcome === 'pending'
-              "
-              class="group mt-3 rounded-lg border border-default bg-elevated/35 px-3 py-2"
-            >
-              <summary
-                class="flex min-h-8 cursor-pointer list-none items-center justify-between gap-2 text-sm font-medium text-default"
-              >
-                备注或拒绝
-                <UIcon
-                  name="i-tabler-chevron-down"
-                  class="size-4 text-muted transition group-open:rotate-180"
-                />
-              </summary>
-              <div class="space-y-2 border-t border-default pt-3">
-                <UTextarea
-                  v-model="note[item.id]"
-                  :rows="3"
-                  placeholder="记录判断；拒绝时必须填写原因"
-                />
-                <UButton
-                  color="error"
-                  variant="outline"
-                  label="拒绝"
-                  :loading="acting === item.id"
-                  :disabled="!note[item.id]?.trim()"
-                  @click="review(item, 'reject')"
-                />
-              </div>
-            </details>
-          </div>
+          </details>
         </article>
       </template>
     </CollectionPanel>

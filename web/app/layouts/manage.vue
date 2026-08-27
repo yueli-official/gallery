@@ -11,7 +11,7 @@ const { can, isAdministrator } = useGalleryMe();
 const sidebarOpen = ref(false);
 
 const currentLabel = computed(() => {
-  if (route.path === "/manage") return "今日运营";
+  if (route.path === "/manage") return "控制台";
   if (route.path.startsWith("/manage/images")) return "图片";
   if (route.path.startsWith("/manage/submissions")) return "投稿审核";
   if (route.path.startsWith("/manage/collections")) return "专题策展";
@@ -20,8 +20,10 @@ const currentLabel = computed(() => {
   if (route.path.startsWith("/manage/discovery")) return "站点与首页";
   if (route.path.startsWith("/manage/assets")) return "资源策略";
   if (route.path.startsWith("/manage/authorization")) return "权限与申请";
-  return "今日运营";
+  return "控制台";
 });
+
+useHead({ bodyAttrs: { class: "gallery-manage-active" } });
 
 const messages: AdminShellMessages = {
   skipToContent: "跳到主要内容",
@@ -42,8 +44,8 @@ const navigation = computed<readonly AdminNavigationItem[]>(() => [
   ...(can("gallery.dashboard.read")
     ? [
         {
-          label: "今日",
-          icon: "i-tabler-sun-high",
+          label: "控制台",
+          icon: "i-tabler-dashboard",
           to: "/manage",
           active: active("/manage", true),
           onSelect: closeSidebar,
@@ -230,6 +232,18 @@ const searchGroups = computed<readonly AdminSearchGroup[]>(() => {
   [data-gallery-manage-shell] :deep(button[aria-label]),
   [data-gallery-manage-shell] :deep(a[aria-label]) {
     min-width: 44px;
+  }
+
+  [data-gallery-manage-shell] :deep(button[role="checkbox"]) {
+    position: relative;
+    min-width: 1rem;
+    min-height: 1rem;
+  }
+
+  [data-gallery-manage-shell] :deep(button[role="checkbox"])::after {
+    position: absolute;
+    inset: -0.875rem;
+    content: "";
   }
 }
 </style>

@@ -78,6 +78,7 @@ type RemoveFavoriteRes struct {
 
 type GetAdminOverviewReq struct {
 	g.Meta `path:"/api/v1/gallery/admin/overview" method:"GET" tags:"Gallery admin" summary:"Get actionable Gallery operations counts"`
+	Days   int `p:"days" d:"14"`
 }
 type GetAdminOverviewRes struct {
 	Overview model.AdminOverview `json:"overview"`
@@ -153,7 +154,8 @@ type ExecuteClassificationGovernanceRes struct {
 type ListSubmissionReviewsReq struct {
 	g.Meta          `path:"/api/v1/gallery/admin/submissions" method:"GET" tags:"Gallery admin" summary:"List Gallery submissions across processing, review, safety and outcome states"`
 	Q               string `p:"q"`
-	Sort            string `p:"sort" d:"oldest"`
+	SortBy          string `p:"sortBy" d:"createdAt"`
+	SortOrder       string `p:"sortOrder" d:"asc"`
 	Page            int    `p:"page" d:"1"`
 	Size            int    `p:"size" d:"20"`
 	ProcessingState string `p:"processingState"`
@@ -200,7 +202,8 @@ type HideImageRes struct {
 type ListAdminImagesReq struct {
 	g.Meta           `path:"/api/v1/gallery/admin/images" method:"GET" tags:"Gallery admin" summary:"List all Gallery images for lifecycle operations"`
 	Q                string `p:"q"`
-	Sort             string `p:"sort" d:"newest"`
+	SortBy           string `p:"sortBy" d:"createdAt"`
+	SortOrder        string `p:"sortOrder" d:"desc"`
 	Page             int    `p:"page" d:"1"`
 	Size             int    `p:"size" d:"24"`
 	ProcessingState  string `p:"processingState"`
@@ -246,13 +249,14 @@ type BulkImagesRes struct {
 }
 
 type ListCasesReq struct {
-	g.Meta `path:"/api/v1/gallery/admin/cases" method:"GET" tags:"Gallery admin" summary:"List and filter Gallery moderation and correction cases"`
-	Q      string `p:"q"`
-	Sort   string `p:"sort" d:"oldest"`
-	Status string `p:"status" d:"open"`
-	Kind   string `p:"kind"`
-	Page   int    `p:"page" d:"1"`
-	Size   int    `p:"size" d:"20"`
+	g.Meta    `path:"/api/v1/gallery/admin/cases" method:"GET" tags:"Gallery admin" summary:"List and filter Gallery moderation and correction cases"`
+	Q         string `p:"q"`
+	SortBy    string `p:"sortBy" d:"createdAt"`
+	SortOrder string `p:"sortOrder" d:"asc"`
+	Status    string `p:"status" d:"open"`
+	Kind      string `p:"kind"`
+	Page      int    `p:"page" d:"1"`
+	Size      int    `p:"size" d:"20"`
 }
 type ListCasesRes struct{ model.AdminCasePage }
 

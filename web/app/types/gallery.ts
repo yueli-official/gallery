@@ -335,6 +335,27 @@ export interface GalleryAdminOverview {
   openCases: number;
   publishedImages: number;
   failedProcessing: number;
+  days: number;
+  allTimeViews: number;
+  periodViews: number;
+  previousPeriodViews: number;
+  periodFavorites: number;
+  previousPeriodFavorites: number;
+  series: GalleryAdminTrafficPoint[];
+  topImages: GalleryAdminTrafficImage[];
+}
+
+export interface GalleryAdminTrafficPoint {
+  day: string;
+  views: number;
+  favorites: number;
+}
+
+export interface GalleryAdminTrafficImage {
+  id: string;
+  title: string;
+  views: number;
+  favorites: number;
 }
 
 export interface GalleryUploadedAsset {

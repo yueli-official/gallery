@@ -26,12 +26,13 @@ async function saveDiscoverySettings(page: Page): Promise<void> {
       candidate.url().includes("/api/gallery/admin/site-settings"),
   );
   await page
-    .locator('[data-manage-dock="save"]')
+    .locator("main")
     .getByRole("button", { name: "保存设置", exact: true })
+    .first()
     .click();
   expect((await response).ok()).toBeTruthy();
   await expect(
-    page.getByText("站点与首页设置已保存", { exact: true }),
+    page.getByText("设置已保存，前台刷新后生效。", { exact: true }),
   ).toBeVisible();
 }
 
@@ -54,7 +55,7 @@ async function restoreDiscoveryName(
 
 async function openFirstImageEditor(page: Page): Promise<void> {
   await page
-    .getByRole("button", { name: "编辑图片", exact: true })
+    .getByRole("button", { name: /^编辑图片/ })
     .first()
     .click();
   await expect(page.getByRole("dialog", { name: "编辑图片" })).toBeVisible();

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { PageHeader } from "@yueli/ui/dashboard/pattern";
+import { CollectionTableToolbar } from "@yueli/ui/collection/pattern";
 import { ManageEmpty, SkeletonList } from "~/utils/manageComponents";
 import type { GalleryCollection } from "~/types/gallery";
 
@@ -25,14 +26,19 @@ const { data, pending, error, refresh } = await useAsyncData(
     ),
   { server: false, default: () => ({ collections: [] }) },
 );
-const publicCount = computed(
-  () =>
-    data.value.collections.filter((item) => item.visibility === "public")
-      .length,
-);
-const imageCount = computed(() =>
-  data.value.collections.reduce((total, item) => total + item.itemCount, 0),
-);
+const search = ref("");
+const visibility = ref<"all" | "public" | "private">("all");
+const filteredCollections = computed(() => {
+  const query = search.value.trim().toLowerCase();
+  return data.value.collections.filter(
+    (item) =>
+      (visibility.value === "all" || item.visibility === visibility.value) &&
+      (!query ||
+        `${item.name} ${item.description} ${item.slug || ""}`
+          .toLowerCase()
+          .includes(query)),
+  );
+});
 async function createCollection() {
   if (!canManageCollections.value || !form.name.trim() || !form.slug.trim())
     return;
@@ -59,8 +65,6 @@ async function createCollection() {
 <template>
   <div>
     <PageHeader title="专题策展"
-      ><template #subtitle
-        >把已经通过审核的图片组织成有封面、有顺序、有公开叙事的专题。</template
       ><template #actions
         ><UButton
           v-if="canManageCollections"
@@ -71,30 +75,6 @@ async function createCollection() {
             void 0;
           " /></template
     ></PageHeader>
-    <div
-      v-if="hydrated && !pending && !error"
-      class="mb-5 grid overflow-hidden rounded-xl border border-default bg-default sm:grid-cols-3"
-      aria-label="专题概况"
-    >
-      <div class="px-4 py-3 sm:border-r sm:border-default">
-        <p class="text-xs text-muted">专题总数</p>
-        <p class="mt-1 text-xl font-semibold tabular-nums text-highlighted">
-          {{ data.collections.length }}
-        </p>
-      </div>
-      <div class="border-t border-default px-4 py-3 sm:border-r sm:border-t-0">
-        <p class="text-xs text-muted">已公开</p>
-        <p class="mt-1 text-xl font-semibold tabular-nums text-highlighted">
-          {{ publicCount }}
-        </p>
-      </div>
-      <div class="border-t border-default px-4 py-3 sm:border-t-0">
-        <p class="text-xs text-muted">收录关系</p>
-        <p class="mt-1 text-xl font-semibold tabular-nums text-highlighted">
-          {{ imageCount }}
-        </p>
-      </div>
-    </div>
     <SkeletonList v-if="!hydrated || pending" :rows="5" />
     <UAlert
       v-else-if="error"
@@ -108,70 +88,109 @@ async function createCollection() {
       class="overflow-hidden rounded-xl border border-default bg-default"
       aria-label="专题列表"
     >
-      <article
-        v-for="item in data.collections"
-        :key="item.id"
-        class="grid gap-4 border-b border-default p-3 last:border-b-0 sm:grid-cols-[10rem_minmax(0,1fr)_auto] sm:items-center sm:p-4"
+      <CollectionTableToolbar
+        v-model:search="search"
+        label="专题列表工具栏"
+        search-placeholder="搜索名称、slug 或说明…"
+        search-action="搜索"
+        filter-label="筛选"
+        :filter-count="visibility === 'all' ? 0 : 1"
       >
-        <NuxtLink
-          :to="`/manage/collections/${encodeURIComponent(item.id)}`"
-          class="group relative block h-28 overflow-hidden rounded-lg bg-elevated"
-          :aria-label="`编辑专题：${item.name}`"
-        >
-          <img
-            v-if="item.coverAssetId"
-            v-bind="galleryImageSources(item.coverAssetId, 'grid', false)"
-            :alt="item.coverAltText || item.name"
-            class="size-full object-cover transition duration-300 group-hover:scale-[1.02]"
-          />
-          <span v-else class="grid size-full place-items-center text-muted">
-            <UIcon name="i-tabler-photo-plus" class="size-7" />
-          </span>
-          <span
-            class="absolute bottom-2 left-2 rounded bg-default/90 px-2 py-1 text-[11px] font-medium text-default backdrop-blur"
-          >
-            {{ item.itemCount }} 张
-          </span>
-        </NuxtLink>
-        <div class="min-w-0">
-          <div class="flex flex-wrap items-center gap-2">
-            <h2 class="truncate font-semibold text-highlighted">
-              {{ item.name }}
-            </h2>
-            <span
-              class="inline-flex items-center gap-1 text-xs"
-              :class="
-                item.visibility === 'public' ? 'text-success' : 'text-muted'
-              "
-            >
-              <span class="size-1.5 rounded-full bg-current" />
-              {{ item.visibility === "public" ? "公开" : "私有草稿" }}
+        <template #filters>
+          <div class="w-64 max-w-[calc(100vw-2rem)]">
+            <UFormField label="可见性">
+              <USelect
+                v-model="visibility"
+                :items="[
+                  { label: '全部', value: 'all' },
+                  { label: '公开', value: 'public' },
+                  { label: '私有', value: 'private' },
+                ]"
+                value-key="value"
+                class="w-full"
+              />
+            </UFormField>
+          </div>
+        </template>
+      </CollectionTableToolbar>
+      <div
+        class="grid grid-cols-[minmax(0,1fr)_5rem_5rem] items-center gap-3 border-b border-default bg-elevated/50 px-4 py-2 text-xs font-medium text-muted md:grid-cols-[minmax(0,1fr)_6rem_8rem_5rem]"
+      >
+        <span>专题</span>
+        <span>图片</span>
+        <span class="hidden md:inline">状态</span>
+        <span class="text-right">操作</span>
+      </div>
+      <article
+        v-for="item in filteredCollections"
+        :key="item.id"
+        class="grid grid-cols-[minmax(0,1fr)_5rem_5rem] items-center gap-3 border-b border-default p-4 last:border-b-0 md:grid-cols-[minmax(0,1fr)_6rem_8rem_5rem]"
+      >
+        <div class="flex min-w-0 items-center gap-3">
+          <div class="hidden aspect-[4/3] w-16 shrink-0 overflow-hidden rounded-lg bg-elevated sm:block">
+            <img
+              v-if="item.coverAssetId"
+              v-bind="galleryImageSources(item.coverAssetId, 'grid', false)"
+              :alt="item.coverAltText || item.name"
+              class="size-full object-cover"
+            />
+            <span v-else class="grid size-full place-items-center text-muted">
+              <UIcon name="i-tabler-photo-plus" class="size-5" />
             </span>
           </div>
-          <p class="mt-1 line-clamp-2 text-sm leading-5 text-muted">
-            {{ item.description || "暂无说明" }}
-          </p>
-          <p class="mt-2 truncate font-mono text-xs text-dimmed">
-            /collections/{{ item.slug || "未设置-slug" }}
-          </p>
+          <div class="min-w-0">
+            <NuxtLink
+              :to="`/manage/collections/${encodeURIComponent(item.id)}`"
+              class="block truncate text-sm font-medium text-highlighted hover:text-primary"
+              :aria-label="`编辑专题：${item.name}`"
+            >
+              {{ item.name }}
+            </NuxtLink>
+            <p class="mt-1 truncate text-xs text-muted">
+              /collections/{{ item.slug || "未设置-slug" }}
+            </p>
+          </div>
         </div>
-        <div class="flex items-center gap-1 sm:justify-end">
-          <UButton
-            :to="`/manage/collections/${encodeURIComponent(item.id)}`"
-            :icon="canManageCollections ? 'i-tabler-pencil' : 'i-tabler-eye'"
-            :label="canManageCollections ? '继续策展' : '查看专题'"
-          />
-          <UButton
+        <span class="text-xs tabular-nums text-muted">{{ item.itemCount }}</span>
+        <span class="hidden text-xs text-muted md:inline">
+          {{ item.visibility === "public" ? "公开" : "私有" }}
+        </span>
+        <div class="flex items-center justify-end gap-1">
+          <UTooltip
             v-if="item.visibility === 'public' && item.slug"
-            :to="`/collections/${item.slug}`"
-            target="_blank"
-            color="neutral"
-            variant="ghost"
-            icon="i-tabler-external-link"
-            aria-label="查看公开专题"
-          />
+            text="查看公开专题"
+          >
+            <UButton
+              :to="`/collections/${item.slug}`"
+              target="_blank"
+              rel="noopener"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              square
+              icon="i-tabler-external-link"
+              :aria-label="`查看公开专题：${item.name}`"
+            />
+          </UTooltip>
+          <UTooltip :text="canManageCollections ? '编辑专题' : '查看专题'">
+            <UButton
+              :to="`/manage/collections/${encodeURIComponent(item.id)}`"
+              :icon="canManageCollections ? 'i-tabler-pencil' : 'i-tabler-eye'"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              square
+              :aria-label="`${canManageCollections ? '编辑' : '查看'}专题：${item.name}`"
+            />
+          </UTooltip>
         </div>
       </article>
+      <div
+        v-if="!filteredCollections.length"
+        class="grid min-h-48 place-items-center px-6 py-10 text-center text-sm text-muted"
+      >
+        没有匹配的专题。
+      </div>
     </section>
     <ManageEmpty
       v-else

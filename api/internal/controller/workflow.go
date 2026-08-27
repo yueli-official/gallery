@@ -144,11 +144,11 @@ type Admin struct{ service *galleryservice.Service }
 
 func NewAdmin(service *galleryservice.Service) *Admin { return &Admin{service: service} }
 
-func (c *Admin) GetAdminOverview(ctx context.Context, _ *v1.GetAdminOverviewReq) (*v1.GetAdminOverviewRes, error) {
+func (c *Admin) GetAdminOverview(ctx context.Context, req *v1.GetAdminOverviewReq) (*v1.GetAdminOverviewRes, error) {
 	if _, err := requireCapability(ctx, galleryauthz.CapabilityDashboardRead); err != nil {
 		return nil, err
 	}
-	value, err := c.service.AdminOverview(ctx)
+	value, err := c.service.AdminOverview(ctx, req.Days)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +247,7 @@ func (c *Admin) ListSubmissionReviews(ctx context.Context, req *v1.ListSubmissio
 		return nil, err
 	}
 	page, err := c.service.ReviewQueue(ctx, model.AdminSubmissionQuery{
-		Search: req.Q, Sort: req.Sort, Page: req.Page, PageSize: req.Size,
+		Search: req.Q, SortBy: req.SortBy, SortOrder: req.SortOrder, Page: req.Page, PageSize: req.Size,
 		ProcessingState: req.ProcessingState, ReviewState: req.ReviewState,
 		SafetyState: req.SafetyState, Outcome: req.Outcome,
 	})
@@ -308,7 +308,7 @@ func (c *Admin) ListAdminImages(ctx context.Context, req *v1.ListAdminImagesReq)
 		return nil, err
 	}
 	page, err := c.service.AdminImages(ctx, model.AdminImageQuery{
-		Search: req.Q, Sort: req.Sort, Page: req.Page, PageSize: req.Size,
+		Search: req.Q, SortBy: req.SortBy, SortOrder: req.SortOrder, Page: req.Page, PageSize: req.Size,
 		ProcessingState: req.ProcessingState, ReviewState: req.ReviewState,
 		PublicationState: req.PublicationState, SafetyState: req.SafetyState,
 		CategoryID: req.CategoryID, FacetValueID: req.FacetValueID,
@@ -366,7 +366,7 @@ func (c *Admin) ListCases(ctx context.Context, req *v1.ListCasesReq) (*v1.ListCa
 		return nil, err
 	}
 	page, err := c.service.Cases(ctx, model.AdminCaseQuery{
-		Search: req.Q, Sort: req.Sort, Status: req.Status, Kind: req.Kind, Page: req.Page, PageSize: req.Size,
+		Search: req.Q, SortBy: req.SortBy, SortOrder: req.SortOrder, Status: req.Status, Kind: req.Kind, Page: req.Page, PageSize: req.Size,
 	})
 	if err != nil {
 		return nil, err

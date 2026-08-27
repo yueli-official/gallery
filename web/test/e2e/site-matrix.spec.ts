@@ -86,11 +86,13 @@ export function registerJourneySuite(product: string) {
             .getByRole("textbox", { name: settings.fieldLabel, exact: false })
             .first();
           await expect(field).toBeVisible();
-          await expect(page.locator('[data-manage-dock="save"]')).toHaveCount(
-            0,
-          );
+          await expect(
+            page
+              .locator("main")
+              .getByRole("button", { name: "保存设置", exact: true })
+              .first(),
+          ).toBeVisible();
           await field.fill(`${await field.inputValue()} · 未保存`);
-          await expect(page.locator('[data-manage-dock="save"]')).toBeVisible();
 
           const dialogHandled = new Promise<void>((resolve) => {
             page.once("dialog", async (dialog) => {

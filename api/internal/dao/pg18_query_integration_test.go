@@ -289,7 +289,7 @@ INSERT INTO gallery_cases (id, image_id, kind, status, reason, description, reso
 	}
 
 	adminSubmissions, adminSubmissionTotal, err := fixture.Store.ReviewQueue(context.Background(), model.AdminSubmissionQuery{
-		Page: 1, PageSize: 1, Sort: "oldest", ProcessingState: "ready", ReviewState: "approved", Outcome: "published",
+		Page: 1, PageSize: 1, SortBy: "createdAt", SortOrder: "asc", ProcessingState: "ready", ReviewState: "approved", Outcome: "published",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -299,7 +299,7 @@ INSERT INTO gallery_cases (id, image_id, kind, status, reason, description, reso
 	}
 
 	adminCases, adminCaseTotal, err := fixture.Store.Cases(context.Background(), model.AdminCaseQuery{
-		Page: 1, PageSize: 20, Sort: "oldest", Status: "open", Kind: "report", Search: "权利",
+		Page: 1, PageSize: 20, SortBy: "createdAt", SortOrder: "asc", Status: "open", Kind: "report", Search: "权利",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -335,7 +335,7 @@ INSERT INTO gallery_cases (id, image_id, kind, status, reason, description, reso
 	}
 
 	adminImages, adminTotal, err := fixture.Store.AdminImages(context.Background(), model.AdminImageQuery{
-		Page: 1, PageSize: 20, Sort: "updated", PublicationState: "hidden", SafetyState: "safe",
+		Page: 1, PageSize: 20, SortBy: "updatedAt", SortOrder: "desc", PublicationState: "hidden", SafetyState: "safe",
 	})
 	if err != nil {
 		t.Fatal(err)

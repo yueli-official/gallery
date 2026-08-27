@@ -435,9 +435,6 @@ async function reviewTagProposal(
 <template>
   <div>
     <PageHeader title="分类与维度">
-      <template #subtitle>
-        维护公开目录的路径、筛选轴和检索词；高风险变更先预演影响。
-      </template>
     </PageHeader>
 
     <USelect

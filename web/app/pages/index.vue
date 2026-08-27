@@ -10,7 +10,6 @@ import type {
 
 const route = useRoute();
 const router = useRouter();
-const isSyntheticPreview = import.meta.dev;
 const seed = computed(() => String(route.query.seed || ""));
 const gallerySite = useGallerySiteSettings();
 const { data, error, status, refresh } = await useFetch<GalleryDiscovery>(
@@ -105,9 +104,6 @@ function nextBatch() {
                 {{ homeSection.description }}
               </p>
             </div>
-            <span v-if="isSyntheticPreview" class="gallery-demo-label"
-              >演示数据</span
-            >
           </div>
           <UButton
             class="gallery-next-batch"

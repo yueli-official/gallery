@@ -1,152 +1,111 @@
 <script setup lang="ts">
+import DashboardTrendChart from "~/components/DashboardTrendChart.vue";
 import { PageHeader } from "@yueli/ui/dashboard/pattern";
 import type { GalleryAdminOverview } from "~/types/gallery";
 
 definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
-useSeoMeta({ title: "今日运营 · 图库管理" });
+useSeoMeta({ title: "控制台 · 图库管理" });
 
-const { user } = useAuth();
 const { can } = useGalleryMe();
 const { call } = useGalleryApi();
 const hydrated = useClientHydrated();
+const period = ref(14);
+const periodItems = [
+  { label: "7 天", value: 7 },
+  { label: "14 天", value: 14 },
+  { label: "30 天", value: 30 },
+];
+
 const { data, pending, error, refresh } = await useAsyncData(
   "gallery-admin-overview",
   () =>
-    call<{ overview: GalleryAdminOverview }>("/admin/overview"),
-  { server: false },
+    call<{ overview: GalleryAdminOverview }>("/admin/overview", {
+      query: { days: period.value },
+    }),
+  {
+    server: false,
+    watch: [period],
+    default: () => ({
+      overview: {
+        pendingSubmissions: 0,
+        openCases: 0,
+        publishedImages: 0,
+        failedProcessing: 0,
+        days: period.value,
+        allTimeViews: 0,
+        periodViews: 0,
+        previousPeriodViews: 0,
+        periodFavorites: 0,
+        previousPeriodFavorites: 0,
+        series: [],
+        topImages: [],
+      },
+    }),
+  },
 );
-const overview = computed(() => data.value?.overview);
-const attentionTotal = computed(
-  () =>
-    (overview.value?.pendingSubmissions || 0) +
-    (overview.value?.openCases || 0) +
-    (overview.value?.failedProcessing || 0),
+const overview = computed(() => data.value.overview);
+const formatter = new Intl.NumberFormat("zh-CN");
+const topPeak = computed(() =>
+  Math.max(1, ...overview.value.topImages.map((image) => image.views)),
 );
-const signals = computed(() =>
-  [
-    {
-      label: "待审投稿",
-      value: overview.value?.pendingSubmissions || 0,
-      tone: "primary",
-      capability: "gallery.submission.review",
-      to: "/manage/submissions?reviewState=pending&outcome=pending",
-    },
-    {
-      label: "开放处理单",
-      value: overview.value?.openCases || 0,
-      tone: "warning",
-      capability: "gallery.case.read",
-      to: "/manage/cases",
-    },
-    {
-      label: "处理失败",
-      value: overview.value?.failedProcessing || 0,
-      tone: "error",
-      capability: "gallery.submission.read",
-      to: "/manage/submissions?processingState=failed",
-    },
-    {
-      label: "公开图片",
-      value: overview.value?.publishedImages || 0,
-      tone: "neutral",
-      capability: "gallery.image.read",
-      to: "/manage/images?status=published",
-    },
-  ].filter((item) => can(item.capability)),
+const favoriteRate = computed(() =>
+  overview.value.periodViews
+    ? (overview.value.periodFavorites / overview.value.periodViews) * 100
+    : 0,
 );
-const priorities = computed(() =>
-  [
-    {
-      key: "submissions",
-      label: "审核新投稿",
-      description: "确认内容质量、分类与安全判断，让合格图片进入公开目录。",
-      count: overview.value?.pendingSubmissions || 0,
-      icon: "i-tabler-photo-check",
-      to: "/manage/submissions?reviewState=pending&outcome=pending",
-      action: "进入审核",
-      tone: "primary",
-      capability: "gallery.submission.review",
-    },
-    {
-      key: "cases",
-      label: "跟进信任问题",
-      description:
-        "处理举报、来源修正和安全不确定，优先解决等待时间最长的项目。",
-      count: overview.value?.openCases || 0,
-      icon: "i-tabler-shield-check",
-      to: "/manage/cases",
-      action: "查看处理单",
-      tone: "warning",
-      capability: "gallery.case.read",
-    },
-    {
-      key: "failed",
-      label: "恢复失败处理",
-      description: "检查媒体处理失败原因，保留已有投稿信息并重新推进。",
-      count: overview.value?.failedProcessing || 0,
-      icon: "i-tabler-alert-triangle",
-      to: "/manage/submissions?processingState=failed",
-      action: "检查失败项",
-      tone: "error",
-      capability: "gallery.submission.read",
-    },
-  ].filter((item) => can(item.capability)),
-);
-const workspaces = computed(() =>
-  [
-    {
-      label: "图片资产",
-      description: "浏览完整生命周期与异常状态",
-      icon: "i-tabler-photo",
-      to: "/manage/images",
-      capability: "gallery.image.read",
-    },
-    {
-      label: "专题策展",
-      description: "组织封面、成员与公开叙事",
-      icon: "i-tabler-folders",
-      to: "/manage/collections",
-      capability: "gallery.collection.read",
-    },
-    {
-      label: "目录治理",
-      description: "维护分类、维度和标签质量",
-      icon: "i-tabler-category",
-      to: "/manage/classification",
-      capability: "gallery.classification.read",
-    },
-    {
-      label: "站点与首页",
-      description: "发布前台文案、板块顺序与展示数量",
-      icon: "i-tabler-layout-dashboard",
-      to: "/manage/discovery",
-      capability: "gallery.discovery.read",
-    },
-  ].filter((item) => can(item.capability)),
-);
+
+function formatNumber(value: number) {
+  return formatter.format(value || 0);
+}
+
+function comparison(current: number, previous: number) {
+  if (!previous)
+    return current ? `本期新增 ${formatNumber(current)}` : "与前期持平";
+  const percent = Math.round(((current - previous) / previous) * 100);
+  return `${percent >= 0 ? "+" : ""}${percent}% 较前 ${period.value} 天`;
+}
+
+const metricCards = computed(() => [
+  {
+    label: "累计浏览",
+    value: formatNumber(overview.value.allTimeViews),
+    detail: `${formatNumber(overview.value.publishedImages)} 张公开图片`,
+    icon: "i-tabler-eye",
+    to: "/manage/images?status=published",
+  },
+  {
+    label: `近 ${period.value} 天浏览`,
+    value: formatNumber(overview.value.periodViews),
+    detail: comparison(
+      overview.value.periodViews,
+      overview.value.previousPeriodViews,
+    ),
+    icon: "i-tabler-chart-line",
+    to: "/manage",
+  },
+  {
+    label: "收藏率",
+    value: `${favoriteRate.value.toFixed(1)}%`,
+    detail: `${formatNumber(overview.value.periodFavorites)} 次收藏`,
+    icon: "i-tabler-heart",
+    to: "/manage/images",
+  },
+  {
+    label: "公开图片",
+    value: formatNumber(overview.value.publishedImages),
+    detail: "当前可浏览目录",
+    icon: "i-tabler-photo",
+    to: "/manage/images?status=published",
+  },
+]);
 </script>
 
 <template>
-  <div>
-    <PageHeader title="今日运营">
-      <template #subtitle
-        >{{
-          user?.name || user?.email || "运营者"
-        }}，先处理会阻塞发布或影响信任的工作。</template
-      >
-    </PageHeader>
-
-    <div v-if="!hydrated || pending" class="space-y-6">
-      <USkeleton class="h-24 rounded-xl" />
-      <div class="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(18rem,.5fr)]">
-        <USkeleton class="h-96 rounded-xl" /><USkeleton
-          class="h-96 rounded-xl"
-        />
-      </div>
-    </div>
+  <div class="space-y-5" data-gallery-dashboard-analytics>
+    <PageHeader title="控制台" />
 
     <UAlert
-      v-else-if="!can('gallery.dashboard.read')"
+      v-if="!can('gallery.dashboard.read')"
       color="error"
       variant="subtle"
       icon="i-tabler-lock"
@@ -157,159 +116,186 @@ const workspaces = computed(() =>
       color="error"
       variant="subtle"
       icon="i-tabler-alert-circle"
-      title="运营数据暂时不可用"
-      description="页面没有丢失你的操作，可以稍后重试。"
-      ><template #actions><UButton label="重试" @click="refresh()" /></template
-    ></UAlert>
+      title="统计暂时不可用"
+      description="图片管理不受影响；重试后仍失败时再检查 Gallery API。"
+    >
+      <template #actions>
+        <UButton
+          color="error"
+          variant="soft"
+          icon="i-tabler-refresh"
+          label="重试"
+          @click="refresh()"
+        />
+      </template>
+    </UAlert>
 
-    <template v-else>
-      <section
-        aria-label="今日运营信号"
-        class="mb-7 grid grid-cols-2 overflow-hidden rounded-xl border border-default bg-default lg:grid-cols-4"
+    <template v-else-if="can('gallery.dashboard.read')">
+      <div
+        v-if="!hydrated || (pending && !overview.series.length)"
+        class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
       >
+        <USkeleton v-for="item in 4" :key="item" class="h-28 rounded-xl" />
+      </div>
+      <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <NuxtLink
-          v-for="(signal, index) in signals"
-          :key="signal.label"
-          :to="signal.to"
-          class="group min-w-0 border-default px-4 py-4 transition-colors hover:bg-elevated/60 lg:px-5"
-          :class="[
-            index % 2 ? '' : 'border-r',
-            index > 1 ? 'border-t lg:border-t-0' : '',
-            index > 0 ? 'lg:border-l' : '',
-          ]"
+          v-for="card in metricCards"
+          :key="card.label"
+          :to="card.to"
+          class="group grid min-h-28 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 rounded-xl border border-default bg-default p-4 shadow-sm transition-colors hover:bg-elevated"
         >
-          <p class="text-xs font-medium text-muted">{{ signal.label }}</p>
-          <div class="mt-2 flex items-end justify-between gap-2">
-            <strong
-              class="font-display text-2xl font-semibold tabular-nums text-highlighted"
-              >{{ signal.value }}</strong
-            ><UIcon
-              name="i-tabler-arrow-up-right"
-              class="mb-1 size-4 text-dimmed transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+          <span
+            class="grid size-10 place-items-center rounded-lg bg-primary/10 text-primary"
+          >
+            <UIcon :name="card.icon" class="size-5" />
+          </span>
+          <div class="min-w-0">
+            <p class="text-xs text-muted">{{ card.label }}</p>
+            <p
+              class="mt-1 text-2xl font-semibold tabular-nums tracking-tight text-highlighted"
+            >
+              {{ card.value }}
+            </p>
+            <p class="mt-1 truncate text-xs text-muted">{{ card.detail }}</p>
+          </div>
+          <UIcon
+            name="i-tabler-arrow-up-right"
+            class="mt-1 size-4 text-dimmed transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+          />
+        </NuxtLink>
+      </div>
+
+      <div
+        class="grid items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]"
+      >
+        <UCard
+          variant="soft"
+          class="divide-y-0 bg-default shadow-sm"
+          data-gallery-dashboard-trend
+          :aria-busy="pending"
+          :ui="{
+            header: 'p-5 sm:p-6',
+            body: 'px-5 pb-5 pt-0 sm:px-6 sm:pb-6 sm:pt-0',
+          }"
+        >
+          <template #header>
+            <div
+              class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
+            >
+              <h2 class="text-base font-semibold text-highlighted">浏览趋势</h2>
+              <UTabs
+                v-model="period"
+                :items="periodItems"
+                :content="false"
+                :disabled="!hydrated || pending"
+                size="sm"
+                class="w-fit"
+                aria-label="统计时间范围"
+              />
+            </div>
+          </template>
+          <DashboardTrendChart :points="overview.series" />
+        </UCard>
+
+        <UCard
+          title="收藏趋势"
+          variant="soft"
+          class="divide-y-0 bg-default shadow-sm"
+          :ui="{
+            header: 'p-5 sm:p-6',
+            body: 'space-y-5 px-5 pb-5 pt-0 sm:px-6 sm:pb-6 sm:pt-0',
+          }"
+        >
+          <div class="flex items-end justify-between gap-4">
+            <div>
+              <p
+                class="text-3xl font-semibold tabular-nums tracking-tight text-highlighted"
+              >
+                {{ formatNumber(overview.periodFavorites) }}
+              </p>
+              <p class="mt-1 text-xs text-muted">次收藏</p>
+            </div>
+            <UBadge
+              color="neutral"
+              variant="soft"
+              :label="comparison(overview.periodFavorites, overview.previousPeriodFavorites)"
             />
           </div>
-        </NuxtLink>
-      </section>
-
-      <div>
-        <section aria-labelledby="priority-heading">
-          <div class="mb-3 flex items-end justify-between gap-4">
-            <div>
-              <h2
-                id="priority-heading"
-                class="text-lg font-semibold text-highlighted"
-              >
-                需要你处理
-              </h2>
-              <p class="mt-1 text-sm text-muted">
-                {{
-                  attentionTotal
-                    ? `共 ${attentionTotal} 项需要关注`
-                    : "当前没有阻塞事项"
-                }}
-              </p>
-            </div>
-          </div>
-          <div
-            v-if="attentionTotal"
-            class="overflow-hidden rounded-xl border border-default bg-default"
-          >
-            <article
-              v-for="priority in priorities.filter((item) => item.count)"
-              :key="priority.key"
-              class="grid gap-4 border-b border-default p-4 last:border-b-0 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center sm:p-5"
-            >
-              <span
-                class="grid size-11 place-items-center rounded-lg"
-                :class="
-                  priority.tone === 'error'
-                    ? 'bg-error/10 text-error'
-                    : priority.tone === 'warning'
-                      ? 'bg-warning/10 text-warning'
-                      : 'bg-primary/10 text-primary'
-                "
-                ><UIcon :name="priority.icon" class="size-5"
-              /></span>
-              <div class="min-w-0">
-                <div class="flex items-baseline gap-2">
-                  <h3 class="font-semibold text-highlighted">
-                    {{ priority.label }}
-                  </h3>
-                  <span
-                    class="text-sm font-semibold tabular-nums"
-                    :class="
-                      priority.tone === 'error'
-                        ? 'text-highlighted'
-                        : priority.tone === 'warning'
-                          ? 'text-highlighted'
-                          : 'text-primary'
-                    "
-                    >{{ priority.count }}</span
-                  >
-                </div>
-                <p class="mt-1 max-w-2xl text-sm leading-6 text-muted">
-                  {{ priority.description }}
-                </p>
-              </div>
-              <UButton
-                :to="priority.to"
-                :label="priority.action"
-                color="neutral"
-                variant="outline"
-                trailing-icon="i-tabler-arrow-right"
-                class="justify-self-start sm:justify-self-end"
-              />
-            </article>
-          </div>
-          <div
-            v-else
-            class="rounded-xl border border-default bg-default px-5 py-10 text-center"
-          >
-            <span
-              class="mx-auto grid size-11 place-items-center rounded-full bg-success/10 text-success"
-              ><UIcon name="i-tabler-check" class="size-5"
-            /></span>
-            <h3 class="mt-3 font-semibold text-highlighted">队列已经清空</h3>
-            <p class="mt-1 text-sm text-muted">
-              可以继续整理图片、专题或目录。
-            </p>
-          </div>
-
-          <div class="mt-8">
-            <h2 class="text-lg font-semibold text-highlighted">继续工作</h2>
-            <div
-              class="mt-3 grid overflow-hidden rounded-xl border border-default bg-default sm:grid-cols-2"
-            >
-              <NuxtLink
-                v-for="(workspace, index) in workspaces"
-                :key="workspace.to"
-                :to="workspace.to"
-                class="group flex min-h-24 items-center gap-3 border-default px-4 py-3 transition-colors hover:bg-elevated/60"
-                :class="[
-                  index % 2 === 0 ? 'sm:border-r' : '',
-                  index > 1
-                    ? 'border-t'
-                    : index === 1
-                      ? 'border-t sm:border-t-0'
-                      : '',
-                ]"
-                ><UIcon
-                  :name="workspace.icon"
-                  class="size-5 shrink-0 text-primary" /><span class="min-w-0"
-                  ><strong
-                    class="block text-sm font-semibold text-highlighted"
-                    >{{ workspace.label }}</strong
-                  ><span class="mt-1 block text-xs leading-5 text-muted">{{
-                    workspace.description
-                  }}</span></span
-                ><UIcon
-                  name="i-tabler-chevron-right"
-                  class="ml-auto size-4 text-dimmed transition-transform group-hover:translate-x-0.5"
-              /></NuxtLink>
-            </div>
-          </div>
-        </section>
+          <DashboardTrendChart
+            :points="overview.series"
+            metric="favorites"
+            compact
+          />
+        </UCard>
       </div>
+
+      <UCard
+        title="热门图片"
+        variant="soft"
+        class="divide-y-0 bg-default shadow-sm"
+        :ui="{ header: 'p-5 sm:p-6', body: 'p-0 sm:p-0' }"
+      >
+        <div v-if="overview.topImages.length" class="divide-y divide-default">
+          <div
+            v-for="image in overview.topImages"
+            :key="image.id"
+            class="grid grid-cols-[minmax(0,1fr)_6rem_auto] items-center gap-3 px-5 py-3 sm:grid-cols-[minmax(0,1fr)_6rem_6rem_auto] sm:px-6"
+          >
+            <div class="min-w-0">
+              <p class="truncate text-sm font-medium text-highlighted">
+                {{ image.title }}
+              </p>
+              <UProgress
+                class="mt-2"
+                :model-value="image.views"
+                :max="topPeak"
+                size="2xs"
+              />
+            </div>
+            <div class="text-right">
+              <p class="font-semibold tabular-nums text-highlighted">
+                {{ formatNumber(image.views) }}
+              </p>
+              <p class="text-xs text-dimmed">浏览</p>
+            </div>
+            <div class="hidden text-right sm:block">
+              <p class="font-semibold tabular-nums text-highlighted">
+                {{ formatNumber(image.favorites) }}
+              </p>
+              <p class="text-xs text-dimmed">收藏</p>
+            </div>
+            <div class="flex justify-end gap-1">
+              <UTooltip text="查看公开图片">
+                <UButton
+                  :to="`/images/${image.id}`"
+                  target="_blank"
+                  rel="noopener"
+                  icon="i-tabler-external-link"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  square
+                  :aria-label="`查看公开图片：${image.title}`"
+                />
+              </UTooltip>
+              <UTooltip text="管理图片">
+                <UButton
+                  :to="{ path: '/manage/images', query: { q: image.title } }"
+                  icon="i-tabler-pencil"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  square
+                  :aria-label="`管理图片：${image.title}`"
+                />
+              </UTooltip>
+            </div>
+          </div>
+        </div>
+        <p v-else class="p-8 text-center text-sm text-muted">
+          当前周期还没有有效浏览记录。
+        </p>
+      </UCard>
     </template>
   </div>
 </template>

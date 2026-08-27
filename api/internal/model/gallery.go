@@ -129,7 +129,8 @@ type AdminImageTag struct {
 
 type AdminImageQuery struct {
 	Search           string
-	Sort             string
+	SortBy           string
+	SortOrder        string
 	Page             int
 	PageSize         int
 	ProcessingState  string
@@ -501,7 +502,8 @@ type SubmissionAssetFacts struct {
 
 type AdminSubmissionQuery struct {
 	Search          string
-	Sort            string
+	SortBy          string
+	SortOrder       string
 	Page            int
 	PageSize        int
 	ProcessingState string
@@ -557,12 +559,13 @@ type Case struct {
 }
 
 type AdminCaseQuery struct {
-	Search   string
-	Sort     string
-	Page     int
-	PageSize int
-	Status   string
-	Kind     string
+	Search    string
+	SortBy    string
+	SortOrder string
+	Page      int
+	PageSize  int
+	Status    string
+	Kind      string
 }
 
 type AdminCasePage struct {
@@ -592,8 +595,29 @@ type Ranking struct {
 }
 
 type AdminOverview struct {
-	PendingSubmissions int `json:"pendingSubmissions" orm:"pending_submissions"`
-	OpenCases          int `json:"openCases" orm:"open_cases"`
-	PublishedImages    int `json:"publishedImages" orm:"published_images"`
-	FailedProcessing   int `json:"failedProcessing" orm:"failed_processing"`
+	PendingSubmissions      int                 `json:"pendingSubmissions" orm:"pending_submissions"`
+	OpenCases               int                 `json:"openCases" orm:"open_cases"`
+	PublishedImages         int                 `json:"publishedImages" orm:"published_images"`
+	FailedProcessing        int                 `json:"failedProcessing" orm:"failed_processing"`
+	Days                    int                 `json:"days"`
+	AllTimeViews            int64               `json:"allTimeViews" orm:"all_time_views"`
+	PeriodViews             int64               `json:"periodViews" orm:"period_views"`
+	PreviousPeriodViews     int64               `json:"previousPeriodViews" orm:"previous_period_views"`
+	PeriodFavorites         int64               `json:"periodFavorites" orm:"period_favorites"`
+	PreviousPeriodFavorites int64               `json:"previousPeriodFavorites" orm:"previous_period_favorites"`
+	Series                  []AdminTrafficPoint `json:"series"`
+	TopImages               []AdminTrafficImage `json:"topImages"`
+}
+
+type AdminTrafficPoint struct {
+	Day       string `json:"day" orm:"day"`
+	Views     int64  `json:"views" orm:"views"`
+	Favorites int64  `json:"favorites" orm:"favorites"`
+}
+
+type AdminTrafficImage struct {
+	ID        string `json:"id" orm:"id"`
+	Title     string `json:"title" orm:"title"`
+	Views     int64  `json:"views" orm:"views"`
+	Favorites int64  `json:"favorites" orm:"favorites"`
 }
