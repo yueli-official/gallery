@@ -32,6 +32,9 @@ const (
 	CapabilityDiscoveryRead                authorization.CapabilityKey = "gallery.discovery.read"
 	CapabilityDiscoveryManage              authorization.CapabilityKey = "gallery.discovery.manage"
 	CapabilityAssetSettingsManage          authorization.CapabilityKey = "gallery.asset_settings.manage"
+	CapabilityCommentRead                  authorization.CapabilityKey = "gallery.comment.read"
+	CapabilityCommentModerate              authorization.CapabilityKey = "gallery.comment.moderate"
+	CapabilityCommentDelete                authorization.CapabilityKey = "gallery.comment.delete"
 
 	PredicateRegistrationContentOperator    authorization.PredicateKey = "gallery.registration_auto_content_operator"
 	TriggerUserRegistered                   authorization.TriggerKey   = "identity.user.registered"
@@ -52,6 +55,9 @@ func Definition() authorization.Definition {
 		CapabilityClassificationProposalReview,
 		CapabilityCaseRead,
 		CapabilityDiscoveryRead,
+		CapabilityCommentRead,
+		CapabilityCommentModerate,
+		CapabilityCommentDelete,
 	}
 	administratorCapabilities := append(
 		[]authorization.CapabilityKey{
@@ -70,7 +76,7 @@ func Definition() authorization.Definition {
 
 	return authorization.Definition{
 		Consumer: "gallery",
-		Version:  2,
+		Version:  3,
 		Capabilities: []authorization.CapabilityDefinition{
 			{
 				Key: CapabilityPublicRead, Version: 1,
@@ -93,6 +99,9 @@ func Definition() authorization.Definition {
 			normalCapability(CapabilityDiscoveryRead),
 			protectedCapability(CapabilityDiscoveryManage),
 			protectedCapability(CapabilityAssetSettingsManage),
+			normalCapability(CapabilityCommentRead),
+			normalCapability(CapabilityCommentModerate),
+			normalCapability(CapabilityCommentDelete),
 		},
 		Scopes: authorization.ScopeSchema{Types: []authorization.ScopeTypeDefinition{
 			{Key: ScopeSite, Root: true},

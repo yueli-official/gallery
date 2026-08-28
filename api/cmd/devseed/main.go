@@ -52,7 +52,7 @@ func main() {
 	if err := transaction.Commit(); err != nil {
 		fatal("commit development seed: %v", err)
 	}
-	fmt.Println("Gallery 开发夹具已对账：站点分类、128 张图片、48 条投稿、20 个处理单和 4 个专题")
+	fmt.Println("Gallery 开发夹具已对账：站点分类、128 张图片、6 条评论、48 条投稿、20 个处理单和 4 个专题")
 }
 
 func fatal(format string, arguments ...any) {

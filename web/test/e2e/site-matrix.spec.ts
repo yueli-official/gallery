@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 import { productSites } from "./contracts";
 import {
   capturePageFailures,
@@ -46,6 +47,160 @@ export function registerJourneySuite(product: string) {
         ]) {
           await expect(page.getByText(copy, { exact: true })).toHaveCount(0);
         }
+      });
+
+      test("公开图片目录支持分类、维度与标签组合筛选", async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 1000 });
+        await page.goto(new URL("/images", site.url).toString(), {
+          waitUntil: "domcontentloaded",
+        });
+        await settleNuxt(page);
+
+        const filters = page.getByRole("complementary", {
+          name: "图片过滤器",
+        });
+        for (const name of ["分类筛选", "维度筛选", "标签筛选"]) {
+          await expect(
+            filters.getByRole("tab", { name, exact: true }),
+          ).toBeVisible();
+        }
+        await expect(
+          filters.getByRole("heading", { name: "分类", exact: true }),
+        ).toBeVisible();
+        await filters.getByRole("checkbox", { name: "壁纸" }).check();
+        await filters.getByRole("tab", { name: "维度筛选" }).click();
+        for (const name of ["场景", "方向", "风格"]) {
+          await expect(
+            filters.getByRole("heading", { name, exact: true }),
+          ).toBeVisible();
+        }
+        await filters.getByRole("checkbox", { name: "场景：人物" }).check();
+        await filters.getByRole("tab", { name: "标签筛选" }).click();
+        await expect(
+          filters.getByRole("heading", { name: "热门标签", exact: true }),
+        ).toBeVisible();
+        await filters.getByRole("button", { name: /^标签：晨光，/u }).click();
+        await filters
+          .getByRole("button", { name: "应用", exact: true })
+          .click();
+
+        await expect(page).toHaveURL(/categories=wallpaper/u);
+        await expect(page).toHaveURL(/facets=scene:people/u);
+        await expect(page).toHaveURL(/tag=demo-tag-1/u);
+        await expect(
+          page.getByRole("button", { name: "移除筛选：壁纸" }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("button", { name: "移除筛选：场景：人物" }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("button", { name: "移除筛选：标签：晨光" }),
+        ).toBeVisible();
+        const accessibility = await new AxeBuilder({ page })
+          .exclude("nuxt-devtools-frame")
+          .analyze();
+        expect(
+          accessibility.violations.filter((violation) =>
+            ["serious", "critical"].includes(violation.impact || ""),
+          ),
+        ).toEqual([]);
+      });
+
+      test("图片详情提供两级评论与匿名审核反馈", async ({ page }) => {
+        let postedBody: Record<string, unknown> | undefined;
+        await page.route(
+          "**/api/gallery/images/*/comments**",
+          async (route) => {
+            if (route.request().method() === "POST") {
+              postedBody = route.request().postDataJSON();
+              await route.fulfill({
+                status: 200,
+                contentType: "application/json",
+                body: JSON.stringify({
+                  pending: true,
+                  comment: {
+                    id: "comment-pending",
+                    authorName: "访客",
+                    isAnonymous: true,
+                    content: postedBody?.content,
+                    createdAt: "2026-07-11T08:30:00Z",
+                  },
+                }),
+              });
+              return;
+            }
+            await route.fulfill({
+              status: 200,
+              contentType: "application/json",
+              body: JSON.stringify({
+                total: 2,
+                page: 1,
+                size: 20,
+                items: [
+                  {
+                    id: "comment-1",
+                    authorName: "测试用户",
+                    isAnonymous: false,
+                    content: "这张图片的颜色很舒服。",
+                    createdAt: "2026-07-11T08:00:00Z",
+                    replies: [
+                      {
+                        id: "comment-2",
+                        parentId: "comment-1",
+                        authorName: "路过的访客",
+                        isAnonymous: true,
+                        content: "我也很喜欢。",
+                        createdAt: "2026-07-11T08:05:00Z",
+                      },
+                    ],
+                  },
+                ],
+              }),
+            });
+          },
+        );
+
+        await page.goto(
+          new URL("/images/AZsQAAAAcACQAAAAAAAAAQ", site.url).toString(),
+          { waitUntil: "domcontentloaded" },
+        );
+        await settleNuxt(page);
+        const comments = page.locator("[data-gallery-comments]");
+        await comments.scrollIntoViewIfNeeded();
+        await expect(
+          comments.getByRole("heading", { name: /评论/ }),
+        ).toBeVisible();
+        await expect(
+          comments.getByText("这张图片的颜色很舒服。", { exact: true }),
+        ).toBeVisible();
+        await expect(
+          comments.getByText("我也很喜欢。", { exact: true }),
+        ).toBeVisible();
+        await comments.getByRole("button", { name: "回复" }).first().click();
+        await expect(
+          comments.getByRole("textbox", { name: "写下回复…" }),
+        ).toBeVisible();
+
+        await comments.getByPlaceholder("昵称 *").first().fill("访客");
+        await comments
+          .getByRole("textbox", { name: "写下你的评论…" })
+          .fill("一条待审核评论");
+        await comments.getByRole("button", { name: "发表评论" }).click();
+        await expect(
+          comments.getByText("评论已提交，待审核后显示", { exact: true }),
+        ).toBeVisible();
+        expect(postedBody).toMatchObject({
+          content: "一条待审核评论",
+          authorName: "访客",
+        });
+        const accessibility = await new AxeBuilder({ page })
+          .exclude("nuxt-devtools-frame")
+          .analyze();
+        expect(
+          accessibility.violations.filter((violation) =>
+            ["serious", "critical"].includes(violation.impact || ""),
+          ),
+        ).toEqual([]);
       });
 
       test("匿名访问管理入口进入账户登录流程", async ({ page }) => {

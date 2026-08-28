@@ -1,10 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { productSites, type BrowserContract } from "./contracts";
-import {
-  expectNoHorizontalOverflow,
-  loginE2E,
-  settleNuxt,
-} from "./runtime";
+import { expectNoHorizontalOverflow, loginE2E, settleNuxt } from "./runtime";
 
 function scenario(contract: BrowserContract, key: string) {
   const value = contract.visual?.scenarios?.find((item) => item.key === key);
@@ -83,9 +79,7 @@ export function registerResponsiveSuite(product: string) {
         }
       });
 
-      test("200% 有效缩放下目录可重排且关键控件可操作", async ({
-        browser,
-      }) => {
+      test("200% 有效缩放下目录可重排且关键控件可操作", async ({ browser }) => {
         const context = await browser.newContext({
           viewport: { width: 640, height: 450 },
           screen: { width: 1280, height: 900 },
@@ -108,6 +102,28 @@ export function registerResponsiveSuite(product: string) {
         } finally {
           await context.close();
         }
+      });
+
+      test("目录筛选在桌面与抽屉断点之间保持单一入口", async ({ page }) => {
+        await page.setViewportSize({ width: 1023, height: 800 });
+        await openReady(page, site.url, scenario(contract, "catalog"));
+        const filterButton = page.getByRole("button", {
+          name: "筛选",
+          exact: true,
+        });
+        const desktopFilters = page.getByRole("complementary", {
+          name: "图片过滤器",
+        });
+        await expect(filterButton).toBeVisible();
+        await expect(desktopFilters).toBeHidden();
+        await filterButton.click();
+        await expect(page.getByRole("dialog")).toBeVisible();
+
+        await page.setViewportSize({ width: 1024, height: 800 });
+        await expect(desktopFilters).toBeVisible();
+        await expect(filterButton).toBeHidden();
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+        await expectNoHorizontalOverflow(page, "/images 1024px ");
       });
     });
   }

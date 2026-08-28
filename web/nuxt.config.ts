@@ -2,22 +2,36 @@ import { realpathSync } from "node:fs";
 import { resolve, sep } from "node:path";
 
 const siteBrand = process.env.NUXT_PUBLIC_SITE_BRAND || "月离图库";
-const cookieSecure = process.env.NUXT_COOKIE_SECURE === undefined
-  ? process.env.NODE_ENV === "production"
-  : process.env.NUXT_COOKIE_SECURE === "true";
+const cookieSecure =
+  process.env.NUXT_COOKIE_SECURE === undefined
+    ? process.env.NODE_ENV === "production"
+    : process.env.NUXT_COOKIE_SECURE === "true";
 const resolvedNuxt = realpathSync(resolve(process.cwd(), "node_modules/nuxt"));
 const pnpmStoreMarker = `${sep}.pnpm${sep}`;
 const pnpmStoreIndex = resolvedNuxt.indexOf(pnpmStoreMarker);
-const dependencyRoot = pnpmStoreIndex >= 0
-  ? resolvedNuxt.slice(0, pnpmStoreIndex)
-  : resolve(process.cwd(), "node_modules");
+const dependencyRoot =
+  pnpmStoreIndex >= 0
+    ? resolvedNuxt.slice(0, pnpmStoreIndex)
+    : resolve(process.cwd(), "node_modules");
 
 export default defineNuxtConfig({
-  extends: [
-    "@yueli/identity-nuxt",
-    "@yueli/asset-nuxt",
-  ],
+  extends: ["@yueli/identity-nuxt", "@yueli/asset-nuxt"],
   modules: ["@nuxt/ui", "@yueli/ui", "@yueli/nuxt-runtime"],
+  yueliUi: {
+    tablerIcons: [
+      "i-tabler-dots-vertical",
+      "i-tabler-arrow-bar-to-down",
+      "i-tabler-arrow-bar-to-up",
+      "i-tabler-arrow-down",
+      "i-tabler-arrow-up",
+      "i-tabler-file-text",
+      "i-tabler-grip-vertical",
+      "i-tabler-layout-grid",
+      "i-tabler-list",
+      "i-tabler-photo-cog",
+      "i-tabler-search",
+    ],
+  },
   icon: {
     provider: "none",
     fallbackToApi: false,
@@ -118,8 +132,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     apiBase: process.env.NUXT_API_BASE || "http://127.0.0.1:8091",
     assetBase: process.env.NUXT_ASSET_BASE || "http://127.0.0.1:8082",
-    identityBase:
-      process.env.NUXT_IDENTITY_BASE || "http://127.0.0.1:8081",
+    identityBase: process.env.NUXT_IDENTITY_BASE || "http://127.0.0.1:8081",
     downstreamBase: process.env.NUXT_DOWNSTREAM_BASE || "http://127.0.0.1:8091",
     guestSessionTtlSeconds: Number(
       process.env.NUXT_GUEST_SESSION_TTL_SECONDS || 60 * 60 * 24 * 30,

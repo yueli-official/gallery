@@ -52,6 +52,7 @@ type ImageCard struct {
 	PrimaryCategory     string      `json:"primaryCategory" orm:"primary_category"`
 	PrimaryCategorySlug string      `json:"primaryCategorySlug" orm:"primary_category_slug"`
 	PublishedAt         *gtime.Time `json:"publishedAt" orm:"published_at"`
+	UpdatedAt           *gtime.Time `json:"updatedAt" orm:"updated_at"`
 	Metrics             Metrics     `json:"metrics" orm:"-"`
 	ViewCount           int64       `json:"-" orm:"view_count"`
 	FavoriteCount       int64       `json:"-" orm:"favorite_count"`
@@ -103,6 +104,7 @@ type ImagePage struct {
 	Diagnostics []ClassificationDiagnostic `json:"diagnostics"`
 	Categories  []ClassificationNode       `json:"categories"`
 	Facets      []ClassificationFacet      `json:"facets"`
+	Tags        []TagCandidate             `json:"tags"`
 }
 
 type AdminImage struct {
@@ -199,6 +201,7 @@ type Discovery struct {
 	Images     []ImageCard           `json:"images"`
 	Categories []ClassificationNode  `json:"categories"`
 	Facets     []ClassificationFacet `json:"facets"`
+	Tags       []TagCandidate        `json:"tags"`
 }
 
 type SubmissionOptions struct {
@@ -220,6 +223,14 @@ type ClassificationFacet struct {
 	Slug   string               `json:"slug"`
 	Name   string               `json:"name"`
 	Values []ClassificationNode `json:"values"`
+}
+
+type TagCandidate struct {
+	ID       string `json:"id" orm:"id"`
+	Slug     string `json:"slug" orm:"slug"`
+	Name     string `json:"name" orm:"name"`
+	Count    int64  `json:"count" orm:"count"`
+	Selected bool   `json:"selected" orm:"-"`
 }
 
 type Collection struct {

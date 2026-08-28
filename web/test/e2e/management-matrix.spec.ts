@@ -11,6 +11,7 @@ import {
 const managementRoutes = [
   "/manage",
   "/manage/images",
+  "/manage/comments",
   "/manage/submissions",
   "/manage/collections",
   "/manage/classification",
@@ -114,13 +115,26 @@ async function saveCollectionSettings(page: Page): Promise<void> {
       candidate.request().method() === "PATCH" &&
       /\/api\/gallery\/admin\/collections\/[^/?]+$/.test(candidate.url()),
   );
-  await page
-    .getByRole("button", { name: "保存专题设置", exact: true })
-    .click();
+  const save = page
+    .locator("[data-gallery-collection-commandbar]")
+    .getByRole("button", { name: "保存", exact: true });
+  await save.click();
   expect((await response).ok()).toBeTruthy();
   await expect(
-    page.getByText("专题设置已保存", { exact: true }),
+    page
+      .locator("[data-gallery-collection-commandbar]")
+      .getByRole("button", { name: "已保存", exact: true }),
   ).toBeVisible();
+}
+
+async function openCollectionSettings(page: Page): Promise<void> {
+  const inspector = page.getByRole("heading", {
+    name: "专题设置",
+    exact: true,
+  });
+  if (await inspector.isVisible().catch(() => false)) return;
+  await page.getByRole("button", { name: "专题设置", exact: true }).click();
+  await expect(inspector).toBeVisible();
 }
 
 async function restoreCollectionName(
@@ -130,6 +144,7 @@ async function restoreCollectionName(
 ): Promise<void> {
   await page.goto(collectionURL, { waitUntil: "domcontentloaded" });
   await settleNuxt(page);
+  await openCollectionSettings(page);
   const name = page
     .getByRole("textbox", { name: "名称", exact: false })
     .first();
@@ -159,9 +174,12 @@ export function registerManagementSuite(product: string) {
           "/api/gallery/admin/overview",
           "/api/gallery/admin/site-settings",
           "/api/gallery/admin/images?size=1",
+          "/api/gallery/admin/comments?size=1",
           "/api/gallery/admin/collections",
         ]) {
-          const response = await request.get(new URL(path, site.url).toString());
+          const response = await request.get(
+            new URL(path, site.url).toString(),
+          );
           expect(
             [401, 403],
             `${path} unexpectedly returned HTTP ${response.status()}`,
@@ -218,7 +236,10 @@ export function registerManagementSuite(product: string) {
             const response = await page.goto(url, {
               waitUntil: "domcontentloaded",
             });
-            expect(response?.ok(), `${path} returned ${response?.status()}`).toBeTruthy();
+            expect(
+              response?.ok(),
+              `${path} returned ${response?.status()}`,
+            ).toBeTruthy();
             await expect(page).toHaveURL(url);
             await expect(page.locator("main h1").first()).toBeVisible();
             await settleNuxt(page);
@@ -245,19 +266,34 @@ export function registerManagementSuite(product: string) {
 
           const managePage = page.locator('[data-manage-page][id="images"]');
           await expect(managePage).toBeVisible();
-          await expect(managePage.locator("[data-manage-page-icon]")).toBeVisible();
-          await expect(managePage.getByRole("heading", { name: "图片" })).toBeVisible();
-          await expect(managePage.getByRole("link", { name: "投稿图片" })).toBeVisible();
+          await expect(
+            managePage.locator("[data-manage-page-icon]"),
+          ).toBeVisible();
+          await expect(
+            managePage.getByRole("heading", { name: "图片" }),
+          ).toBeVisible();
+          await expect(
+            managePage.getByRole("link", { name: "投稿图片" }),
+          ).toBeVisible();
 
           const header = managePage.locator("[data-manage-page-header]");
           const collection = managePage
             .locator('section[aria-label="图片列表"]')
             .first();
           const search = collection.locator("[data-collection-table-search]");
-          const controls = collection.locator("[data-collection-table-controls]");
+          const controls = collection.locator(
+            "[data-collection-table-controls]",
+          );
           const searchButton = search.getByRole("button", { name: "搜索" });
           const filterButton = controls.getByRole("button", { name: /^筛选/u });
-          const [headerBox, collectionBox, searchBox, controlsBox, searchButtonBox, filterButtonBox] = await Promise.all([
+          const [
+            headerBox,
+            collectionBox,
+            searchBox,
+            controlsBox,
+            searchButtonBox,
+            filterButtonBox,
+          ] = await Promise.all([
             header.boundingBox(),
             collection.boundingBox(),
             search.boundingBox(),
@@ -276,15 +312,166 @@ export function registerManagementSuite(product: string) {
           ).toBeGreaterThanOrEqual(18);
           expect(
             Math.abs(
-              searchBox!.y + searchBox!.height / 2 -
+              searchBox!.y +
+                searchBox!.height / 2 -
                 (controlsBox!.y + controlsBox!.height / 2),
             ),
           ).toBeLessThanOrEqual(2);
           expect(searchButtonBox!.height).toBe(filterButtonBox!.height);
+          const statusBadges = collection.locator("[data-image-status-badge]");
+          expect(await statusBadges.count()).toBeGreaterThan(0);
+          expect(
+            await statusBadges.evaluateAll((elements) =>
+              elements.every(
+                (element) => (element.textContent?.trim().length || 0) <= 4,
+              ),
+            ),
+          ).toBeTruthy();
           expect(errors).toEqual([]);
         } finally {
           await context.close();
         }
+      });
+
+      test("评论后台复用集合治理并支持审核与删除确认", async ({ browser }) => {
+        const context = await loginE2E(
+          browser,
+          { viewport: { width: 1440, height: 900 } },
+          undefined,
+          site.url,
+        );
+        const page = await context.newPage();
+        let status = "pending";
+        let patchBody: Record<string, unknown> | undefined;
+        await page.route("**/api/gallery/me", (route) =>
+          route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              isAdministrator: true,
+              roles: ["administrator"],
+              capabilities: [
+                "gallery.dashboard.read",
+                "gallery.comment.read",
+                "gallery.comment.moderate",
+                "gallery.comment.delete",
+              ],
+            }),
+          }),
+        );
+        await page.route("**/api/gallery/admin/comments**", async (route) => {
+          if (route.request().method() === "PATCH") {
+            patchBody = route.request().postDataJSON();
+            status = String(patchBody?.status || status);
+            await route.fulfill({
+              status: 200,
+              contentType: "application/json",
+              body: JSON.stringify({ comment: { id: "comment-1", status } }),
+            });
+            return;
+          }
+          if (route.request().method() === "DELETE") {
+            await route.fulfill({
+              status: 200,
+              contentType: "application/json",
+              body: JSON.stringify({ deleted: true }),
+            });
+            return;
+          }
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              total: 1,
+              page: 1,
+              size: 20,
+              items: [
+                {
+                  id: "comment-1",
+                  imageId: "AZsQAAAAcACQAAAAAAAAAQ",
+                  imageTitle: "海岸晨光 001",
+                  authorName: "访客",
+                  authorEmail: "visitor@example.test",
+                  content: "等待审核的图片评论",
+                  status,
+                  createdAt: "2026-07-11T08:15:00Z",
+                },
+              ],
+            }),
+          });
+        });
+        try {
+          await page.goto(new URL("/manage/comments", site.url).toString(), {
+            waitUntil: "domcontentloaded",
+          });
+          await settleNuxt(page);
+          await expect(
+            page.getByRole("heading", { name: "评论", exact: true }),
+          ).toBeVisible();
+          const comments = page.locator("[data-comment-moderation-collection]");
+          await expect(
+            comments.getByText("来源", { exact: true }),
+          ).toBeVisible();
+          await expect(comments.getByText("图片", { exact: true })).toHaveCount(
+            0,
+          );
+          await expect(
+            page.getByText("等待审核的图片评论", { exact: true }),
+          ).toBeVisible();
+          await page.getByRole("button", { name: "通过", exact: true }).click();
+          expect(patchBody).toEqual({ status: "approved" });
+
+          const actions = page.getByRole("button", { name: "评论操作：访客" });
+          await actions.click();
+          await page.getByRole("menuitem", { name: "移入回收站" }).click();
+          expect(patchBody).toEqual({ status: "trash" });
+
+          await page
+            .getByRole("button", { name: "回收站", exact: true })
+            .click();
+          await actions.click();
+          await page.getByRole("menuitem", { name: "永久删除" }).click();
+          const dialog = page.getByRole("dialog", { name: "永久删除评论" });
+          await expect(dialog).toBeVisible();
+          await expect(dialog.getByText(/永久删除.*回复/u)).toBeVisible();
+          await dialog.getByRole("button", { name: "取消" }).click();
+          await expect(dialog).toHaveCount(0);
+
+          await page.getByRole("button", { name: "清空回收站" }).click();
+          const emptyTrash = page.getByRole("dialog", { name: "清空回收站" });
+          await expect(emptyTrash).toBeVisible();
+          await emptyTrash.getByRole("button", { name: "取消" }).click();
+          const accessibility = await new AxeBuilder({ page })
+            .exclude("nuxt-devtools-frame")
+            .analyze();
+          expect(
+            accessibility.violations.filter((violation) =>
+              ["serious", "critical"].includes(violation.impact || ""),
+            ),
+          ).toEqual([]);
+        } finally {
+          await context.close();
+        }
+      });
+
+      test("共享评论治理五列网格样式已交付", async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.goto(site.url, { waitUntil: "domcontentloaded" });
+        await settleNuxt(page);
+        const columns = await page.evaluate(() => {
+          const probe = document.createElement("div");
+          probe.className =
+            "grid lg:grid-cols-[minmax(16rem,1.4fr)_minmax(10rem,0.8fr)_10rem_8.5rem_7rem]";
+          probe.style.position = "fixed";
+          probe.style.inset = "0";
+          probe.style.visibility = "hidden";
+          document.body.append(probe);
+          const value = getComputedStyle(probe).gridTemplateColumns;
+          probe.remove();
+          return value;
+        });
+        expect(columns).not.toBe("none");
+        expect(columns.trim().split(/\s+/u)).toHaveLength(5);
       });
 
       test("控制台页头与指标卡使用统一页面节奏", async ({ browser }) => {
@@ -299,23 +486,26 @@ export function registerManagementSuite(product: string) {
           await settleNuxt(page);
           const managePage = page.locator('[data-manage-page][id="dashboard"]');
           const header = managePage.locator("[data-manage-page-header]");
-          const metric = managePage.locator("[data-gallery-dashboard-metric]").first();
+          const metric = managePage
+            .locator("[data-gallery-dashboard-metric]")
+            .first();
           const metricGroup = metric.locator("..");
           const trend = managePage.locator("[data-gallery-dashboard-trend]");
-          const [headerBox, metricBox, metricGroupBox, trendBox, metricStyle] = await Promise.all([
-            header.boundingBox(),
-            metric.boundingBox(),
-            metricGroup.boundingBox(),
-            trend.boundingBox(),
-            metric.evaluate((element) => {
-              const style = getComputedStyle(element);
-              return {
-                paddingInline: style.paddingInline,
-                paddingBlock: style.paddingBlock,
-                columns: style.gridTemplateColumns.split(" ").length,
-              };
-            }),
-          ]);
+          const [headerBox, metricBox, metricGroupBox, trendBox, metricStyle] =
+            await Promise.all([
+              header.boundingBox(),
+              metric.boundingBox(),
+              metricGroup.boundingBox(),
+              trend.boundingBox(),
+              metric.evaluate((element) => {
+                const style = getComputedStyle(element);
+                return {
+                  paddingInline: style.paddingInline,
+                  paddingBlock: style.paddingBlock,
+                  columns: style.gridTemplateColumns.split(" ").length,
+                };
+              }),
+            ]);
           expect(headerBox).toBeTruthy();
           expect(metricBox).toBeTruthy();
           expect(metricGroupBox).toBeTruthy();
@@ -363,7 +553,9 @@ export function registerManagementSuite(product: string) {
           });
           expect(headingStyle.fontFamily).toContain("Space Grotesk");
 
-          const activeLink = page.locator('a[href="/manage/submissions"]').first();
+          const activeLink = page
+            .locator('a[href="/manage/submissions"]')
+            .first();
           const navigationStyle = await activeLink.evaluate((element) => {
             const style = getComputedStyle(element);
             const after = getComputedStyle(element, "::after");
@@ -404,7 +596,7 @@ export function registerManagementSuite(product: string) {
             {
               path: "/manage/cases",
               surface: "cases",
-              tabs: ["待处理", "处理中", "已解决", "已忽略", "全部"],
+              tabs: ["待处理", "待结论", "已解决", "已忽略", "全部"],
             },
             {
               path: "/manage/authorization",
@@ -475,6 +667,18 @@ export function registerManagementSuite(product: string) {
           ).toBeVisible();
 
           await page.goto(
+            new URL("/manage/cases?status=reviewing", site.url).toString(),
+            { waitUntil: "domcontentloaded" },
+          );
+          await settleNuxt(page);
+          await expect(
+            page.getByRole("tab", { name: "待结论", selected: true }),
+          ).toBeVisible();
+          await expect(
+            page.getByRole("button", { name: "填写结论" }).first(),
+          ).toBeVisible();
+
+          await page.goto(
             new URL("/manage/authorization", site.url).toString(),
             { waitUntil: "domcontentloaded" },
           );
@@ -495,7 +699,9 @@ export function registerManagementSuite(product: string) {
           await expect(
             page.getByRole("heading", { name: "专题", exact: true }),
           ).toBeVisible();
-          await expect(page.getByText("专题策展", { exact: true })).toHaveCount(0);
+          await expect(page.getByText("专题策展", { exact: true })).toHaveCount(
+            0,
+          );
 
           await page.setViewportSize({ width: 390, height: 844 });
           for (const target of tabbedPages.slice(0, 2)) {
@@ -526,6 +732,48 @@ export function registerManagementSuite(product: string) {
             );
           }
           expect(errors).toEqual([]);
+        } finally {
+          await context.close();
+        }
+      });
+
+      test("投稿审核使用简短动作并把拒绝原因收进确认层", async ({
+        browser,
+      }) => {
+        const context = await loginE2E(browser, {
+          viewport: { width: 1440, height: 900 },
+        });
+        const page = await authenticatedPage(context, site.url);
+        try {
+          await page.goto(new URL("/manage/submissions", site.url).toString(), {
+            waitUntil: "domcontentloaded",
+          });
+          await settleNuxt(page);
+          await expect(
+            page.getByRole("button", { name: "通过" }).first(),
+          ).toBeVisible();
+          const reject = page.getByRole("button", { name: "拒绝" }).first();
+          await expect(reject).toBeVisible();
+          await reject.click();
+          const dialog = page.getByRole("dialog", { name: "拒绝投稿" });
+          await expect(dialog).toBeVisible();
+          await expect(
+            dialog.getByRole("textbox", { name: "拒绝原因" }),
+          ).toBeVisible();
+          await dialog.getByRole("button", { name: "取消" }).click();
+          await expect(dialog).toHaveCount(0);
+
+          await page.getByRole("tab", { name: /^处理失败/u }).click();
+          await settleNuxt(page);
+          await expect(
+            page.getByText("derive_failed", { exact: true }),
+          ).toHaveCount(0);
+          await expect(
+            page.getByText("媒体处理失败", { exact: true }),
+          ).toHaveCount(0);
+          await expect(
+            page.locator("[data-submission-decision]").first(),
+          ).toBeVisible();
         } finally {
           await context.close();
         }
@@ -709,7 +957,9 @@ export function registerManagementSuite(product: string) {
           await settleNuxt(page);
           await openFirstImageEditor(page);
           const dialog = page.getByRole("dialog", { name: "编辑图片" });
-          await expect(dialog.locator("[data-image-editor-preview]")).toBeVisible();
+          await expect(
+            dialog.locator("[data-image-editor-preview]"),
+          ).toBeVisible();
           await expect(
             dialog.getByRole("button", { name: "删除图片" }),
           ).toBeVisible();
@@ -799,7 +1049,9 @@ export function registerManagementSuite(product: string) {
           await saveImageEditor(page);
 
           await searchManagedImages(page, originalTitle);
-          await expect(page.getByText(originalTitle, { exact: true }).first()).toBeVisible();
+          await expect(
+            page.getByText(originalTitle, { exact: true }).first(),
+          ).toBeVisible();
         } finally {
           if (originalTitle && temporaryTitle)
             await restoreImageTitle(
@@ -812,6 +1064,277 @@ export function registerManagementSuite(product: string) {
         }
       });
 
+      test("图片专区支持网格列表与批量加入专题", async ({ browser }) => {
+        const context = await loginE2E(browser);
+        const page = await authenticatedPage(context, site.url);
+        let memberMutation: Record<string, unknown> | undefined;
+        await page.route(
+          "**/api/gallery/admin/collections/*/members",
+          async (route) => {
+            memberMutation = route.request().postDataJSON();
+            await route.fulfill({
+              status: 200,
+              contentType: "application/json",
+              body: JSON.stringify({ collection: {} }),
+            });
+          },
+        );
+        try {
+          await page.goto(new URL("/manage/images", site.url).toString(), {
+            waitUntil: "domcontentloaded",
+          });
+          await settleNuxt(page);
+
+          const list = page.getByRole("button", {
+            name: "列表视图",
+            exact: true,
+          });
+          const grid = page.getByRole("button", {
+            name: "网格视图",
+            exact: true,
+          });
+          await expect(list).toHaveAttribute("aria-pressed", "true");
+          await grid.click();
+          await expect(page).toHaveURL(/(?:\?|&)view=grid(?:&|$)/u);
+          await expect(
+            page.locator("[data-gallery-image-grid-item]").first(),
+          ).toBeVisible();
+
+          await page
+            .getByRole("checkbox", { name: /^选择图片：/u })
+            .first()
+            .check();
+          await page.getByRole("combobox", { name: "批量操作" }).click();
+          await page.getByRole("option", { name: "加入专题" }).click();
+          await page.getByRole("button", { name: "应用", exact: true }).click();
+
+          const dialog = page.getByRole("dialog", { name: "批量加入专题" });
+          await expect(dialog).toBeVisible();
+          await dialog
+            .getByRole("button", { name: "目标专题", exact: true })
+            .click();
+          await page.getByRole("option").first().click();
+          await dialog
+            .getByRole("button", { name: "确认应用", exact: true })
+            .click();
+          await expect(dialog).toHaveCount(0);
+          expect(memberMutation?.version).toEqual(expect.any(Number));
+          expect(memberMutation?.add).toHaveLength(1);
+          expect(memberMutation?.remove).toEqual([]);
+        } finally {
+          await context.close();
+        }
+      });
+
+      test("专题编辑器支持网格列表切换与右上角设置", async ({ browser }) => {
+        const context = await loginE2E(browser);
+        const page = await authenticatedPage(context, site.url);
+        try {
+          await page.goto(new URL("/manage/collections", site.url).toString(), {
+            waitUntil: "domcontentloaded",
+          });
+          await settleNuxt(page);
+          const firstCollection = page
+            .getByRole("link", { name: /^编辑专题：/u })
+            .first();
+          await expect(firstCollection).toBeVisible();
+          const href = await firstCollection.getAttribute("href");
+          expect(href).toBeTruthy();
+
+          await page.goto(new URL(href!, site.url).toString(), {
+            waitUntil: "domcontentloaded",
+          });
+          await settleNuxt(page);
+          await expect(
+            page.locator("[data-gallery-collection-commandbar]"),
+          ).toBeVisible();
+          await expect(
+            page.getByRole("heading", { name: "专题设置", exact: true }),
+          ).toHaveCount(0);
+
+          const grid = page.getByRole("button", {
+            name: "网格视图",
+            exact: true,
+          });
+          const list = page.getByRole("button", {
+            name: "列表视图",
+            exact: true,
+          });
+          await expect(grid).toHaveAttribute("aria-pressed", "true");
+          for (const toggle of [grid, list]) {
+            const icon = toggle.locator('[data-slot="leadingIcon"]');
+            await expect(icon).toBeVisible();
+            expect(
+              await icon.evaluate((element) => {
+                const style = getComputedStyle(element);
+                return (
+                  style.maskImage !== "none" ||
+                  style.webkitMaskImage !== "none" ||
+                  style.backgroundImage !== "none"
+                );
+              }),
+            ).toBeTruthy();
+          }
+          await expect(
+            page.locator("[data-gallery-collection-grid-item]").first(),
+          ).toBeVisible();
+          await list.click();
+          await expect(page).toHaveURL(/(?:\?|&)view=list(?:&|$)/u);
+          await expect(list).toHaveAttribute("aria-pressed", "true");
+          await expect(
+            page.locator("[data-gallery-collection-list-item]").first(),
+          ).toBeVisible();
+
+          await openCollectionSettings(page);
+          await expect(
+            page.locator("[data-gallery-collection-inspector]"),
+          ).toBeVisible();
+          await expect(
+            page.locator(
+              '[data-gallery-collection-inspector][data-inspector-mode="docked"]',
+            ),
+          ).toBeVisible();
+          for (const name of ["内容", "展示", "SEO"]) {
+            const tab = page.getByRole("tab", { name, exact: true });
+            await expect(
+              tab.locator('[data-slot="leadingIcon"]'),
+            ).toBeVisible();
+          }
+          const [inspectorBox, nameBox, slugBox, descriptionBox] =
+            await Promise.all([
+              page.locator("[data-gallery-collection-inspector]").boundingBox(),
+              page
+                .getByRole("textbox", { name: "名称", exact: false })
+                .first()
+                .boundingBox(),
+              page
+                .getByRole("textbox", { name: "Slug", exact: false })
+                .first()
+                .boundingBox(),
+              page
+                .getByRole("textbox", { name: "说明", exact: false })
+                .first()
+                .boundingBox(),
+            ]);
+          expect(inspectorBox).not.toBeNull();
+          for (const fieldBox of [nameBox, slugBox, descriptionBox]) {
+            expect(fieldBox).not.toBeNull();
+            expect(fieldBox!.width).toBeGreaterThan(inspectorBox!.width * 0.95);
+          }
+          const overflow = await page.evaluate(
+            () =>
+              document.documentElement.scrollWidth -
+              document.documentElement.clientWidth,
+          );
+          expect(overflow).toBeLessThanOrEqual(1);
+          const accessibility = await new AxeBuilder({ page })
+            .exclude("nuxt-devtools-frame")
+            .analyze();
+          expect(
+            accessibility.violations.filter((violation) =>
+              ["serious", "critical"].includes(violation.impact || ""),
+            ),
+          ).toEqual([]);
+        } finally {
+          await context.close();
+        }
+      });
+
+      test("专题编辑器支持拖拽、更多排序与批量移出", async ({ browser }) => {
+        const context = await loginE2E(browser);
+        const page = await authenticatedPage(context, site.url);
+        try {
+          await page.goto(new URL("/manage/collections", site.url).toString(), {
+            waitUntil: "domcontentloaded",
+          });
+          const firstCollection = page
+            .getByRole("link", { name: /^编辑专题：/u })
+            .first();
+          await expect(firstCollection).toBeVisible();
+          const href = await firstCollection.getAttribute("href");
+          expect(href).toBeTruthy();
+          await page.goto(new URL(href!, site.url).toString(), {
+            waitUntil: "domcontentloaded",
+          });
+          await settleNuxt(page);
+
+          const handles = page.getByRole("button", { name: /^拖动排序：/u });
+          await expect(handles.first()).toBeVisible();
+          await expect(handles.nth(2)).toBeVisible();
+          await handles
+            .first()
+            .dragTo(page.locator("[data-gallery-collection-grid-item]").nth(2));
+          await expect(
+            page.getByRole("button", { name: "保存顺序", exact: true }),
+          ).toBeEnabled();
+
+          await expect(
+            page.getByRole("button", { name: /^上移：/u }),
+          ).toHaveCount(0);
+          await page
+            .getByRole("button", { name: /^图片操作：/u })
+            .first()
+            .click();
+          for (const name of ["移到顶部", "上移", "下移", "移到底部"]) {
+            await expect(
+              page.getByRole("menuitem", { name, exact: true }),
+            ).toBeVisible();
+          }
+          await page.keyboard.press("Escape");
+
+          await page
+            .getByRole("checkbox", { name: /^选择图片：/u })
+            .first()
+            .check();
+          await page
+            .getByRole("button", { name: "批量移出专题", exact: true })
+            .click();
+          const removeDialog = page.getByRole("dialog", {
+            name: "批量移出专题",
+          });
+          await expect(removeDialog).toBeVisible();
+          await removeDialog.getByRole("button", { name: "取消" }).click();
+
+          await openCollectionSettings(page);
+          await page.getByRole("tab", { name: "展示", exact: true }).click();
+          await expect(
+            page.getByRole("combobox", { name: "图片排序" }),
+          ).toBeVisible();
+          await expect(
+            page.getByRole("button", { name: "应用排序", exact: true }),
+          ).toBeVisible();
+        } finally {
+          await context.close();
+        }
+      });
+
+      test("专题添加图片默认展示可用图片", async ({ browser }) => {
+        const context = await loginE2E(browser);
+        const page = await authenticatedPage(context, site.url);
+        try {
+          await page.goto(new URL("/manage/collections", site.url).toString(), {
+            waitUntil: "domcontentloaded",
+          });
+          const firstCollection = page
+            .getByRole("link", { name: /^编辑专题：/u })
+            .first();
+          await expect(firstCollection).toBeVisible();
+          const href = await firstCollection.getAttribute("href");
+          expect(href).toBeTruthy();
+          await page.goto(new URL(href!, site.url).toString(), {
+            waitUntil: "domcontentloaded",
+          });
+          await page.getByRole("button", { name: "添加图片" }).click();
+          const dialog = page.getByRole("dialog", { name: "添加图片" });
+          await expect(dialog).toBeVisible();
+          await expect(
+            dialog.getByRole("button", { name: "添加", exact: true }).first(),
+          ).toBeVisible();
+        } finally {
+          await context.close();
+        }
+      });
+
       test("专题名称保存后刷新持久化且测试结束恢复原值", async ({
         browser,
       }) => {
@@ -820,10 +1343,9 @@ export function registerManagementSuite(product: string) {
         let originalName = "";
         let collectionURL = "";
         try {
-          await page.goto(
-            new URL("/manage/collections", site.url).toString(),
-            { waitUntil: "domcontentloaded" },
-          );
+          await page.goto(new URL("/manage/collections", site.url).toString(), {
+            waitUntil: "domcontentloaded",
+          });
           await settleNuxt(page);
           const firstCollection = page
             .getByRole("link", { name: /^编辑专题：/u })
@@ -838,6 +1360,7 @@ export function registerManagementSuite(product: string) {
 
           await page.goto(collectionURL, { waitUntil: "domcontentloaded" });
           await settleNuxt(page);
+          await openCollectionSettings(page);
           const name = page
             .getByRole("textbox", { name: "名称", exact: false })
             .first();
@@ -848,10 +1371,9 @@ export function registerManagementSuite(product: string) {
 
           await page.reload({ waitUntil: "domcontentloaded" });
           await settleNuxt(page);
+          await openCollectionSettings(page);
           await expect(
-            page
-              .getByRole("textbox", { name: "名称", exact: false })
-              .first(),
+            page.getByRole("textbox", { name: "名称", exact: false }).first(),
           ).toHaveValue(temporaryName);
 
           await page
@@ -861,10 +1383,9 @@ export function registerManagementSuite(product: string) {
           await saveCollectionSettings(page);
           await page.reload({ waitUntil: "domcontentloaded" });
           await settleNuxt(page);
+          await openCollectionSettings(page);
           await expect(
-            page
-              .getByRole("textbox", { name: "名称", exact: false })
-              .first(),
+            page.getByRole("textbox", { name: "名称", exact: false }).first(),
           ).toHaveValue(originalName);
         } finally {
           if (collectionURL && originalName)
@@ -886,10 +1407,18 @@ export function registerManagementSuite(product: string) {
           await page.goto(new URL("/manage/assets", site.url).toString(), {
             waitUntil: "networkidle",
           });
-          await expect(page.getByRole("heading", { name: "资源策略", exact: true })).toBeVisible();
-          await expect(page.locator("[data-asset-registration-summary]")).toBeVisible();
-          await expect(page.getByText("gallery-submission", { exact: true })).toBeVisible();
-          await expect(page.getByRole("button", { name: "保存" })).toHaveCount(0);
+          await expect(
+            page.getByRole("heading", { name: "资源策略", exact: true }),
+          ).toBeVisible();
+          await expect(
+            page.locator("[data-asset-registration-summary]"),
+          ).toBeVisible();
+          await expect(
+            page.getByText("gallery-submission", { exact: true }),
+          ).toBeVisible();
+          await expect(page.getByRole("button", { name: "保存" })).toHaveCount(
+            0,
+          );
           await expect(page.getByLabel("站点名称")).toHaveCount(0);
         } finally {
           await context.close();
@@ -928,11 +1457,15 @@ export function registerManagementSuite(product: string) {
 
           const dialog = page.getByRole("dialog", { name: "治理影响预览" });
           await expect(dialog).toBeVisible();
-          await expect(dialog.getByText("planned", { exact: true })).toBeVisible();
+          await expect(
+            dialog.getByText("planned", { exact: true }),
+          ).toBeVisible();
           await expect(
             dialog.getByRole("button", { name: "执行计划", exact: true }),
           ).toBeVisible();
-          await dialog.getByRole("button", { name: "关闭", exact: true }).click();
+          await dialog
+            .getByRole("button", { name: "关闭", exact: true })
+            .click();
           await expect(dialog).toHaveCount(0);
         } finally {
           await context.close();
@@ -1006,19 +1539,44 @@ export function registerManagementSuite(product: string) {
             borderTopWidth: "0px",
             boxShadow: "none",
           });
+          const firstClassificationRow = surface
+            .locator("[data-classification-row]")
+            .first();
+          const compactRow = await firstClassificationRow.evaluate(
+            (element) => {
+              const style = getComputedStyle(element);
+              return {
+                height: element.getBoundingClientRect().height,
+                columns: style.gridTemplateColumns.split(" ").length,
+              };
+            },
+          );
+          expect(compactRow.columns).toBe(3);
+          expect(compactRow.height).toBeLessThanOrEqual(52);
+          await expect(page.getByText("标识信息", { exact: true })).toHaveCount(
+            0,
+          );
           for (const label of ["分类", "维度", "标签", "标签提案"]) {
             const tab = surface.getByRole("tab", {
               name: new RegExp(`^${label}(?: \\d+)?$`),
             });
             await expect(tab).toBeVisible();
-            await expect(tab.locator('[data-slot="leadingIcon"]')).toBeVisible();
+            await expect(
+              tab.locator('[data-slot="leadingIcon"]'),
+            ).toBeVisible();
           }
 
           await page.getByRole("button", { name: "新增分类" }).click();
           const categoryDialog = page.getByRole("dialog", { name: "新增分类" });
-          await categoryDialog.getByRole("textbox", { name: "名称" }).fill("验收分类");
-          await categoryDialog.getByRole("textbox", { name: "标识" }).fill("acceptance-category");
-          await categoryDialog.getByRole("button", { name: "新增分类" }).click();
+          await categoryDialog
+            .getByRole("textbox", { name: "名称" })
+            .fill("验收分类");
+          await categoryDialog
+            .getByRole("textbox", { name: "标识" })
+            .fill("acceptance-category");
+          await categoryDialog
+            .getByRole("button", { name: "新增分类" })
+            .click();
           await expect(categoryDialog).toHaveCount(0);
           expect(createBody).toMatchObject({
             kind: "category",
@@ -1033,6 +1591,18 @@ export function registerManagementSuite(product: string) {
           const categoryActionBox = await categoryActions.boundingBox();
           expect(categoryActionBox).toBeTruthy();
           expect(categoryActionBox!.width).toBe(categoryActionBox!.height);
+          const overflowIcon = categoryActions.locator(".iconify");
+          await expect(overflowIcon).toBeVisible();
+          expect(
+            await overflowIcon.evaluate((element) => {
+              const style = getComputedStyle(element);
+              return (
+                style.maskImage !== "none" ||
+                style.webkitMaskImage !== "none" ||
+                style.backgroundImage !== "none"
+              );
+            }),
+          ).toBeTruthy();
           await categoryActions.click();
           await page.getByRole("menuitem", { name: "编辑分类" }).click();
           const editCategoryDialog = page.getByRole("dialog", {
@@ -1063,11 +1633,13 @@ export function registerManagementSuite(product: string) {
             page.getByRole("button", { name: "新增维度" }),
           ).toBeVisible();
           await expect(
-            surface.getByRole("button", { name: "新增值" }).first(),
+            surface.getByRole("button", { name: "新增" }).first(),
           ).toBeVisible();
           await page.getByRole("button", { name: "新增维度" }).click();
           const facetDialog = page.getByRole("dialog", { name: "新增维度" });
-          await expect(facetDialog.getByRole("textbox", { name: "名称" })).toBeVisible();
+          await expect(
+            facetDialog.getByRole("textbox", { name: "名称" }),
+          ).toBeVisible();
           await facetDialog.getByRole("button", { name: "取消" }).click();
           await expect(facetDialog).toHaveCount(0);
 
@@ -1107,6 +1679,11 @@ export function registerManagementSuite(product: string) {
           await expect(
             page.getByRole("button", { name: "新增标签" }),
           ).toBeVisible();
+          const firstTagRow = surface
+            .locator("[data-classification-row]")
+            .first();
+          await expect(firstTagRow).not.toContainText("个关系");
+          await expect(firstTagRow).not.toContainText("个别名");
           const tagActions = page
             .getByRole("button", { name: /^更多标签操作：/u })
             .first();
@@ -1129,12 +1706,23 @@ export function registerManagementSuite(product: string) {
             .filter({ hasText: "标签提案" })
             .click();
           await expect(
-            page.getByText(
-              "投稿中未收录的标签会进入这里；通过时创建新标签或归入现有标签。",
-              { exact: true },
-            ),
-          ).toBeVisible();
+            page.getByText("来源与标识", { exact: true }),
+          ).toHaveCount(0);
           await expect(surface.locator("select")).toHaveCount(0);
+          const proposalRow = surface
+            .locator("[data-tag-proposal-row]")
+            .first();
+          const proposalGrid = await proposalRow.evaluate(
+            (element) =>
+              getComputedStyle(element).gridTemplateColumns.split(" ").length,
+          );
+          expect(proposalGrid).toBe(3);
+          const proposalButtons = proposalRow.getByRole("button");
+          const proposalButtonBoxes = await proposalButtons.evaluateAll(
+            (elements) =>
+              elements.map((element) => element.getBoundingClientRect().height),
+          );
+          expect(Math.max(...proposalButtonBoxes)).toBeLessThanOrEqual(30);
           const proposalSelect = surface
             .getByLabel(/选择 .* 的标签处理方式/u)
             .first();
@@ -1152,6 +1740,23 @@ export function registerManagementSuite(product: string) {
               ["serious", "critical"].includes(violation.impact || ""),
             ),
           ).toEqual([]);
+        } finally {
+          await context.close();
+        }
+      });
+
+      test("运行中的分类写入接口已加载", async ({ browser }) => {
+        const context = await loginE2E(browser, {}, undefined, site.url);
+        try {
+          const response = await context.request.post(
+            new URL(
+              "/api/gallery/admin/classification/identities",
+              site.url,
+            ).toString(),
+            { data: {} },
+          );
+          expect(response.status()).not.toBe(404);
+          expect([400, 422]).toContain(response.status());
         } finally {
           await context.close();
         }

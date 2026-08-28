@@ -7,17 +7,20 @@ import type {
 import type { GalleryCatalogSort, GalleryCatalogView } from "~/utils/catalog";
 
 const mobileFiltersOpen = ref(false);
+let desktopFilterMedia: MediaQueryList | undefined;
 const {
   state: catalogState,
   request: query,
   searchDraft,
   selectedCategories,
   selectedFacets,
+  selectedTag,
   hasFilters,
   apply,
   clear,
   toggleCategory,
   toggleFacet,
+  toggleTag,
   setPage,
   setSort,
   setView,
@@ -52,6 +55,16 @@ const facetGroups = computed(() => {
 });
 const categoryCandidates = computed(
   () => pageData.value?.categories || discovery.value?.categories || [],
+);
+const tagCandidates = computed(() => {
+  const contextual = pageData.value?.tags || [];
+  return contextual.length ? contextual : discovery.value?.tags || [];
+});
+const draftFilterCount = computed(
+  () =>
+    selectedCategories.value.length +
+    selectedFacets.value.length +
+    (selectedTag.value ? 1 : 0),
 );
 const pageNumbers = computed(() => {
   const total = pageData.value?.totalPages || 0;
@@ -110,9 +123,12 @@ const activeRefinements = computed(() => {
     });
   }
   if (catalogState.value.tag) {
+    const tag = tagCandidates.value.find(
+      (item) => item.slug === catalogState.value.tag,
+    );
     items.push({
       key: `tag:${catalogState.value.tag}`,
-      label: `标签：${catalogState.value.tag}`,
+      label: `标签：${tag?.name || catalogState.value.tag}`,
       kind: "tag",
       value: catalogState.value.tag,
     });
@@ -124,13 +140,29 @@ const searchSuggestions = computed<GallerySearchSuggestion[]>(() => {
   const tagTerm = rawTerm.startsWith("#") ? rawTerm.slice(1).trim() : rawTerm;
   const term = tagTerm.toLocaleLowerCase();
   if (!term) return [];
-  const suggestions: GallerySearchSuggestion[] = [
-    {
+  const suggestions: GallerySearchSuggestion[] = [];
+  let exactTagMatch = false;
+  for (const tag of tagCandidates.value) {
+    if (`${tag.name} ${tag.slug}`.toLocaleLowerCase().includes(term)) {
+      suggestions.push({
+        key: `tag:${tag.slug}`,
+        label: `#${tag.name}`,
+        context: `标签 · ${tag.count}`,
+      });
+    }
+    if (
+      tag.slug.toLocaleLowerCase() === term ||
+      tag.name.toLocaleLowerCase() === term
+    )
+      exactTagMatch = true;
+  }
+  if (!exactTagMatch) {
+    suggestions.push({
       key: `tag:${tagTerm}`,
       label: `#${tagTerm}`,
       context: "按标签精确搜索",
-    },
-  ];
+    });
+  }
   for (const category of categoryCandidates.value) {
     if (
       `${category.name} ${category.slug}`.toLocaleLowerCase().includes(term)
@@ -153,7 +185,7 @@ const searchSuggestions = computed<GallerySearchSuggestion[]>(() => {
       }
     }
   }
-  return suggestions.slice(0, 7);
+  return suggestions.slice(0, 9);
 });
 
 function openMobileFilters() {
@@ -162,6 +194,17 @@ function openMobileFilters() {
 function closeMobileFilters() {
   mobileFiltersOpen.value = false;
 }
+function handleFilterBreakpoint(event: MediaQueryListEvent) {
+  if (event.matches) closeMobileFilters();
+}
+onMounted(() => {
+  desktopFilterMedia = window.matchMedia("(min-width: 64rem)");
+  if (desktopFilterMedia.matches) closeMobileFilters();
+  desktopFilterMedia.addEventListener("change", handleFilterBreakpoint);
+});
+onBeforeUnmount(() => {
+  desktopFilterMedia?.removeEventListener("change", handleFilterBreakpoint);
+});
 function applyFilters() {
   void apply();
   mobileFiltersOpen.value = false;
@@ -201,9 +244,7 @@ useSeoMeta({
   title: "浏览图片",
   description: "按分类、标签和多个维度分页浏览公开图片。",
   robots: () =>
-    hasFilters.value ||
-    page.value > 1 ||
-    sort.value !== "newest"
+    hasFilters.value || page.value > 1 || sort.value !== "newest"
       ? "noindex,follow"
       : "index,follow",
 });
@@ -215,7 +256,7 @@ useSeoMeta({
       <div>
         <h1 class="gallery-page-title">浏览图片</h1>
         <p class="gallery-page-copy">
-          按分类和维度慢慢看，页码会记住你停下的位置。
+          按分类、维度和标签组合筛选，页码会记住你停下的位置。
         </p>
       </div>
       <p v-if="pageData" class="gallery-count">
@@ -245,7 +286,7 @@ useSeoMeta({
       @select="selectSuggestion"
     />
 
-    <div class="grid gap-7 lg:grid-cols-[16.5rem_minmax(0,1fr)] lg:gap-10">
+    <div class="grid gap-7 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-8">
       <aside class="hidden lg:block" aria-label="图片过滤器">
         <div class="gallery-filter-panel sticky top-24 space-y-7">
           <div class="flex items-center justify-between gap-3">
@@ -270,15 +311,18 @@ useSeoMeta({
           <GalleryCatalogFilterFields
             :categories="categoryCandidates"
             :facets="facetGroups.map((group) => group.facet)"
+            :tags="tagCandidates"
             :selected-categories="selectedCategories"
             :selected-facets="selectedFacets"
+            :selected-tag="selectedTag"
             @toggle-category="toggleCategory"
             @toggle-facet="toggleFacet"
+            @toggle-tag="toggleTag"
           />
-          <div class="flex gap-2">
+          <div class="gallery-filter-actions flex gap-2">
             <UButton label="应用" size="sm" block @click="applyFilters" />
             <UButton
-              v-if="hasFilters"
+              v-if="hasFilters || draftFilterCount"
               color="neutral"
               variant="ghost"
               icon="i-tabler-x"
@@ -316,9 +360,12 @@ useSeoMeta({
               @click="clearFilters"
             />
           </div>
-          <div class="gallery-results-controls flex shrink-0 items-center gap-1">
+          <div
+            class="gallery-results-controls flex shrink-0 items-center gap-1"
+          >
             <USelect
               :model-value="sort"
+              aria-label="图片排序"
               :items="sortItems"
               value-key="value"
               class="gallery-results-sort w-32 shrink-0"
@@ -441,14 +488,14 @@ useSeoMeta({
         <div class="flex min-w-0 flex-1 items-center justify-between gap-4">
           <div class="min-w-0">
             <h2 class="font-semibold text-highlighted">筛选图片</h2>
-            <p class="mt-0.5 text-xs text-muted">分类与维度可组合选择</p>
+            <p class="mt-0.5 text-xs text-muted">分类、维度与标签可组合选择</p>
           </div>
           <div class="flex items-center gap-2">
             <UBadge
-              v-if="selectedCategories.length + selectedFacets.length"
+              v-if="draftFilterCount"
               color="primary"
               variant="soft"
-              :label="`${selectedCategories.length + selectedFacets.length} 项`"
+              :label="`${draftFilterCount} 项`"
             />
             <UButton
               color="neutral"
@@ -465,17 +512,20 @@ useSeoMeta({
           <GalleryCatalogFilterFields
             :categories="categoryCandidates"
             :facets="facetGroups.map((group) => group.facet)"
+            :tags="tagCandidates"
             :selected-categories="selectedCategories"
             :selected-facets="selectedFacets"
+            :selected-tag="selectedTag"
             @toggle-category="toggleCategory"
             @toggle-facet="toggleFacet"
+            @toggle-tag="toggleTag"
           />
         </div>
       </template>
       <template #footer>
         <div class="flex w-full items-center gap-2">
           <UButton
-            v-if="hasFilters"
+            v-if="hasFilters || draftFilterCount"
             color="neutral"
             variant="ghost"
             label="重置"

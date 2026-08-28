@@ -362,19 +362,21 @@ onBeforeUnmount(() => {
               {{ image.description }}
             </p>
             <div class="gallery-detail-stats" aria-label="图片统计与来源">
-              <span :aria-label="`浏览 ${compactMetric(image.metrics.views)} 次`">
-                <UIcon name="i-tabler-eye" class="size-3.5" />
-                <span aria-hidden="true">
+              <span>
+                <UIcon name="i-tabler-eye" class="size-3.5" aria-hidden="true" />
+                <span class="sr-only">浏览</span>
+                <span>
                   {{ compactMetric(image.metrics.views) }}
                 </span>
+                <span class="sr-only">次</span>
               </span>
-              <span
-                :aria-label="`收藏 ${compactMetric(image.metrics.favorites)} 次`"
-              >
-                <UIcon name="i-tabler-heart" class="size-3.5" />
-                <span aria-hidden="true">
+              <span>
+                <UIcon name="i-tabler-heart" class="size-3.5" aria-hidden="true" />
+                <span class="sr-only">收藏</span>
+                <span>
                   {{ compactMetric(image.metrics.favorites) }}
                 </span>
+                <span class="sr-only">次</span>
               </span>
               <a
                 v-if="image.sourceUrl"
@@ -471,6 +473,8 @@ onBeforeUnmount(() => {
           </div>
         </aside>
       </div>
+
+      <GalleryCommentSection :image-id="image.id" />
 
       <section
         class="gallery-detail-related"

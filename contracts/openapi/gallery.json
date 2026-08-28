@@ -54,6 +54,59 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.api.v1.AdminCommentView": {
+        "properties": {
+          "authorEmail": {
+            "format": "string",
+            "type": "string"
+          },
+          "authorName": {
+            "format": "string",
+            "type": "string"
+          },
+          "avatarUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "content": {
+            "format": "string",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "string",
+            "type": "string"
+          },
+          "id": {
+            "format": "string",
+            "type": "string"
+          },
+          "imageId": {
+            "format": "string",
+            "type": "string"
+          },
+          "imageTitle": {
+            "format": "string",
+            "type": "string"
+          },
+          "ip": {
+            "format": "string",
+            "type": "string"
+          },
+          "parentId": {
+            "format": "string",
+            "type": "string"
+          },
+          "status": {
+            "format": "string",
+            "type": "string"
+          },
+          "userKey": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.api.v1.ApplyForRoleReq": {
         "properties": {
           "reason": {
@@ -349,6 +402,47 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.api.v1.CommentView": {
+        "properties": {
+          "authorName": {
+            "format": "string",
+            "type": "string"
+          },
+          "avatarUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "content": {
+            "format": "string",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "string",
+            "type": "string"
+          },
+          "id": {
+            "format": "string",
+            "type": "string"
+          },
+          "isAnonymous": {
+            "format": "bool",
+            "type": "boolean"
+          },
+          "parentId": {
+            "format": "string",
+            "type": "string"
+          },
+          "replies": {
+            "format": "[]v1.CommentView",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.CommentView",
+              "description": ""
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.api.v1.CreateAuthorizationDraftReq": {
         "properties": {
           "expectedActiveRevision": {
@@ -524,6 +618,56 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.api.v1.CreateImageCommentReq": {
+        "properties": {
+          "abuseAttemptId": {
+            "format": "string",
+            "type": "string"
+          },
+          "authorEmail": {
+            "format": "string",
+            "type": "string"
+          },
+          "authorName": {
+            "format": "string",
+            "type": "string"
+          },
+          "challengeProof": {
+            "format": "string",
+            "type": "string"
+          },
+          "content": {
+            "format": "string",
+            "type": "string"
+          },
+          "imageId": {
+            "format": "string",
+            "type": "string"
+          },
+          "parentId": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "required": [
+          "imageId",
+          "content"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.CreateImageCommentRes": {
+        "properties": {
+          "comment": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.CommentView",
+            "description": ""
+          },
+          "pending": {
+            "format": "bool",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.api.v1.CreateSubmissionReq": {
         "properties": {
           "abuseAttemptId": {
@@ -613,6 +757,27 @@
         "type": "object"
       },
       "github.com.yueli-official.gallery.api.api.v1.DeleteAdminImageRes": {
+        "properties": {
+          "deleted": {
+            "format": "bool",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.DeleteCommentReq": {
+        "properties": {
+          "commentId": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "required": [
+          "commentId"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.DeleteCommentRes": {
         "properties": {
           "deleted": {
             "format": "bool",
@@ -847,6 +1012,14 @@
           "site": {
             "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.SiteSettings",
             "description": ""
+          },
+          "tags": {
+            "format": "[]model.TagCandidate",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.TagCandidate",
+              "description": ""
+            },
+            "type": "array"
           }
         },
         "type": "object"
@@ -1073,6 +1246,64 @@
           "hidden": {
             "format": "bool",
             "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.ListAdminCommentsReq": {
+        "properties": {
+          "page": {
+            "default": 1,
+            "format": "int",
+            "type": "integer"
+          },
+          "q": {
+            "format": "string",
+            "type": "string"
+          },
+          "size": {
+            "default": 20,
+            "format": "int",
+            "type": "integer"
+          },
+          "sortBy": {
+            "default": "createdAt",
+            "format": "string",
+            "type": "string"
+          },
+          "sortOrder": {
+            "default": "desc",
+            "format": "string",
+            "type": "string"
+          },
+          "status": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.ListAdminCommentsRes": {
+        "properties": {
+          "items": {
+            "format": "[]v1.AdminCommentView",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.AdminCommentView",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int",
+            "type": "integer"
+          },
+          "size": {
+            "format": "int",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int",
+            "type": "integer"
           }
         },
         "type": "object"
@@ -1328,6 +1559,58 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.api.v1.ListImageCommentsReq": {
+        "properties": {
+          "imageId": {
+            "format": "string",
+            "type": "string"
+          },
+          "page": {
+            "default": 1,
+            "format": "int",
+            "type": "integer"
+          },
+          "size": {
+            "default": 20,
+            "format": "int",
+            "type": "integer"
+          },
+          "sortOrder": {
+            "default": "asc",
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "required": [
+          "imageId"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.ListImageCommentsRes": {
+        "properties": {
+          "items": {
+            "format": "[]v1.CommentView",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.CommentView",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int",
+            "type": "integer"
+          },
+          "size": {
+            "format": "int",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.api.v1.ListImagesReq": {
         "properties": {
           "categories": {
@@ -1405,6 +1688,14 @@
           "pageSize": {
             "format": "int",
             "type": "integer"
+          },
+          "tags": {
+            "format": "[]model.TagCandidate",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.TagCandidate",
+              "description": ""
+            },
+            "type": "array"
           },
           "total": {
             "format": "int",
@@ -1607,6 +1898,32 @@
           "totalPages": {
             "format": "int",
             "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.ModerateCommentReq": {
+        "properties": {
+          "commentId": {
+            "format": "string",
+            "type": "string"
+          },
+          "status": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "required": [
+          "commentId",
+          "status"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.ModerateCommentRes": {
+        "properties": {
+          "comment": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.AdminCommentView",
+            "description": ""
           }
         },
         "type": "object"
@@ -3428,6 +3745,10 @@
             "format": "string",
             "type": "string"
           },
+          "updatedAt": {
+            "format": "*gtime.Time",
+            "type": "string"
+          },
           "width": {
             "format": "int",
             "type": "integer"
@@ -3511,6 +3832,10 @@
           },
           "title": {
             "format": "string",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "*gtime.Time",
             "type": "string"
           },
           "width": {
@@ -3606,6 +3931,10 @@
           },
           "title": {
             "format": "string",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "*gtime.Time",
             "type": "string"
           },
           "width": {
@@ -3741,6 +4070,31 @@
       "github.com.yueli-official.gallery.api.internal.model.TagAssignment": {
         "properties": {
           "TagID": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.internal.model.TagCandidate": {
+        "properties": {
+          "count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "format": "string",
+            "type": "string"
+          },
+          "name": {
+            "format": "string",
+            "type": "string"
+          },
+          "selected": {
+            "format": "bool",
+            "type": "boolean"
+          },
+          "slug": {
             "format": "string",
             "type": "string"
           }
@@ -5147,6 +5501,161 @@
         ]
       }
     },
+    "/api/v1/gallery/admin/comments": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sortBy",
+            "schema": {
+              "default": "createdAt",
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sortOrder",
+            "schema": {
+              "default": "desc",
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "format": "int",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "schema": {
+              "default": 20,
+              "format": "int",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.ListAdminCommentsRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "List image comments for moderation",
+        "tags": [
+          "Gallery admin"
+        ]
+      }
+    },
+    "/api/v1/gallery/admin/comments/{commentId}": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "commentId",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.DeleteCommentRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Delete an image comment and its replies",
+        "tags": [
+          "Gallery admin"
+        ]
+      },
+      "patch": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "commentId",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "status": {
+                    "format": "string",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "status"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.ModerateCommentRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Moderate an image comment",
+        "tags": [
+          "Gallery admin"
+        ]
+      }
+    },
     "/api/v1/gallery/admin/images": {
       "get": {
         "parameters": [
@@ -6107,6 +6616,133 @@
         "summary": "Report an image or suggest a source correction",
         "tags": [
           "Gallery cases"
+        ]
+      }
+    },
+    "/api/v1/gallery/images/{imageId}/comments": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "imageId",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sortOrder",
+            "schema": {
+              "default": "asc",
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 1,
+              "format": "int",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "schema": {
+              "default": 20,
+              "format": "int",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.ListImageCommentsRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "List approved comments for a public image",
+        "tags": [
+          "Gallery comments"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "imageId",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "abuseAttemptId": {
+                    "format": "string",
+                    "type": "string"
+                  },
+                  "authorEmail": {
+                    "format": "string",
+                    "type": "string"
+                  },
+                  "authorName": {
+                    "format": "string",
+                    "type": "string"
+                  },
+                  "challengeProof": {
+                    "format": "string",
+                    "type": "string"
+                  },
+                  "content": {
+                    "format": "string",
+                    "type": "string"
+                  },
+                  "parentId": {
+                    "format": "string",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "content"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.CreateImageCommentRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Comment on a public image",
+        "tags": [
+          "Gallery comments"
         ]
       }
     },

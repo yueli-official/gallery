@@ -26,7 +26,7 @@ func TestEmbeddedSeedUsesCompactSharedAccountKey(t *testing.T) {
 	}
 	text := strings.ToLower(string(body))
 	publicUserKey := "testa123"
-	for _, table := range []string{"gallery_cases", "gallery_collections", "gallery_submissions"} {
+	for _, table := range []string{"gallery_cases", "gallery_collections", "gallery_submissions", "gallery_comments"} {
 		start := strings.Index(text, "delete from "+table)
 		if start < 0 {
 			t.Fatalf("development seed does not clear %s", table)

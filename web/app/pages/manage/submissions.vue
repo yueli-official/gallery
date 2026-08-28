@@ -180,6 +180,7 @@ onScopeDispose(() => {
 const note = ref<Record<string, string>>({});
 const acting = ref("");
 const actionErrors = ref<Record<string, string>>({});
+const rejecting = shallowRef<GallerySubmission>();
 
 const processingItems = [
   { label: "全部处理状态", value: "all" },
@@ -378,8 +379,20 @@ function preset(kind: "review" | "failed" | "uncertain" | "all") {
       outcome: "",
     });
 }
-async function review(item: GallerySubmission, decision: "approve" | "reject") {
-  if (!canReviewSubmissions.value) return;
+function openReject(item: GallerySubmission) {
+  rejecting.value = item;
+}
+function closeReject() {
+  rejecting.value = undefined;
+}
+function setRejectOpen(open: boolean) {
+  if (!open) closeReject();
+}
+async function review(
+  item: GallerySubmission,
+  decision: "approve" | "reject",
+): Promise<boolean> {
+  if (!canReviewSubmissions.value) return false;
   acting.value = item.id;
   actionErrors.value = Object.fromEntries(
     Object.entries(actionErrors.value).filter(([id]) => id !== item.id),
@@ -393,15 +406,27 @@ async function review(item: GallerySubmission, decision: "approve" | "reject") {
       },
     );
     await refresh();
+    return true;
   } catch (reason: any) {
     actionErrors.value = {
       ...actionErrors.value,
       [item.id]:
         reason?.data?.message || "操作没有完成；状态可能已变化，请刷新后重试。",
     };
+    return false;
   } finally {
     acting.value = "";
   }
+}
+
+async function rejectSubmission() {
+  const item = rejecting.value;
+  if (!item || !note.value[item.id]?.trim()) return;
+  if (await review(item, "reject")) closeReject();
+}
+
+async function approveSubmission(item: GallerySubmission) {
+  await review(item, "approve");
 }
 
 async function bulkApprove() {
@@ -529,12 +554,13 @@ const submissionKey = (item: GallerySubmission) => item.id;
 const submissionLabel = (item: GallerySubmission) => item.title;
 
 function decisionSummary(item: GallerySubmission) {
+  if (item.failureCode === "derive_failed") return "公开图片生成失败";
   if (item.failureCode || item.processingState === "failed")
-    return "媒体处理失败";
+    return "图片处理失败";
   if (item.safetyState === "blocked") return "安全判断已阻止";
   if (item.safetyState === "uncertain") return "需要复核安全判断";
   if (submissionReviewAction(item).canApprove)
-    return "已完成检查，可以批准进入目录";
+    return "检查完成，等待审核";
   if (item.outcome === "published") return "已发布到图片目录";
   if (item.outcome === "duplicate") return "重复内容已合并到现有图片";
   return outcomeLabel[item.outcome] || "等待处理";
@@ -618,7 +644,7 @@ function formatDateTime(value?: string) {
             v-if="canReviewSubmissions"
             size="xs"
             icon="i-tabler-checks"
-            label="批量批准"
+            label="批量通过"
             :loading="bulkPending"
             @click="bulkApprove"
         /></template>
@@ -653,7 +679,10 @@ function formatDateTime(value?: string) {
                   <p class="mt-1 truncate text-xs text-muted">
                     {{ item.description || item.altText }}
                   </p>
-                  <p class="mt-1 flex items-center gap-1.5 text-xs text-dimmed">
+                  <p
+                    class="mt-1 flex items-center gap-1.5 text-xs text-dimmed"
+                    data-submission-decision
+                  >
                     <UIcon
                       :name="
                         submissionReviewAction(item).canApprove
@@ -695,22 +724,27 @@ function formatDateTime(value?: string) {
                     item.outcome === 'pending'
                   "
                   size="xs"
-                  :label="submissionReviewAction(item).label"
+                  label="通过"
                   :loading="acting === item.id"
                   :disabled="!submissionReviewAction(item).canApprove"
-                  @click="review(item, 'approve')"
+                  @click="approveSubmission(item)"
+                />
+                <UButton
+                  v-if="
+                    canReviewSubmissions &&
+                    item.reviewState === 'pending' &&
+                    item.outcome === 'pending'
+                  "
+                  size="xs"
+                  color="error"
+                  variant="ghost"
+                  label="拒绝"
+                  :disabled="acting === item.id"
+                  @click="openReject(item)"
                 />
               </div>
             </div>
 
-            <UAlert
-              v-if="item.failureCode"
-              color="error"
-              variant="subtle"
-              icon="i-tabler-alert-triangle"
-              title="媒体处理失败"
-              :description="item.failureCode"
-            />
             <UAlert
               v-if="actionErrors[item.id]"
               color="error"
@@ -718,39 +752,6 @@ function formatDateTime(value?: string) {
               title="本项操作失败"
               :description="actionErrors[item.id]"
             />
-            <details
-              v-if="
-                canReviewSubmissions &&
-                item.reviewState === 'pending' &&
-                item.outcome === 'pending'
-              "
-              class="group rounded-lg border border-default bg-elevated/35 px-3 py-2"
-            >
-              <summary
-                class="flex min-h-8 cursor-pointer list-none items-center justify-between gap-2 text-sm font-medium text-default"
-              >
-                备注或拒绝
-                <UIcon
-                  name="i-tabler-chevron-down"
-                  class="size-4 text-muted transition group-open:rotate-180"
-                />
-              </summary>
-              <div class="space-y-2 border-t border-default pt-3">
-                <UTextarea
-                  v-model="note[item.id]"
-                  :rows="3"
-                  placeholder="记录判断；拒绝时必须填写原因"
-                />
-                <UButton
-                  color="error"
-                  variant="outline"
-                  label="拒绝"
-                  :loading="acting === item.id"
-                  :disabled="!note[item.id]?.trim()"
-                  @click="review(item, 'reject')"
-                />
-              </div>
-            </details>
           </article>
         </template>
       </CollectionPanel>
@@ -775,5 +776,41 @@ function formatDateTime(value?: string) {
         @click="bulkResult = undefined"
       />
     </div>
+    <UModal
+      :open="Boolean(rejecting)"
+      title="拒绝投稿"
+      description="填写原因后，这条投稿将不会进入图片目录。"
+      @update:open="setRejectOpen"
+    >
+      <template #body>
+        <UFormField label="拒绝原因" required>
+          <UTextarea
+            v-if="rejecting"
+            v-model="note[rejecting.id]"
+            :rows="4"
+            class="w-full"
+            placeholder="说明不通过的原因"
+            autofocus
+          />
+        </UFormField>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2">
+          <UButton
+            color="neutral"
+            variant="outline"
+            label="取消"
+            @click="closeReject"
+          />
+          <UButton
+            color="error"
+            label="确认拒绝"
+            :loading="Boolean(rejecting && acting === rejecting.id)"
+            :disabled="!rejecting || !note[rejecting.id]?.trim()"
+            @click="rejectSubmission"
+          />
+        </div>
+      </template>
+    </UModal>
   </ManagePage>
 </template>

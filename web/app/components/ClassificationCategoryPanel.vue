@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AdminRowActions } from "@yueli/ui/admin";
 import type {
   GalleryClassificationCatalogNode,
   GalleryClassificationGovernanceCommand,
@@ -42,22 +43,26 @@ function moreItems(item: GalleryClassificationCatalogNode) {
       ? []
       : [
           {
+            id: "edit",
             label: "编辑分类",
             icon: "i-tabler-pencil",
             onSelect: () => emit("edit", "category", item),
           },
           {
+            id: "status",
             label: item.status === "active" ? "停用分类" : "启用分类",
             icon:
               item.status === "active" ? "i-tabler-eye-off" : "i-tabler-eye",
             onSelect: () => emit("action", "status", "category", item),
           },
           {
+            id: "reparent",
             label: "移动到其他分类",
             icon: "i-tabler-arrows-move",
             onSelect: () => emit("action", "reparent", "category", item),
           },
           {
+            id: "merge",
             label: "合并到其他分类",
             icon: "i-tabler-git-merge",
             onSelect: () => emit("action", "merge", "category", item),
@@ -67,9 +72,10 @@ function moreItems(item: GalleryClassificationCatalogNode) {
     regular,
     [
       {
+        id: "delete",
         label: "删除分类",
         icon: "i-tabler-trash",
-        color: "error" as const,
+        tone: "danger" as const,
         onSelect: () => emit("action", "delete", "category", item),
       },
     ],
@@ -79,11 +85,20 @@ function moreItems(item: GalleryClassificationCatalogNode) {
 
 <template>
   <section aria-label="分类列表">
-    <div class="divide-y divide-default border-y border-default">
+    <div
+      class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-3 border-y border-default bg-elevated/50 px-3 py-2 text-xs font-medium text-muted"
+      aria-hidden="true"
+    >
+      <span>名称</span>
+      <span>标识</span>
+      <span class="text-right">操作</span>
+    </div>
+    <div class="divide-y divide-default border-b border-default">
       <article
         v-for="item in items"
         :key="item.id"
-        class="grid gap-3 py-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+        class="grid min-h-12 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2"
+        data-classification-row
       >
         <div
           class="min-w-0"
@@ -98,24 +113,14 @@ function moreItems(item: GalleryClassificationCatalogNode) {
               :label="statusLabel[item.status] || item.status"
             />
           </div>
-          <p class="mt-1 text-xs text-muted">{{ item.slug }}</p>
-          <details class="mt-1 text-xs text-dimmed">
-            <summary class="cursor-pointer">标识信息</summary>
-            <p class="mt-1 break-all font-mono">{{ item.id }}</p>
-          </details>
         </div>
-        <div class="flex items-center justify-end gap-1">
-          <UDropdownMenu v-if="canGovern" :items="moreItems(item)"
-            ><UButton
-              class="grid size-11 place-items-center"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              icon="i-tabler-dots"
-              square
-              :aria-label="`更多分类操作：${item.name}`"
-          /></UDropdownMenu>
-        </div>
+        <p class="min-w-0 truncate text-xs text-muted">{{ item.slug }}</p>
+        <AdminRowActions
+          v-if="canGovern"
+          :items="moreItems(item)"
+          :label="`更多分类操作：${item.name}`"
+          presentation="overflow"
+        />
       </article>
     </div>
   </section>

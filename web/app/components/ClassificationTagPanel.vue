@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { AdminRowActions } from "@yueli/ui/admin";
 import { ManageEmpty, SkeletonList } from "~/utils/manageComponents";
 import type {
   GalleryClassificationGovernanceCommand,
@@ -36,17 +37,20 @@ function moreItems(item: GalleryClassificationTag) {
       ? []
       : [
           {
+            id: "edit",
             label: "编辑标签",
             icon: "i-tabler-pencil",
             onSelect: () => emit("edit", "tag", item),
           },
           {
+            id: "status",
             label: item.status === "active" ? "停用标签" : "启用标签",
             icon:
               item.status === "active" ? "i-tabler-eye-off" : "i-tabler-eye",
             onSelect: () => emit("action", "status", "tag", item),
           },
           {
+            id: "merge",
             label: "合并到其他标签",
             icon: "i-tabler-git-merge",
             onSelect: () => emit("action", "merge", "tag", item),
@@ -56,9 +60,10 @@ function moreItems(item: GalleryClassificationTag) {
     regular,
     [
       {
+        id: "delete",
         label: "删除标签",
         icon: "i-tabler-trash",
-        color: "error" as const,
+        tone: "danger" as const,
         onSelect: () => emit("action", "delete", "tag", item),
       },
     ],
@@ -71,16 +76,48 @@ function moreItems(item: GalleryClassificationTag) {
     <SkeletonList v-if="!hydrated || pending" :rows="4" />
     <div
       v-else-if="tags.length"
-      class="divide-y divide-default border-y border-default"
+      class="border-y border-default"
     >
+      <div
+        class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-3 bg-elevated/50 px-3 py-2 text-xs font-medium text-muted"
+        aria-hidden="true"
+      >
+        <span>名称</span>
+        <span>标识</span>
+        <span class="text-right">操作</span>
+      </div>
+      <div class="divide-y divide-default border-t border-default">
       <article
         v-for="tag in tags"
         :key="tag.id"
-        class="grid gap-3 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"
+        class="grid min-h-12 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2"
+        data-classification-row
       >
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
             <h3 class="font-medium text-highlighted">{{ tag.name }}</h3>
+            <UTooltip
+              v-if="tag.assignmentCount"
+              :text="`${tag.assignmentCount} 个关系`"
+            >
+              <UBadge
+                size="xs"
+                color="neutral"
+                variant="soft"
+                :label="String(tag.assignmentCount)"
+              />
+            </UTooltip>
+            <UTooltip
+              v-if="tag.aliasCount"
+              :text="`${tag.aliasCount} 个别名`"
+            >
+              <UBadge
+                size="xs"
+                color="neutral"
+                variant="soft"
+                :label="`${tag.aliasCount} 别名`"
+              />
+            </UTooltip>
             <UBadge
               v-if="tag.status !== 'active'"
               color="warning"
@@ -88,34 +125,22 @@ function moreItems(item: GalleryClassificationTag) {
               :label="statusLabel[tag.status] || tag.status"
             />
           </div>
-          <p class="mt-1 truncate text-xs text-muted">{{ tag.slug }}</p>
-          <p class="mt-1 text-xs text-dimmed">
-            {{ tag.assignmentCount }} 个关系 · {{ tag.aliasCount }} 个别名
-          </p>
-          <details class="mt-1 text-xs text-dimmed">
-            <summary class="cursor-pointer">标识信息</summary>
-            <p class="mt-1 break-all font-mono">{{ tag.id }}</p>
-          </details>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <UDropdownMenu v-if="canGovern" :items="moreItems(tag)"
-            ><UButton
-              class="grid size-11 place-items-center"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              icon="i-tabler-dots"
-              square
-              :aria-label="`更多标签操作：${tag.name}`"
-          /></UDropdownMenu>
-        </div>
+        <p class="min-w-0 truncate text-xs text-muted">{{ tag.slug }}</p>
+        <AdminRowActions
+          v-if="canGovern"
+          :items="moreItems(tag)"
+          :label="`更多标签操作：${tag.name}`"
+          presentation="overflow"
+        />
       </article>
+      </div>
       <div v-if="nextCursor" class="flex justify-center py-4">
         <UButton
           class="min-h-11"
           color="neutral"
           variant="outline"
-          label="加载更多 Tag"
+          label="加载更多标签"
           :loading="loadingMore"
           @click="$emit('loadMore')"
         />
@@ -124,8 +149,8 @@ function moreItems(item: GalleryClassificationTag) {
     <ManageEmpty
       v-else
       icon="i-tabler-tags"
-      title="还没有 canonical Tag"
-      description="批准第一个 Proposal 后会在这里出现。"
+      title="还没有标签"
+      description="通过标签提案或新增标签后会显示在这里。"
     />
   </section>
 </template>

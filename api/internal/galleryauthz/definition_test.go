@@ -15,8 +15,8 @@ func TestDefinitionCompiles(t *testing.T) {
 	if catalog.Consumer() != "gallery" {
 		t.Fatalf("consumer = %q", catalog.Consumer())
 	}
-	if catalog.Version() != 2 {
-		t.Fatalf("version = %d, want 2", catalog.Version())
+	if catalog.Version() != 3 {
+		t.Fatalf("version = %d, want 3", catalog.Version())
 	}
 }
 
@@ -56,6 +56,9 @@ func TestContentOperatorExcludesProtectedGovernanceCapabilities(t *testing.T) {
 		CapabilityCollectionManage,
 		CapabilityClassificationProposalReview,
 		CapabilityCaseRead,
+		CapabilityCommentRead,
+		CapabilityCommentModerate,
+		CapabilityCommentDelete,
 	} {
 		if !slices.Contains(capabilities, required) {
 			t.Fatalf("content operator is missing %q", required)

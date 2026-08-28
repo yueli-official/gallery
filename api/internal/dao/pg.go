@@ -113,7 +113,7 @@ AND i.safety_state = 'safe'
 AND i.public_rendition_ready`
 
 const imageCardSelect = `
-SELECT i.id, i.asset_id, i.title, i.alt_text, i.width, i.height, i.dominant_color, i.published_at,
+SELECT i.id, i.asset_id, i.title, i.alt_text, i.width, i.height, i.dominant_color, i.published_at, i.updated_at,
        COALESCE(primary_category.id::text, '') AS primary_category_id,
        COALESCE(primary_category.name, '') AS primary_category,
        COALESCE(primary_category.slug, '') AS primary_category_slug,
@@ -528,6 +528,44 @@ ORDER BY candidate.value_id`
 	return groups, freshnessToken, nil
 }
 
+func (p *PG) PublicTagCandidates(ctx context.Context, input model.ImageQuery, plan classification.FilterPlan, limit int) ([]model.TagCandidate, error) {
+	input.Tag = ""
+	where, args := publicImagePredicates(input, plan)
+	query := `
+SELECT tag.id::text AS id,
+       tag.current_slug AS slug,
+       tag.current_name AS name,
+       COUNT(DISTINCT i.id)::bigint AS count
+FROM gallery_images i
+JOIN gallery_image_tag_assignments assignment ON assignment.image_id = i.id
+JOIN gallery_tags tag ON tag.id = assignment.tag_id
+WHERE ` + strings.Join(where, " AND ") + `
+  AND tag.status = 'active'
+GROUP BY tag.id, tag.current_slug, tag.current_name
+HAVING COUNT(DISTINCT i.id) > 0
+ORDER BY count DESC, LOWER(tag.current_name), tag.id
+LIMIT ?`
+	args = append(args, boundedTagCandidateLimit(limit))
+	var values []model.TagCandidate
+	if err := p.db.Ctx(ctx).Raw(query, args...).Scan(&values); err != nil {
+		return nil, gerror.Wrap(err, "query gallery public tag candidates")
+	}
+	if values == nil {
+		values = []model.TagCandidate{}
+	}
+	return values, nil
+}
+
+func boundedTagCandidateLimit(limit int) int {
+	if limit < 1 {
+		return 24
+	}
+	if limit > 60 {
+		return 60
+	}
+	return limit
+}
+
 func (p *PG) ListImages(ctx context.Context, input model.ImageQuery, plan classification.FilterPlan) ([]model.ImageCard, int, error) {
 	where, args := publicImagePredicates(input, plan)
 	clause := " WHERE " + strings.Join(where, " AND ")
@@ -568,9 +606,11 @@ func publicImagePredicates(input model.ImageQuery, plan classification.FilterPla
 		where = append(where, `EXISTS (
             SELECT 1 FROM gallery_image_tag_assignments it
             JOIN gallery_tags t ON t.id = it.tag_id
-			WHERE it.image_id = i.id AND t.current_slug = ? AND t.status = 'active'
+			WHERE it.image_id = i.id
+			  AND (t.current_slug = ? OR LOWER(t.current_name) = LOWER(?))
+			  AND t.status = 'active'
         )`)
-		args = append(args, input.Tag)
+		args = append(args, input.Tag, input.Tag)
 	}
 	for _, group := range plan.Groups {
 		switch group.Kind {

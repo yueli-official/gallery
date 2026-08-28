@@ -35,3 +35,17 @@ func TestPublicImagePredicatesSearchesContentAndTags(t *testing.T) {
 		}
 	}
 }
+
+func TestPublicImagePredicatesAcceptsTagSlugOrDisplayName(t *testing.T) {
+	where, args := publicImagePredicates(
+		model.ImageQuery{Tag: "晨光"},
+		classification.FilterPlan{},
+	)
+	clause := strings.Join(where, "\n")
+	if !strings.Contains(clause, "t.current_slug = ? OR LOWER(t.current_name) = LOWER(?)") {
+		t.Fatalf("tag clause does not accept slug or display name:\n%s", clause)
+	}
+	if len(args) != 2 || args[0] != "晨光" || args[1] != "晨光" {
+		t.Fatalf("tag args = %#v", args)
+	}
+}

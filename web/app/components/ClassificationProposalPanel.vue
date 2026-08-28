@@ -51,72 +51,76 @@ function updateTarget(itemID: string, value: unknown) {
     aria-labelledby="classification-proposal-heading"
     data-classification-proposals
   >
-    <div class="mb-3 flex items-end justify-between gap-3">
-      <div>
-        <h2
-          id="classification-proposal-heading"
-          class="font-semibold text-highlighted"
-        >
-          标签提案
-        </h2>
-        <p class="mt-1 text-sm text-muted">
-          投稿中未收录的标签会进入这里；通过时创建新标签或归入现有标签。
-        </p>
-      </div>
-      <span class="text-xs text-dimmed">{{ total }} 条待审</span>
+    <div class="mb-3 flex items-center gap-2">
+      <h2
+        id="classification-proposal-heading"
+        class="font-semibold text-highlighted"
+      >
+        标签提案
+      </h2>
+      <UBadge
+        size="xs"
+        color="neutral"
+        variant="soft"
+        :label="String(total)"
+      />
     </div>
     <SkeletonList v-if="!hydrated || pending" :rows="3" />
     <div
       v-else-if="proposals.length"
-      class="divide-y divide-default border-y border-default"
+      class="border-y border-default"
     >
+      <div
+        class="hidden grid-cols-[minmax(0,1fr)_minmax(14rem,22rem)_auto] items-center gap-3 bg-elevated/50 px-3 py-2 text-xs font-medium text-muted lg:grid"
+        aria-hidden="true"
+      >
+        <span>提案</span>
+        <span>处理为</span>
+        <span class="text-right">操作</span>
+      </div>
+      <div class="divide-y divide-default lg:border-t lg:border-default">
       <article
         v-for="item in proposals"
         :key="item.id"
-        class="grid gap-3 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,22rem)_auto] lg:items-center"
+        class="grid gap-3 px-3 py-3 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,22rem)_auto] lg:items-center"
+        data-tag-proposal-row
       >
-        <div class="min-w-0">
-          <p class="font-medium text-highlighted">{{ item.inputValue }}</p>
-          <details class="mt-1 text-xs text-dimmed">
-            <summary class="cursor-pointer">来源与标识</summary>
-            <p class="mt-1 break-all font-mono">
-              {{ item.lookupKey }} · {{ item.submissionId }}
-            </p>
-          </details>
-        </div>
-        <UFormField label="处理为">
-          <USelect
-            :model-value="targets[item.id] || createNewValue"
-            :items="approvalOptions"
-            value-key="value"
-            class="w-full"
-            :aria-label="`选择 ${item.inputValue} 的标签处理方式`"
-            @update:model-value="updateTarget(item.id, $event)"
-          />
-        </UFormField>
-        <div class="flex gap-2">
+        <p class="min-w-0 truncate font-medium text-highlighted">
+          {{ item.inputValue }}
+        </p>
+        <USelect
+          :model-value="targets[item.id] || createNewValue"
+          :items="approvalOptions"
+          value-key="value"
+          size="sm"
+          class="w-full"
+          :aria-label="`选择 ${item.inputValue} 的标签处理方式`"
+          @update:model-value="updateTarget(item.id, $event)"
+        />
+        <div class="flex justify-end gap-1">
           <UButton
-            class="min-h-11"
-            color="neutral"
-            variant="outline"
+            size="xs"
+            color="error"
+            variant="ghost"
             label="拒绝"
             :loading="reviewingId === item.id"
             @click="review(item, 'reject')"
           />
           <UButton
-            class="min-h-11"
+            size="xs"
             label="通过"
             :loading="reviewingId === item.id"
             @click="review(item, 'approve')"
           />
         </div>
       </article>
+      </div>
     </div>
     <ManageEmpty
       v-else
       icon="i-tabler-tag-off"
       title="没有待审标签"
-      description="投稿中的新词会先进入这里，批准后才加入公开目录。"
+      description="新的投稿标签会显示在这里。"
     />
   </section>
 </template>

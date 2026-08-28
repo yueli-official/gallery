@@ -237,6 +237,123 @@ export function registerVisualSuite(product: string) {
           }
         }
       }
+
+      for (const theme of themes) {
+        for (const viewport of viewports.filter((item) =>
+          ["mobile", "desktop"].includes(item.name),
+        )) {
+          test(`评论场景 public ${theme} ${viewport.name}`, async ({ page }) => {
+            await page.setViewportSize(viewport);
+            await setTheme(page, theme);
+            await page.route("**/api/gallery/images/*/comments**", (route) =>
+              route.fulfill({
+                status: 200,
+                contentType: "application/json",
+                body: JSON.stringify({
+                  total: 2,
+                  page: 1,
+                  size: 20,
+                  items: [
+                    {
+                      id: "comment-1",
+                      authorName: "测试用户",
+                      isAnonymous: false,
+                      content: "这张海岸晨光的颜色很舒服。",
+                      createdAt: "2026-07-11T08:00:00Z",
+                      replies: [
+                        {
+                          id: "comment-2",
+                          parentId: "comment-1",
+                          authorName: "路过的访客",
+                          isAnonymous: true,
+                          content: "我也很喜欢这组蓝色。",
+                          createdAt: "2026-07-11T08:05:00Z",
+                        },
+                      ],
+                    },
+                  ],
+                }),
+              }),
+            );
+            await page.goto(
+              new URL("/images/AZsQAAAAcACQAAAAAAAAAQ", site.url).toString(),
+              { waitUntil: "domcontentloaded" },
+            );
+            await settle(page);
+            const comments = page.locator("[data-gallery-comments]");
+            await expect(comments.getByText("这张海岸晨光的颜色很舒服。", { exact: true })).toBeVisible();
+            await comments.scrollIntoViewIfNeeded();
+            await expectNoHorizontalOverflow(page);
+            await expect(page).toHaveScreenshot([
+              "screenshots",
+              site.slug,
+              "comments-public",
+              theme,
+              `${viewport.name}.png`,
+            ]);
+          });
+
+          test(`评论场景 admin ${theme} ${viewport.name}`, async ({ browser }) => {
+            const context = await loginE2E(
+              browser,
+              { viewport, colorScheme: theme },
+              theme,
+              site.url,
+            );
+            const page = await context.newPage();
+            try {
+              await page.route("**/api/gallery/admin/comments**", (route) =>
+                route.fulfill({
+                  status: 200,
+                  contentType: "application/json",
+                  body: JSON.stringify({
+                    total: 2,
+                    page: 1,
+                    size: 20,
+                    items: [
+                      {
+                        id: "comment-1",
+                        imageId: "AZsQAAAAcACQAAAAAAAAAQ",
+                        imageTitle: "海岸晨光 001",
+                        authorName: "等待审核的访客",
+                        authorEmail: "visitor@example.test",
+                        content: "这是一条等待运营审核的评论。",
+                        status: "pending",
+                        createdAt: "2026-07-11T08:15:00Z",
+                      },
+                      {
+                        id: "comment-2",
+                        imageId: "AZsQAAAAcACQAAAAAAAAAg",
+                        imageTitle: "山间薄雾 002",
+                        authorName: "测试用户",
+                        userKey: "TestA123",
+                        content: "登录用户已经发布的评论。",
+                        status: "approved",
+                        createdAt: "2026-07-11T08:20:00Z",
+                      },
+                    ],
+                  }),
+                }),
+              );
+              await page.goto(new URL("/manage/comments", site.url).toString(), {
+                waitUntil: "domcontentloaded",
+              });
+              await expect(page.getByText("这是一条等待运营审核的评论。", { exact: true })).toBeVisible();
+              await settle(page);
+              await expectNoHorizontalOverflow(page);
+              await expect(page).toHaveScreenshot([
+                "screenshots",
+                site.slug,
+                "comments-admin",
+                theme,
+                `${viewport.name}.png`,
+              ]);
+            } finally {
+              await context.close();
+            }
+          });
+        }
+      }
     });
   }
 }

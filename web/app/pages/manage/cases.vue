@@ -72,7 +72,7 @@ const { data, pending, error, refresh } = await useAsyncData(
 
 const statusTabs = [
   { label: "待处理", value: "open" },
-  { label: "处理中", value: "reviewing" },
+  { label: "待结论", value: "reviewing" },
   { label: "已解决", value: "resolved" },
   { label: "已忽略", value: "dismissed" },
   { label: "全部", value: "all" },
@@ -368,18 +368,14 @@ async function resolve(
               @click="resolve(item, 'reviewing')"
             />
           </UTooltip>
-          <UTooltip
+          <UButton
             v-else-if="canResolveCases && item.status === 'reviewing'"
-            text="填写处理结论"
-          >
-            <UButton
-              icon="i-tabler-check"
-              aria-label="填写处理结论"
-              size="xs"
-              square
-              @click="toggleResolution(item.id)"
-            />
-          </UTooltip>
+            icon="i-tabler-pencil"
+            label="填写结论"
+            size="xs"
+            variant="soft"
+            @click="toggleResolution(item.id)"
+          />
           <UTooltip v-if="item.imageId" text="查看关联图片">
             <UButton
               :to="`/images/${item.imageId}`"

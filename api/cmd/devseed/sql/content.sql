@@ -10,6 +10,9 @@ WHERE kind = 'gallery.favorites' AND owner_kind = 'user'
 DELETE FROM gallery_submissions
 WHERE subject_kind = 'user'
   AND subject_id = 'TestA123';
+DELETE FROM gallery_comments
+WHERE user_key = 'TestA123'
+  AND id::text NOT LIKE '019b5000-0000-7000-9000-%';
 
 INSERT INTO gallery_tags (id, catalog_id, current_slug, current_name, status, created_at, updated_at)
 SELECT
@@ -82,11 +85,62 @@ SELECT
     '019817c8-0000-7000-8200-000000000011'::uuid
 FROM generate_series(1, 128) AS i ON CONFLICT DO NOTHING;
 
+INSERT INTO gallery_image_facet_assignments (image_id, facet_value_id)
+SELECT
+    ('019b1000-0000-7000-9000-' || lpad(i::text, 12, '0'))::uuid,
+    (ARRAY[
+        '019817c8-0000-7000-8200-000000000001'::uuid,
+        '019817c8-0000-7000-8200-000000000003'::uuid,
+        '019817c8-0000-7000-8200-000000000004'::uuid,
+        '019817c8-0000-7000-8200-000000000005'::uuid,
+        '019817c8-0000-7000-8200-000000000006'::uuid,
+        '019817c8-0000-7000-8200-000000000007'::uuid
+    ])[((i - 1) % 6) + 1]
+FROM generate_series(1, 128) AS i ON CONFLICT DO NOTHING;
+
+INSERT INTO gallery_image_facet_assignments (image_id, facet_value_id)
+SELECT
+    ('019b1000-0000-7000-9000-' || lpad(i::text, 12, '0'))::uuid,
+    (ARRAY[
+        '019817c8-0000-7000-8200-000000000021'::uuid,
+        '019817c8-0000-7000-8200-000000000022'::uuid
+    ])[((i - 1) % 2) + 1]
+FROM generate_series(1, 128) AS i ON CONFLICT DO NOTHING;
+
 INSERT INTO gallery_image_tag_assignments (image_id, tag_id)
 SELECT
     ('019b1000-0000-7000-9000-' || lpad(i::text, 12, '0'))::uuid,
     ('019b2000-0000-7000-9000-' || lpad((((i - 1) % 12) + 1)::text, 12, '0'))::uuid
 FROM generate_series(1, 128) AS i ON CONFLICT DO NOTHING;
+
+INSERT INTO gallery_comments (
+    id, image_id, parent_id, user_key, author_name, author_email,
+    content, status, created_at, updated_at
+)
+VALUES
+    ('019b5000-0000-7000-9000-000000000001', '019b1000-0000-7000-9000-000000000001', NULL,
+     'TestA123', '', '', '这张海岸晨光的颜色很舒服。', 'approved',
+     TIMESTAMPTZ '2026-07-11 08:00:00+00', TIMESTAMPTZ '2026-07-11 08:00:00+00'),
+    ('019b5000-0000-7000-9000-000000000002', '019b1000-0000-7000-9000-000000000001',
+     '019b5000-0000-7000-9000-000000000001', '', '路过的访客', '', '我也很喜欢这组蓝色。', 'approved',
+     TIMESTAMPTZ '2026-07-11 08:05:00+00', TIMESTAMPTZ '2026-07-11 08:05:00+00'),
+    ('019b5000-0000-7000-9000-000000000003', '019b1000-0000-7000-9000-000000000001', NULL,
+     '', '清晨', '', '适合做一张安静的桌面背景。', 'approved',
+     TIMESTAMPTZ '2026-07-11 08:10:00+00', TIMESTAMPTZ '2026-07-11 08:10:00+00'),
+    ('019b5000-0000-7000-9000-000000000004', '019b1000-0000-7000-9000-000000000002', NULL,
+     '', '等待审核的访客', 'pending@example.test', '这是一条等待运营审核的评论。', 'pending',
+     TIMESTAMPTZ '2026-07-11 08:15:00+00', TIMESTAMPTZ '2026-07-11 08:15:00+00'),
+    ('019b5000-0000-7000-9000-000000000005', '019b1000-0000-7000-9000-000000000002', NULL,
+     '', '可疑访客', '', '这是一条垃圾评论验收样本。', 'spam',
+     TIMESTAMPTZ '2026-07-11 08:20:00+00', TIMESTAMPTZ '2026-07-11 08:20:00+00'),
+    ('019b5000-0000-7000-9000-000000000006', '019b1000-0000-7000-9000-000000000003', NULL,
+     'TestA123', '', '', '这是一条回收站评论验收样本。', 'trash',
+     TIMESTAMPTZ '2026-07-11 08:25:00+00', TIMESTAMPTZ '2026-07-11 08:25:00+00')
+ON CONFLICT (id) DO UPDATE SET
+    image_id = EXCLUDED.image_id, parent_id = EXCLUDED.parent_id,
+    user_key = EXCLUDED.user_key, author_name = EXCLUDED.author_name,
+    author_email = EXCLUDED.author_email, content = EXCLUDED.content,
+    status = EXCLUDED.status, deleted_at = NULL, updated_at = EXCLUDED.updated_at;
 
 INSERT INTO gallery_submissions (
     id, subject_kind, subject_id, asset_id, title, description, source_url,

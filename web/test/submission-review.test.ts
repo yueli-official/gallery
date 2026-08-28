@@ -39,8 +39,8 @@ describe("submission review action", () => {
     expect(
       submissionReviewAction(
         submission({ processingState: "ready", safetyState: "uncertain" }),
-      ).canApprove,
-    ).toBe(true);
+      ),
+    ).toMatchObject({ canApprove: true, label: "通过" });
   });
 
   it("uses the operator-gated preview route instead of the public asset route", () => {

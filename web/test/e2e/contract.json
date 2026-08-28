@@ -30,11 +30,35 @@
         "readySelector": "main h1"
       },
       {
+        "key": "catalog-dimensions",
+        "path": "/images",
+        "readySelector": "text=风格",
+        "viewports": ["desktop"],
+        "actions": [{ "role": "tab", "name": "维度筛选" }]
+      },
+      {
+        "key": "catalog-tags",
+        "path": "/images",
+        "readySelector": "text=热门标签",
+        "viewports": ["desktop"],
+        "actions": [{ "role": "tab", "name": "标签筛选" }]
+      },
+      {
         "key": "mobile-filter",
         "path": "/images",
         "readySelector": "[role=dialog]",
         "viewports": ["mobile"],
         "actions": [{ "role": "button", "name": "筛选" }]
+      },
+      {
+        "key": "mobile-filter-tags",
+        "path": "/images",
+        "readySelector": "text=热门标签",
+        "viewports": ["mobile"],
+        "actions": [
+          { "role": "button", "name": "筛选" },
+          { "role": "tab", "name": "标签筛选" }
+        ]
       },
       {
         "key": "submission-options",
@@ -101,8 +125,40 @@
         "readySelector": "text=图片与顺序",
         "authenticated": true,
         "viewports": ["mobile", "desktop"],
+        "actions": [{ "role": "link", "name": "编辑专题：安静的蓝色时刻" }]
+      },
+      {
+        "key": "manage-collection-list",
+        "path": "/manage/collections",
+        "readySelector": "[data-gallery-collection-list-item]",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"],
         "actions": [
-          { "role": "link", "name": "编辑专题：安静的蓝色时刻" }
+          { "role": "link", "name": "编辑专题：安静的蓝色时刻" },
+          { "role": "button", "name": "列表视图" }
+        ]
+      },
+      {
+        "key": "manage-collection-settings",
+        "path": "/manage/collections",
+        "readySelector": "[data-gallery-collection-inspector]",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"],
+        "actions": [
+          { "role": "link", "name": "编辑专题：安静的蓝色时刻" },
+          { "role": "button", "name": "专题设置" }
+        ]
+      },
+      {
+        "key": "manage-collection-presentation",
+        "path": "/manage/collections",
+        "readySelector": "text=图片排序",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"],
+        "actions": [
+          { "role": "link", "name": "编辑专题：安静的蓝色时刻" },
+          { "role": "button", "name": "专题设置" },
+          { "role": "tab", "name": "展示" }
         ]
       },
       {
@@ -113,14 +169,20 @@
         "viewports": ["mobile", "desktop"]
       },
       {
+        "key": "manage-images-grid",
+        "path": "/manage/images",
+        "readySelector": "[data-gallery-image-grid-item]",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"],
+        "actions": [{ "role": "button", "name": "网格视图" }]
+      },
+      {
         "key": "manage-image-editor",
         "path": "/manage/images",
         "readySelector": "[data-image-editor-preview]",
         "authenticated": true,
         "viewports": ["mobile", "desktop"],
-        "actions": [
-          { "role": "button", "name": "编辑图片：远方公路 120" }
-        ]
+        "actions": [{ "role": "button", "name": "编辑图片：远方公路 120" }]
       },
       {
         "key": "classification",
@@ -195,19 +257,39 @@
         "viewports": ["mobile", "desktop"]
       },
       {
+        "key": "review-failed",
+        "path": "/manage/submissions?processingState=failed",
+        "readySelector": "text=批量投稿样本 25",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "review-reject",
+        "path": "/manage/submissions",
+        "readySelector": "[role=dialog]",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"],
+        "actions": [{ "role": "button", "name": "拒绝" }]
+      },
+      {
         "key": "review-bulk-selection",
         "path": "/manage/submissions",
         "readySelector": "text=已选择 20 条投稿",
         "authenticated": true,
         "viewports": ["mobile", "desktop"],
-        "actions": [
-          { "role": "checkbox", "name": "选择本页可批准投稿" }
-        ]
+        "actions": [{ "role": "checkbox", "name": "选择本页可批准投稿" }]
       },
       {
         "key": "case-queue",
         "path": "/manage/cases",
         "readySelector": "text=演示工单原因",
+        "authenticated": true,
+        "viewports": ["mobile", "desktop"]
+      },
+      {
+        "key": "case-reviewing",
+        "path": "/manage/cases?status=reviewing",
+        "readySelector": "text=填写结论",
         "authenticated": true,
         "viewports": ["mobile", "desktop"]
       },

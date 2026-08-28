@@ -20,7 +20,7 @@ func (c *Public) GetDiscovery(ctx context.Context, req *v1.GetDiscoveryReq) (*v1
 	}
 	return &v1.GetDiscoveryRes{
 		Site: value.Site, Seed: value.Seed, Images: value.Images,
-		Categories: value.Categories, Facets: value.Facets,
+		Categories: value.Categories, Facets: value.Facets, Tags: value.Tags,
 	}, nil
 }
 

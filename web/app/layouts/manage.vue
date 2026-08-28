@@ -9,10 +9,14 @@ const route = useRoute();
 const { brand } = useSiteRuntime();
 const { can, isAdministrator } = useGalleryMe();
 const sidebarOpen = ref(false);
+const immersive = computed(() =>
+  /^\/manage\/collections\/[^/]+$/.test(route.path),
+);
 
 const currentLabel = computed(() => {
   if (route.path === "/manage") return "控制台";
   if (route.path.startsWith("/manage/images")) return "图片";
+  if (route.path.startsWith("/manage/comments")) return "评论";
   if (route.path.startsWith("/manage/submissions")) return "投稿审核";
   if (route.path.startsWith("/manage/collections")) return "专题";
   if (route.path.startsWith("/manage/classification")) return "分类与维度";
@@ -61,6 +65,20 @@ const navigation = computed<readonly AdminNavigationItem[]>(() => [
           icon: "i-tabler-photo",
           to: "/manage/images",
           active: active("/manage/images"),
+          onSelect: closeSidebar,
+        },
+      ]
+    : []),
+  ...(can("gallery.comment.read") ||
+  can("gallery.comment.moderate") ||
+  can("gallery.comment.delete") ||
+  isAdministrator.value
+    ? [
+        {
+          label: "评论",
+          icon: "i-tabler-messages",
+          to: "/manage/comments",
+          active: active("/manage/comments"),
           onSelect: closeSidebar,
         },
       ]
@@ -192,7 +210,6 @@ const searchGroups = computed<readonly AdminSearchGroup[]>(() => {
       : []),
   ];
 });
-
 </script>
 
 <template>
@@ -207,6 +224,7 @@ const searchGroups = computed<readonly AdminSearchGroup[]>(() => {
     brand-to="/"
     :context-label="brand"
     :current-label="currentLabel"
+    :immersive="immersive"
     back-to-top-label="返回顶部"
     data-gallery-manage-shell
   >

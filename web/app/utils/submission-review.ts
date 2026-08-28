@@ -47,7 +47,7 @@ export function submissionReviewAction(
       label: "安全判断不可用",
       reason: "当前没有可用的安全判断，需要重新处理。",
     };
-  return { canApprove: true, label: "批准进入目录", reason: "" };
+  return { canApprove: true, label: "通过", reason: "" };
 }
 
 export function submissionPreviewURL(submissionId: string): string {

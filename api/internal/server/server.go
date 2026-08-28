@@ -7,6 +7,7 @@ import (
 	"github.com/yueli-official/gallery/api/internal/controller"
 	galleryservice "github.com/yueli-official/gallery/api/internal/gallery"
 	"github.com/yueli-official/gallery/api/internal/galleryauthz"
+	"github.com/yueli-official/gallery/api/internal/gallerycomments"
 	"github.com/yueli-official/gallery/api/internal/runtime"
 )
 
@@ -14,6 +15,7 @@ type Deps struct {
 	Gallery       *galleryservice.Service
 	Verifier      *foundationauth.Verifier
 	Authorization *galleryauthz.Service
+	Comments      *gallerycomments.Module
 	ReadyChecks   map[string]runtime.ReadinessCheck
 }
 
@@ -37,6 +39,9 @@ func Configure(s *ghttp.Server, deps Deps) {
 				controller.AuthorizationMiddleware(deps.Authorization),
 			)
 			group.Bind(controller.NewPublic(deps.Gallery))
+			if deps.Comments != nil {
+				group.Bind(controller.NewPublicComments(deps.Comments))
+			}
 		})
 		s.Group("/", func(group *ghttp.RouterGroup) {
 			if deps.Verifier != nil {
@@ -54,6 +59,9 @@ func Configure(s *ghttp.Server, deps Deps) {
 			group.Bind(controller.NewAdmin(deps.Gallery))
 			group.Bind(controller.NewMe())
 			group.Bind(controller.NewAuthorization())
+			if deps.Comments != nil {
+				group.Bind(controller.NewComments(deps.Comments))
+			}
 		})
 	}
 }

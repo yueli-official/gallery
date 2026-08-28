@@ -9,9 +9,9 @@ import (
 	"github.com/yueli-official/foundation/go/authorization"
 )
 
-func TestCatalogV2MigrationMatchesCompiledDefinition(t *testing.T) {
+func TestCatalogV3MigrationMatchesCompiledDefinition(t *testing.T) {
 	catalog := authorization.MustCompile(Definition())
-	migration, err := os.ReadFile("../../manifest/sql/migrations/0009_authorization_catalog_v2.up.sql")
+	migration, err := os.ReadFile("../../manifest/sql/migrations/0011_authorization_comments_v3.up.sql")
 	if err != nil {
 		t.Fatalf("read catalog migration: %v", err)
 	}
@@ -22,7 +22,9 @@ func TestCatalogV2MigrationMatchesCompiledDefinition(t *testing.T) {
 	if !strings.Contains(text, catalog.Digest()) {
 		t.Fatalf("catalog migration does not install compiled digest %q", catalog.Digest())
 	}
-	if !strings.Contains(text, string(CapabilityDiscoveryManage)) {
-		t.Fatalf("catalog migration does not bind %q", CapabilityDiscoveryManage)
+	for _, capability := range []authorization.CapabilityKey{CapabilityCommentRead, CapabilityCommentModerate, CapabilityCommentDelete} {
+		if !strings.Contains(text, string(capability)) {
+			t.Fatalf("catalog migration does not bind %q", capability)
+		}
 	}
 }

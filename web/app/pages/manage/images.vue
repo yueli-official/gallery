@@ -16,12 +16,14 @@ import { createVueRouterCollectionQuerySync } from "@yueli/ui/collection/vue-rou
 import {
   CollectionPanel,
   CollectionSortHeader,
+  CollectionViewToggle,
 } from "@yueli/ui/collection/pattern";
 import { ManageTaxonomyChips } from "~/utils/manageComponents";
 import type {
   GalleryAdminImage,
   GalleryAdminImagePage,
   GalleryClassificationTagPage,
+  GalleryCollection,
   GallerySubmissionOptions,
 } from "~/types/gallery";
 
@@ -43,13 +45,15 @@ const hydrated = useClientHydrated();
 const toast = createGalleryNotifier(useToast());
 const canImageUpdate = computed(() => can("gallery.image.update"));
 const canImageHide = computed(() => can("gallery.image.hide"));
+const canCollectionManage = computed(() => can("gallery.collection.manage"));
 const canBulkManage = computed(
-  () => canImageUpdate.value || canImageHide.value,
+  () => canImageUpdate.value || canImageHide.value || canCollectionManage.value,
 );
 
 type ImageStatus = "" | "published" | "draft" | "hidden" | "deleted";
 type ImageSortBy = "createdAt" | "updatedAt" | "title" | "views";
 type ImageSortOrder = "asc" | "desc";
+type ImageView = "list" | "grid";
 interface ImageCollectionQuery {
   q: string;
   status: ImageStatus;
@@ -59,10 +63,12 @@ interface ImageCollectionQuery {
   sortOrder: ImageSortOrder;
   category: string;
   facet: string;
+  view: ImageView;
 }
 const statuses = ["", "published", "draft", "hidden", "deleted"] as const;
 const sortByValues = ["createdAt", "updatedAt", "title", "views"] as const;
 const sortOrderValues = ["asc", "desc"] as const;
+const viewValues = ["list", "grid"] as const;
 const pageSizes = [12, 24, 48, 60] as const;
 const defaultQuery: ImageCollectionQuery = {
   q: "",
@@ -73,6 +79,7 @@ const defaultQuery: ImageCollectionQuery = {
   sortOrder: "desc",
   category: ALL,
   facet: ALL,
+  view: "list",
 };
 const counts = ref<Record<string, number>>({});
 async function loadImages(
@@ -85,22 +92,18 @@ async function loadImages(
 ) {
   const token = activeWorkflow.beginLoad();
   try {
-    const data = await call<GalleryAdminImagePage>(
-      "/admin/images",
-      {
-        query: {
-          q: nextQuery.q || undefined,
-          sortBy: nextQuery.sortBy,
-          sortOrder: nextQuery.sortOrder,
-          page: nextQuery.page,
-          size: nextQuery.size,
-          publicationState: nextQuery.status || undefined,
-          categoryId:
-            nextQuery.category === ALL ? undefined : nextQuery.category,
-          facetValueId: nextQuery.facet === ALL ? undefined : nextQuery.facet,
-        },
+    const data = await call<GalleryAdminImagePage>("/admin/images", {
+      query: {
+        q: nextQuery.q || undefined,
+        sortBy: nextQuery.sortBy,
+        sortOrder: nextQuery.sortOrder,
+        page: nextQuery.page,
+        size: nextQuery.size,
+        publicationState: nextQuery.status || undefined,
+        categoryId: nextQuery.category === ALL ? undefined : nextQuery.category,
+        facetValueId: nextQuery.facet === ALL ? undefined : nextQuery.facet,
       },
-    );
+    });
     const lastPage = Math.max(
       1,
       data.totalPages || Math.ceil(data.total / nextQuery.size),
@@ -148,6 +151,7 @@ const querySync = createVueRouterCollectionQuerySync({
       maxLength: 200,
     },
     facet: { kind: "string", default: defaultQuery.facet, maxLength: 200 },
+    view: { kind: "enum", values: viewValues, default: defaultQuery.view },
   }),
 });
 const {
@@ -160,7 +164,7 @@ const {
   keyOf: (image: GalleryAdminImage) => image.id,
   isSelectable: () => canBulkManage.value,
   querySync,
-  dataQueryKey: (query) => JSON.stringify(query),
+  dataQueryKey: ({ view: _view, ...query }) => JSON.stringify(query),
   load: loadImages,
 });
 const collectionQuery = computed(() => imageCollection.value.query);
@@ -193,6 +197,10 @@ const sortBy = computed({
 const sortOrder = computed({
   get: () => collectionQuery.value.sortOrder,
   set: (value: ImageSortOrder) => updateCollectionQuery({ sortOrder: value }),
+});
+const viewMode = computed({
+  get: () => collectionQuery.value.view,
+  set: (value: ImageView) => updateCollectionQuery({ view: value }, false),
 });
 
 function changeColumnSort(nextSortBy: ImageSortBy) {
@@ -272,6 +280,21 @@ const tagOptions = computed(() =>
   tagData.value.page.items
     .filter((item) => item.status === "active")
     .map((item) => ({ label: item.name, value: item.id })),
+);
+const { data: collectionData, refresh: refreshCollections } =
+  await useAsyncData(
+    "gallery-manage-image-collection-options",
+    () =>
+      canCollectionManage.value
+        ? call<{ collections: GalleryCollection[] }>("/admin/collections")
+        : Promise.resolve({ collections: [] }),
+    { server: false, default: () => ({ collections: [] }) },
+  );
+const collectionOptions = computed(() =>
+  collectionData.value.collections.map((item) => ({
+    label: `${item.name} · ${item.itemCount} 张`,
+    value: item.id,
+  })),
 );
 const statusOptions = computed(() => [
   { value: ALL, label: `全部 · ${counts.value.all || 0}` },
@@ -471,26 +494,23 @@ async function saveEdit() {
     return;
   editPending.value = true;
   try {
-    await call(
-      `/admin/images/${encodeURIComponent(editing.value.id)}`,
-      {
-        method: "PATCH",
-        body: {
-          expectedUpdatedAt: editing.value.updatedAt,
-          title: editForm.title,
-          description: editForm.description,
-          altText: editForm.altText,
-          sourceUrl: editForm.sourceUrl,
-          classification: {
-            primaryCategoryId: editForm.primaryCategoryId,
-            facetValueIds: Object.values(editForm.facetValueIds).filter(
-              (value) => value && value !== ALL,
-            ),
-            tagIds: editForm.tagIds,
-          },
+    await call(`/admin/images/${encodeURIComponent(editing.value.id)}`, {
+      method: "PATCH",
+      body: {
+        expectedUpdatedAt: editing.value.updatedAt,
+        title: editForm.title,
+        description: editForm.description,
+        altText: editForm.altText,
+        sourceUrl: editForm.sourceUrl,
+        classification: {
+          primaryCategoryId: editForm.primaryCategoryId,
+          facetValueIds: Object.values(editForm.facetValueIds).filter(
+            (value) => value && value !== ALL,
+          ),
+          tagIds: editForm.tagIds,
         },
       },
-    );
+    });
     editing.value = undefined;
     await refresh();
   } catch (reason: any) {
@@ -506,11 +526,7 @@ async function saveEdit() {
 }
 
 async function deleteEditingImage() {
-  if (
-    !canImageHide.value ||
-    !editing.value?.updatedAt ||
-    deletePending.value
-  )
+  if (!canImageHide.value || !editing.value?.updatedAt || deletePending.value)
     return;
   deletePending.value = true;
   deleteError.value = "";
@@ -532,6 +548,7 @@ const batchAction = ref<string>();
 const batchOpen = ref(false);
 const batchPending = ref(false);
 const batchCategory = ref(ALL);
+const batchCollectionId = ref("");
 const batchReason = ref("");
 const batchResult = ref<BulkResult>();
 const batchOptions = computed(() => [
@@ -539,6 +556,9 @@ const batchOptions = computed(() => [
     ? [{ label: "设置主分类", value: "set_primary_category" }]
     : []),
   ...(canImageHide.value ? [{ label: "下架", value: "hide" }] : []),
+  ...(canCollectionManage.value
+    ? [{ label: "加入专题", value: "add_to_collection" }]
+    : []),
 ]);
 function prepareBatch() {
   if (
@@ -560,6 +580,31 @@ async function runBatch() {
     return;
   batchPending.value = true;
   try {
+    if (batchAction.value === "add_to_collection") {
+      const target = collectionData.value.collections.find(
+        (item) => item.id === batchCollectionId.value,
+      );
+      if (!target) return;
+      const selectedCount = selectedIds.value.length;
+      await call<{ collection: GalleryCollection }>(
+        `/admin/collections/${encodeURIComponent(target.id)}/members`,
+        {
+          method: "POST",
+          body: {
+            version: target.version,
+            add: selectedIds.value,
+            remove: [],
+          },
+        },
+      );
+      clearSelection();
+      batchResult.value = { changed: selectedCount, failed: 0 };
+      batchOpen.value = false;
+      batchAction.value = undefined;
+      batchCollectionId.value = "";
+      await refreshCollections();
+      return;
+    }
     const response = await call<{
       results: Array<{ imageId: string; success: boolean; error?: string }>;
     }>("/admin/images/bulk", {
@@ -581,6 +626,7 @@ async function runBatch() {
     batchOpen.value = false;
     batchAction.value = undefined;
     batchCategory.value = ALL;
+    batchCollectionId.value = "";
     batchReason.value = "";
     await refresh();
   } catch (reason: any) {
@@ -595,14 +641,25 @@ async function runBatch() {
   }
 }
 
-function anomalyBadges(image: GalleryAdminImage) {
-  const badges: Array<{
-    label: string;
-    color: "warning" | "error" | "neutral";
-  }> = [];
+function imageStatusBadge(image: GalleryAdminImage) {
   if (!image.publicRenditionReady)
-    badges.push({ label: "公开版本未就绪", color: "warning" });
-  return badges;
+    return {
+      label: "待生成",
+      color: "warning" as const,
+      help: "公开版本尚未就绪",
+    };
+  return {
+    label: publicationLabel(image.publicationState),
+    color:
+      image.publicationState === "published"
+        ? ("success" as const)
+        : image.publicationState === "deleted"
+          ? ("error" as const)
+          : image.publicationState === "hidden"
+            ? ("warning" as const)
+            : ("neutral" as const),
+    help: "",
+  };
 }
 const timestampFormatter = new Intl.DateTimeFormat("zh-CN", {
   year: "numeric",
@@ -650,12 +707,12 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
       :page-size="size"
       :page-sizes="pageSizes"
       :active-filter-count="activeFilterCount"
-      layout="rows"
+      :layout="viewMode === 'grid' ? 'grid' : 'rows'"
       :selection-count="selectionCount"
       :page-selected="isPageSelected"
       :page-indeterminate="isPageIndeterminate"
       :is-selected="imageWorkflow.isSelected"
-      label="图片列表"
+      label="图片管理"
       :selectable="canBulkManage"
       @search="submitSearch"
       @control-change="changeControl"
@@ -667,7 +724,21 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
       @page-change="page = $event"
       @page-size-change="size = $event"
     >
-      <template #columns>
+      <template #view>
+        <CollectionViewToggle
+          v-model="viewMode"
+          :items="[
+            { key: 'list', label: '列表视图', icon: 'i-tabler-list' },
+            {
+              key: 'grid',
+              label: '网格视图',
+              icon: 'i-tabler-layout-grid',
+            },
+          ]"
+        />
+      </template>
+
+      <template v-if="viewMode === 'list'" #columns>
         <div
           class="grid grid-cols-[minmax(0,1fr)_5rem_5rem] items-center gap-3 md:grid-cols-[minmax(0,1fr)_8rem_5rem_8rem_5rem] lg:grid-cols-[minmax(0,1fr)_8rem_5rem_8rem_8rem_5rem]"
         >
@@ -700,6 +771,7 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
         <USelect
           v-if="canBulkManage"
           v-model="batchAction"
+          aria-label="批量操作"
           :items="batchOptions"
           placeholder="批量操作"
           size="xs"
@@ -717,7 +789,9 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
 
       <template #item="{ item: image }">
         <div
+          v-if="viewMode === 'list'"
           class="grid min-w-0 grid-cols-[minmax(0,1fr)_5rem_5rem] items-center gap-3 md:grid-cols-[minmax(0,1fr)_8rem_5rem_8rem_5rem] lg:grid-cols-[minmax(0,1fr)_8rem_5rem_8rem_8rem_5rem]"
+          data-gallery-image-list-item
         >
           <div class="flex min-w-0 items-center gap-3">
             <img
@@ -734,10 +808,7 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
               >
                 {{ image.title }}
               </button>
-              <p
-                v-else
-                class="truncate text-sm font-medium text-highlighted"
-              >
+              <p v-else class="truncate text-sm font-medium text-highlighted">
                 {{ image.title }}
               </p>
               <p class="mt-1 truncate text-xs text-muted">
@@ -774,14 +845,18 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
             {{ formatTimestamp(image.updatedAt) }}
           </time>
           <div class="hidden lg:block">
-            <UBadge
-              v-if="anomalyBadges(image).length"
-              :color="anomalyBadges(image)[0]!.color"
-              variant="subtle"
-              :label="anomalyBadges(image)[0]!.label"
-            />
-            <span v-else class="text-xs text-muted">
-              {{ publicationLabel(image.publicationState) }}
+            <span data-image-status-badge>
+              <UTooltip
+                :text="
+                  imageStatusBadge(image).help || imageStatusBadge(image).label
+                "
+              >
+                <UBadge
+                  :color="imageStatusBadge(image).color"
+                  variant="soft"
+                  :label="imageStatusBadge(image).label"
+                />
+              </UTooltip>
             </span>
           </div>
           <div class="flex justify-end gap-1">
@@ -814,6 +889,105 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
             </UTooltip>
           </div>
         </div>
+
+        <article
+          v-else
+          class="group -m-4 overflow-hidden rounded-lg"
+          data-gallery-image-grid-item
+        >
+          <div class="relative aspect-[4/3] overflow-hidden bg-elevated">
+            <img
+              v-bind="galleryImageSources(image.assetId, 'grid', false)"
+              :alt="image.altText"
+              class="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+            />
+            <span class="absolute right-2 top-2" data-image-status-badge>
+              <UTooltip
+                :text="
+                  imageStatusBadge(image).help || imageStatusBadge(image).label
+                "
+              >
+                <UBadge
+                  :color="imageStatusBadge(image).color"
+                  variant="solid"
+                  :label="imageStatusBadge(image).label"
+                  size="xs"
+                />
+              </UTooltip>
+            </span>
+          </div>
+          <div class="space-y-3 p-4">
+            <div class="min-w-0">
+              <button
+                v-if="canImageUpdate"
+                type="button"
+                class="block max-w-full truncate text-left text-sm font-semibold text-highlighted hover:text-primary"
+                @click="openEdit(image)"
+              >
+                {{ image.title }}
+              </button>
+              <p v-else class="truncate text-sm font-semibold text-highlighted">
+                {{ image.title }}
+              </p>
+              <p class="mt-1 line-clamp-2 min-h-8 text-xs leading-4 text-muted">
+                {{ image.description || image.altText }}
+              </p>
+            </div>
+            <div class="flex min-w-0 items-center justify-between gap-3">
+              <ManageTaxonomyChips
+                class="min-w-0"
+                :items="
+                  image.primaryCategory
+                    ? [
+                        {
+                          key: image.primaryCategoryId || image.primaryCategory,
+                          label: image.primaryCategory,
+                          kind: 'category',
+                        },
+                      ]
+                    : []
+                "
+              />
+              <span class="shrink-0 text-xs tabular-nums text-muted">
+                {{ compactMetric(image.metrics.views) }} 次浏览
+              </span>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <time class="text-xs text-dimmed" :datetime="image.updatedAt">
+                更新于 {{ formatTimestamp(image.updatedAt) }}
+              </time>
+              <div class="flex shrink-0 justify-end gap-1">
+                <UTooltip
+                  v-if="image.publicationState === 'published'"
+                  text="查看公开图片"
+                >
+                  <UButton
+                    :to="`/images/${image.id}`"
+                    target="_blank"
+                    rel="noopener"
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    icon="i-tabler-external-link"
+                    square
+                    :aria-label="`查看公开图片：${image.title}`"
+                  />
+                </UTooltip>
+                <UTooltip v-if="canImageUpdate" text="编辑图片">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="xs"
+                    icon="i-tabler-pencil"
+                    square
+                    :aria-label="`编辑图片：${image.title}`"
+                    @click="openEdit(image)"
+                  />
+                </UTooltip>
+              </div>
+            </div>
+          </div>
+        </article>
       </template>
     </CollectionPanel>
 
@@ -1009,7 +1183,13 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
     <UModal
       v-if="canBulkManage"
       v-model:open="batchOpen"
-      :title="batchAction === 'hide' ? '批量下架' : '批量设置主分类'"
+      :title="
+        batchAction === 'hide'
+          ? '批量下架'
+          : batchAction === 'add_to_collection'
+            ? '批量加入专题'
+            : '批量设置主分类'
+      "
       :description="`将处理选中的 ${selectionCount} 张图片；失败项目会保留选择。`"
     >
       <template #body
@@ -1025,6 +1205,24 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
               class="w-full"
               :search-input="{ placeholder: '搜索分类…' }"
           /></UFormField>
+          <UFormField
+            v-else-if="batchAction === 'add_to_collection'"
+            label="目标专题"
+            required
+          >
+            <USelectMenu
+              v-model="batchCollectionId"
+              aria-label="目标专题"
+              :items="collectionOptions"
+              value-key="value"
+              class="w-full"
+              placeholder="选择专题"
+              :search-input="{ placeholder: '搜索专题…' }"
+            />
+            <p v-if="!collectionOptions.length" class="mt-2 text-xs text-muted">
+              暂无可用专题，请先创建专题。
+            </p>
+          </UFormField>
           <UFormField v-else label="下架原因" required
             ><UTextarea
               v-model="batchReason"
@@ -1046,7 +1244,9 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
               :disabled="
                 batchAction === 'hide'
                   ? !batchReason.trim()
-                  : batchCategory === ALL
+                  : batchAction === 'add_to_collection'
+                    ? !batchCollectionId
+                    : batchCategory === ALL
               "
             />
           </div></form

@@ -2,6 +2,8 @@ package appconfig
 
 import (
 	"context"
+	"net/url"
+	"strings"
 
 	"github.com/gogf/gf/v2/frame/g"
 )
@@ -28,6 +30,25 @@ func LoadJWKS(ctx context.Context) JWKS {
 		Audience:          g.Cfg().MustGet(ctx, "gallery.jwks.audience", "").String(),
 		AllowLoopbackHTTP: g.Cfg().MustGet(ctx, "gallery.jwks.allowLoopbackHttp", false).Bool(),
 	}
+}
+
+func IdentityBaseURL(ctx context.Context) string {
+	if configured := strings.TrimSpace(g.Cfg().MustGet(ctx, "gallery.identity.baseUrl", "").String()); configured != "" {
+		return strings.TrimRight(configured, "/")
+	}
+	return identityBaseFromJWKS(LoadJWKS(ctx).URL)
+}
+
+func identityBaseFromJWKS(value string) string {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return "http://localhost:8081"
+	}
+	parsed.Path = ""
+	parsed.RawPath = ""
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return strings.TrimRight(parsed.String(), "/")
 }
 
 func SiteSlug(ctx context.Context) string {

@@ -64,6 +64,10 @@ _Avoid_: Category、Facet Value
 运营者处理举报、来源修正、安全不确定、近重复或下架调查的工作单元；Case 数量不会自动改变 Image 发布状态。
 _Avoid_: 自动下架规则、Submission
 
+**Comment（评论）**:
+围绕一张公开 Image 展开的两级公开讨论；登录 User 的评论直接公开，匿名评论先进入运营审核，不建立作者或关注关系。
+_Avoid_: Submission、Case、Caption、Creator Post
+
 **Rendition（衍生版本）**:
 Asset 从私有 master 预处理出的命名公开图片版本；Gallery 只保存 assetId，不保存 rendition URL。
 _Avoid_: 原图、任意实时 transform
@@ -82,3 +86,5 @@ _Avoid_: hidden、软删除 Image
 - 首页是 seeded random discovery；主目录是分页固定网格。
 - Category 表达内容大类，Facet 表达可组合属性；场景“风景”属于 Facet，不属于 Category。
 - source URL 可空、仅作元数据，服务器不抓取外部来源。
+- Comment 永远属于一张 Image；公开线程只包含已通过评论，回复统一归入顶层 Comment 且最多两级。
+- 删除 Comment 可以级联删除其回复，但不得改变或删除 Image。

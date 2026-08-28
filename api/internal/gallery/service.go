@@ -31,6 +31,7 @@ type Store interface {
 	ClassificationSnapshot(context.Context) (classification.Snapshot, error)
 	ClassificationTagMatches(context.Context, []classification.TagLookupRequest) ([]classification.TagMatch, string, error)
 	ClassificationCandidateCounts(context.Context, model.ImageQuery, []classification.CandidateCountGroupRequest) ([]classification.CandidateCountGroup, string, error)
+	PublicTagCandidates(context.Context, model.ImageQuery, classification.FilterPlan, int) ([]model.TagCandidate, error)
 	ClassificationGovernanceImpacts(context.Context, []classification.ImpactRequest) ([]classification.ReferenceImpact, string, error)
 	ExecuteClassificationGovernance(context.Context, string, classification.GovernFactRequest, classification.GovernancePlan) (uint64, error)
 	ClassificationTags(context.Context, model.ClassificationTagCursor, int) ([]model.ClassificationTag, bool, error)
@@ -299,13 +300,19 @@ func (s *Service) Discovery(ctx context.Context, seed string) (*model.Discovery,
 	if discovery.Outcome != classification.OutcomeAccepted {
 		return nil, classificationValidation(discovery.Diagnostics)
 	}
+	tags, err := s.store.PublicTagCandidates(ctx, model.ImageQuery{}, discovery.FilterPlan, 24)
+	if err != nil {
+		return nil, err
+	}
 	normalizeCards(images)
+	normalizeTagCandidates(tags, "")
 	return &model.Discovery{
 		Site:       *settings,
 		Seed:       seed,
 		Images:     images,
 		Categories: categoryCandidates(discovery.Candidates.Categories),
 		Facets:     facetCandidates(discovery.Candidates.Facets),
+		Tags:       nonNilTagCandidates(tags),
 	}, nil
 }
 
@@ -459,13 +466,19 @@ func (s *Service) Images(ctx context.Context, query model.ImageQuery) (*model.Im
 			Items: []model.ImageCard{}, Page: query.Page, PageSize: query.PageSize,
 			Diagnostics: diagnostics,
 			Categories:  categoryCandidates(discovery.Candidates.Categories), Facets: facetCandidates(discovery.Candidates.Facets),
+			Tags: []model.TagCandidate{},
 		}, nil
+	}
+	tags, err := s.store.PublicTagCandidates(ctx, query, discovery.FilterPlan, 24)
+	if err != nil {
+		return nil, err
 	}
 	items, total, err := s.store.ListImages(ctx, query, discovery.FilterPlan)
 	if err != nil {
 		return nil, err
 	}
 	normalizeCards(items)
+	normalizeTagCandidates(tags, query.Tag)
 	pages := 0
 	if total > 0 {
 		pages = int(math.Ceil(float64(total) / float64(query.PageSize)))
@@ -474,6 +487,7 @@ func (s *Service) Images(ctx context.Context, query model.ImageQuery) (*model.Im
 		Items: nonNilCards(items), Page: query.Page, PageSize: query.PageSize,
 		Total: total, TotalPages: pages, Diagnostics: diagnostics,
 		Categories: categoryCandidates(discovery.Candidates.Categories), Facets: facetCandidates(discovery.Candidates.Facets),
+		Tags: nonNilTagCandidates(tags),
 	}, nil
 }
 
@@ -2011,6 +2025,21 @@ func normalizeCards(values []model.ImageCard) {
 		values[index].ID = PublicID(values[index].ID)
 		values[index].Metrics = model.Metrics{Views: values[index].ViewCount, Favorites: values[index].FavoriteCount}
 	}
+}
+
+func normalizeTagCandidates(values []model.TagCandidate, selected string) {
+	selected = strings.TrimSpace(selected)
+	for index := range values {
+		values[index].ID = PublicID(values[index].ID)
+		values[index].Selected = values[index].Slug == selected
+	}
+}
+
+func nonNilTagCandidates(values []model.TagCandidate) []model.TagCandidate {
+	if values == nil {
+		return []model.TagCandidate{}
+	}
+	return values
 }
 
 func normalizeDetail(value *model.ImageDetail) {

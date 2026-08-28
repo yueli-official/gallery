@@ -14,6 +14,7 @@ export function useGalleryCatalogState() {
   const searchDraft = ref("");
   const selectedCategories = ref<string[]>([]);
   const selectedFacets = ref<string[]>([]);
+  const selectedTag = ref("");
 
   watch(
     state,
@@ -21,6 +22,7 @@ export function useGalleryCatalogState() {
       searchDraft.value = current.q;
       selectedCategories.value = [...current.categories];
       selectedFacets.value = [...current.facets];
+      selectedTag.value = current.tag;
     },
     { immediate: true },
   );
@@ -35,6 +37,7 @@ export function useGalleryCatalogState() {
       q: searchDraft.value.trim(),
       categories: [...selectedCategories.value],
       facets: [...selectedFacets.value],
+      tag: selectedTag.value,
       page: 1,
     });
   }
@@ -43,6 +46,7 @@ export function useGalleryCatalogState() {
     searchDraft.value = "";
     selectedCategories.value = [];
     selectedFacets.value = [];
+    selectedTag.value = "";
     return pushState({
       ...state.value,
       q: "",
@@ -69,6 +73,10 @@ export function useGalleryCatalogState() {
     return pushState({ ...state.value, page: Math.max(1, page) });
   }
 
+  function toggleTag(value: string) {
+    selectedTag.value = selectedTag.value === value ? "" : value;
+  }
+
   function setSort(sort: GalleryCatalogSort) {
     return pushState({ ...state.value, sort, page: 1 });
   }
@@ -79,6 +87,7 @@ export function useGalleryCatalogState() {
 
   function setTag(tag: string) {
     searchDraft.value = "";
+    selectedTag.value = tag.trim();
     return pushState({
       ...state.value,
       q: "",
@@ -107,6 +116,7 @@ export function useGalleryCatalogState() {
   }
 
   function removeTag() {
+    selectedTag.value = "";
     return pushState({ ...state.value, tag: "", page: 1 });
   }
 
@@ -116,12 +126,14 @@ export function useGalleryCatalogState() {
     searchDraft,
     selectedCategories,
     selectedFacets,
+    selectedTag,
     hasFilters: computed(() => galleryCatalogFilterCount(state.value) > 0),
     activeFilterCount: computed(() => galleryCatalogFilterCount(state.value)),
     apply,
     clear,
     toggleCategory,
     toggleFacet,
+    toggleTag,
     setPage,
     setSort,
     setView,

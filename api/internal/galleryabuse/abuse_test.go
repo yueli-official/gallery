@@ -50,3 +50,18 @@ func TestGuestAndMemberSubmissionBudgetsAreIndependent(t *testing.T) {
 		t.Fatalf("member action must have an independent budget, got %q", member.Disposition)
 	}
 }
+
+func TestDefinitionIncludesIndependentCommentBudgets(t *testing.T) {
+	catalog := abuse.MustCompile(Definition(Policy{}))
+	module, err := abuse.NewMemory(catalog, abuse.MemoryOptions{Secret: []byte("gallery-comment-test-secret-at-least-32-bytes")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	actions, err := Bind(module)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if actions.GuestComment == nil || actions.MemberComment == nil {
+		t.Fatal("comment abuse actions are missing")
+	}
+}

@@ -2,6 +2,7 @@
 import { ManagePage, TabbedSurface } from "@yueli/ui/admin";
 import { bindSettingsBeforeUnload } from "@yueli/ui/settings/browser";
 import { useVueSettingsWorkflow } from "@yueli/ui/settings/vue";
+import { SettingSection } from "@yueli/ui/settings/pattern";
 import { useSettingsLeaveGuard } from "@yueli/ui/settings/vue-router";
 import { onMounted, onScopeDispose } from "vue";
 import { SkeletonList } from "~/utils/manageComponents";
@@ -260,40 +261,26 @@ async function saveSettings(): Promise<void> {
         <fieldset
           v-if="activeSection === 'site'"
           :disabled="!canManageSettings"
-          class="min-w-0 space-y-5 p-4 sm:p-5"
+          class="min-w-0 p-4 sm:p-5"
         >
-          <div>
-            <h2 class="text-sm font-semibold text-highlighted">站点信息</h2>
-            <p class="mt-1 text-xs leading-5 text-muted">
-              站点名称用于品牌标识，页脚说明用于公开页面底部。
-            </p>
-          </div>
-          <div class="grid gap-4 md:grid-cols-2">
-            <UFormField label="站点名称" required>
-              <UInput v-model="form.name" maxlength="80" class="w-full" />
-            </UFormField>
-            <UFormField label="页脚说明">
-              <UInput
-                v-model="form.footerTagline"
-                maxlength="240"
-                class="w-full"
-              />
-            </UFormField>
-          </div>
+          <SettingSection title="站点信息">
+            <div class="grid gap-4 md:grid-cols-2">
+              <UFormField label="站点名称" required>
+                <UInput v-model="form.name" maxlength="80" class="w-full" />
+              </UFormField>
+              <UFormField label="页脚说明">
+                <UInput v-model="form.footerTagline" maxlength="240" class="w-full" />
+              </UFormField>
+            </div>
+          </SettingSection>
         </fieldset>
 
         <fieldset
           v-else-if="activeSection === 'home'"
           :disabled="!canManageSettings"
-          class="min-w-0 p-4 sm:p-5"
+          class="min-w-0 space-y-5 p-4 sm:p-5"
         >
-          <section class="space-y-5">
-            <div>
-              <h2 class="text-sm font-semibold text-highlighted">首页信息</h2>
-              <p class="mt-1 text-xs leading-5 text-muted">
-                标题、描述和搜索提示用于首页及分享信息。
-              </p>
-            </div>
+          <SettingSection title="首页信息">
             <div class="grid gap-4 md:grid-cols-2">
               <UFormField label="首页标题" required>
                 <UInput
@@ -318,16 +305,10 @@ async function saveSettings(): Promise<void> {
                 />
               </UFormField>
             </div>
-          </section>
+          </SettingSection>
 
-          <section class="mt-6 border-t border-default pt-5">
-            <div>
-              <h2 class="text-sm font-semibold text-highlighted">首页板块</h2>
-              <p class="mt-1 text-xs leading-5 text-muted">
-                当前顺序就是前台顺序；关闭后内容仍会保留。
-              </p>
-            </div>
-            <div class="mt-4 divide-y divide-default border-y border-default">
+          <SettingSection title="首页板块">
+            <div class="divide-y divide-default border-y border-default">
               <section
                 v-for="(section, index) in form.homeSections"
                 :key="section.key"
@@ -399,32 +380,19 @@ async function saveSettings(): Promise<void> {
                 </div>
               </section>
             </div>
-          </section>
+          </SettingSection>
         </fieldset>
 
-        <div v-else class="min-w-0">
+        <div v-else class="min-w-0 p-4 sm:p-5">
           <fieldset
             :disabled="!canManageSettings"
-            class="space-y-5 p-4 sm:p-5"
+            class="min-w-0"
           >
-            <div>
-              <h2 class="text-sm font-semibold text-highlighted">随机发现</h2>
-              <p class="mt-1 max-w-2xl text-xs leading-5 text-muted">
-                图片按 seed 稳定随机，并优先打散相同分类，不按热度排序。
-              </p>
-            </div>
-            <UFormField label="候选池数量" hint="40–2000">
-              <UInput
-                v-model.number="form.randomCandidateSize"
-                type="number"
-                min="40"
-                max="2000"
-                class="w-full max-w-xs"
-              />
-            </UFormField>
-            <p class="text-xs leading-5 text-muted">
-              首页实际展示数量由“随机图片”板块控制，默认 24 张。
-            </p>
+            <SettingSection title="随机发现">
+              <UFormField label="候选池数量" hint="40–2000">
+                <UInput v-model.number="form.randomCandidateSize" type="number" min="40" max="2000" class="w-full max-w-xs" />
+              </UFormField>
+            </SettingSection>
           </fieldset>
 
         </div>

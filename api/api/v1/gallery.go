@@ -16,6 +16,7 @@ type GetDiscoveryRes struct {
 	Images     []model.ImageCard           `json:"images"`
 	Categories []model.ClassificationNode  `json:"categories"`
 	Facets     []model.ClassificationFacet `json:"facets"`
+	Tags       []model.TagCandidate        `json:"tags"`
 }
 
 type GetSiteSettingsReq struct {

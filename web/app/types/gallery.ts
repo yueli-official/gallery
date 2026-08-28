@@ -10,10 +10,7 @@ export interface GallerySite {
 }
 
 export type GalleryHomeSectionKey =
-  | "random"
-  | "collections"
-  | "latest"
-  | "trending";
+  "random" | "collections" | "latest" | "trending";
 
 export interface GalleryHomeSection {
   key: GalleryHomeSectionKey;
@@ -40,6 +37,7 @@ export interface GalleryImageCard {
   primaryCategory: string;
   primaryCategorySlug: string;
   publishedAt?: string;
+  updatedAt?: string;
   metrics: GalleryMetrics;
 }
 
@@ -73,6 +71,7 @@ export interface GalleryDiscovery {
   images: GalleryImageCard[];
   categories: GalleryClassificationNode[];
   facets: GalleryFacet[];
+  tags: GalleryTagCandidate[];
 }
 
 export interface GallerySubmissionOptions {
@@ -83,6 +82,14 @@ export interface GallerySubmissionOptions {
 export interface GalleryClassificationNode {
   id: string;
   parentId?: string;
+  slug: string;
+  name: string;
+  count: number;
+  selected: boolean;
+}
+
+export interface GalleryTagCandidate {
+  id: string;
   slug: string;
   name: string;
   count: number;
@@ -105,6 +112,7 @@ export interface GalleryImagePage {
   diagnostics: GalleryClassificationDiagnostic[];
   categories: GalleryClassificationNode[];
   facets: GalleryFacet[];
+  tags: GalleryTagCandidate[];
 }
 
 export interface GalleryAdminImage extends GalleryImageCard {
@@ -119,7 +127,6 @@ export interface GalleryAdminImage extends GalleryImageCard {
   facets: GalleryFacetAssignment[];
   tags: Array<{ id: string; name: string }>;
   createdAt?: string;
-  updatedAt?: string;
 }
 
 export interface GalleryAdminImagePage {
@@ -342,6 +349,48 @@ export interface GalleryAdminOverview {
   previousPeriodFavorites: number;
   series: GalleryAdminTrafficPoint[];
   topImages: GalleryAdminTrafficImage[];
+}
+
+export type GalleryCommentStatus = "pending" | "approved" | "spam" | "trash";
+
+export interface GalleryComment {
+  id: string;
+  parentId?: string;
+  authorName: string;
+  avatarUrl?: string;
+  isAnonymous: boolean;
+  content: string;
+  createdAt: string;
+  replies?: GalleryComment[];
+}
+
+export interface GalleryCommentPage {
+  items: GalleryComment[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface GalleryAdminComment {
+  id: string;
+  imageId: string;
+  imageTitle: string;
+  parentId?: string;
+  authorName: string;
+  avatarUrl?: string;
+  authorEmail?: string;
+  userKey?: string;
+  content: string;
+  status: GalleryCommentStatus;
+  ip?: string;
+  createdAt: string;
+}
+
+export interface GalleryAdminCommentPage {
+  items: GalleryAdminComment[];
+  total: number;
+  page: number;
+  size: number;
 }
 
 export interface GalleryAdminTrafficPoint {

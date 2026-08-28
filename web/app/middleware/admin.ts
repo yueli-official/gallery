@@ -31,6 +31,15 @@ const routeCapabilities: Array<{
     capabilities: ["gallery.collection.read", "gallery.collection.manage"],
   },
   {
+    matches: (path) => path === "/manage/comments",
+    capabilities: [
+      "gallery.comment.read",
+      "gallery.comment.moderate",
+      "gallery.comment.delete",
+      "authorization.manage",
+    ],
+  },
+  {
     matches: (path) => path === "/manage/submissions",
     capabilities: ["gallery.submission.read", "gallery.submission.review"],
   },
@@ -56,6 +65,15 @@ const managementLandingPages = [
       "gallery.image.read",
       "gallery.image.update",
       "gallery.image.hide",
+    ],
+  },
+  {
+    path: "/manage/comments",
+    capabilities: [
+      "gallery.comment.read",
+      "gallery.comment.moderate",
+      "gallery.comment.delete",
+      "authorization.manage",
     ],
   },
   {

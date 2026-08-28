@@ -20,11 +20,14 @@ import (
 
 	"github.com/yueli-official/gallery/api/internal/appconfig"
 	"github.com/yueli-official/gallery/api/internal/assetclient"
+	"github.com/yueli-official/gallery/api/internal/commentguard"
 	"github.com/yueli-official/gallery/api/internal/dao"
 	galleryservice "github.com/yueli-official/gallery/api/internal/gallery"
 	"github.com/yueli-official/gallery/api/internal/galleryabuse"
 	"github.com/yueli-official/gallery/api/internal/galleryauthz"
+	"github.com/yueli-official/gallery/api/internal/gallerycomments"
 	"github.com/yueli-official/gallery/api/internal/gallerywebhook"
+	"github.com/yueli-official/gallery/api/internal/identityclient"
 	"github.com/yueli-official/gallery/api/internal/runtime"
 	"github.com/yueli-official/gallery/api/internal/server"
 )
@@ -58,6 +61,7 @@ func main() {
 		}
 		server.Configure(httpServer, server.Deps{
 			Gallery: galleryservice.New(nil), Authorization: galleryauthz.New(authz),
+			Comments: gallerycomments.New(nil, nil),
 		})
 		if handled, exportErr := runtime.ExportOpenAPIIfRequested(httpServer); handled {
 			if exportErr != nil {
@@ -177,6 +181,15 @@ func main() {
 	if err := service.SetAbuse(abuseModule); err != nil {
 		panic(err)
 	}
+	abuseActions, err := galleryabuse.Bind(abuseModule)
+	if err != nil {
+		panic(err)
+	}
+	commentProfiles := identityclient.NewComments(
+		appconfig.IdentityBaseURL(ctx),
+		runtime.TelemetryHTTPClient(nil),
+	)
+	comments := gallerycomments.New(store, commentProfiles, commentguard.New(abuseActions))
 	assetCfg := appconfig.LoadAssetClient(ctx)
 	assetPort, err := assetclient.NewHTTP(assetclient.Config{
 		BaseURL: assetCfg.BaseURL, TokenURL: assetCfg.TokenURL, ClientID: assetCfg.ClientID,
@@ -219,7 +232,7 @@ func main() {
 		panic(err)
 	}
 	server.Configure(httpServer, server.Deps{
-		Gallery: service, Verifier: verifier, Authorization: authorizationService,
+		Gallery: service, Verifier: verifier, Authorization: authorizationService, Comments: comments,
 	})
 	g.Log().Info(ctx, "gallery service starting")
 	httpServer.Run()

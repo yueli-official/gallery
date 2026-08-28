@@ -161,6 +161,7 @@ type fakeStore struct {
 	classificationCreateSeen model.ClassificationIdentityCreateInput
 	classificationUpdateSeen model.ClassificationIdentityUpdateInput
 	tagMatches               []classification.TagMatch
+	publicTagCandidates      []model.TagCandidate
 	candidateCountCalls      int
 	filterPlanSeen           classification.FilterPlan
 	governanceImpacts        []classification.ReferenceImpact
@@ -238,6 +239,9 @@ func (f *fakeStore) ClassificationCandidateCounts(_ context.Context, _ model.Ima
 		groups = append(groups, group)
 	}
 	return groups, "counts:test", nil
+}
+func (f *fakeStore) PublicTagCandidates(_ context.Context, _ model.ImageQuery, _ classification.FilterPlan, _ int) ([]model.TagCandidate, error) {
+	return append([]model.TagCandidate(nil), f.publicTagCandidates...), nil
 }
 func (f *fakeStore) ClassificationGovernanceImpacts(_ context.Context, requests []classification.ImpactRequest) ([]classification.ReferenceImpact, string, error) {
 	if len(requests) == 0 {
@@ -569,6 +573,28 @@ func TestSeededDiscoveryIsStableAndAvoidsAdjacentTopics(t *testing.T) {
 		if index > 0 && first.Images[index].PrimaryCategorySlug == first.Images[index-1].PrimaryCategorySlug {
 			t.Fatalf("diversity rerank should avoid adjacent primary categories when possible: %#v", first.Images)
 		}
+	}
+}
+
+func TestPublicCatalogExposesCountedTagCandidates(t *testing.T) {
+	store := validSubmissionStore()
+	store.settings = &model.SiteSettings{Name: "Gallery", RandomBatchSize: 4, RandomCandidateSize: 40}
+	store.publicTagCandidates = []model.TagCandidate{{
+		ID: testValueID, Slug: "morning-light", Name: "晨光", Count: 12,
+	}}
+	discovery, err := New(store).Discovery(context.Background(), "tag-candidates")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(discovery.Tags) != 1 || discovery.Tags[0].ID != PublicID(testValueID) || discovery.Tags[0].Count != 12 {
+		t.Fatalf("discovery tags = %#v", discovery.Tags)
+	}
+	page, err := New(store).Images(context.Background(), model.ImageQuery{Tag: "morning-light"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Tags) != 1 || !page.Tags[0].Selected {
+		t.Fatalf("image page tags = %#v", page.Tags)
 	}
 }
 

@@ -20,6 +20,8 @@ gallery:
   authorization:
     bootstrapAdministratorSubs:
       - "TestA123"
+  identity:
+    baseUrl: "" # empty derives the internal Identity origin from gallery.jwks.url
   asset:
     baseUrl: "http://localhost:8082"
     tokenUrl: "http://localhost:8081/oauth2/token"

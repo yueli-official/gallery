@@ -11,6 +11,8 @@ import (
 const (
 	ActionGuestSubmission  abuse.ActionKey = "gallery.submission.create.guest"
 	ActionMemberSubmission abuse.ActionKey = "gallery.submission.create.member"
+	ActionGuestComment     abuse.ActionKey = "gallery.comment.create.guest"
+	ActionMemberComment    abuse.ActionKey = "gallery.comment.create.member"
 )
 
 type Policy struct {
@@ -23,7 +25,7 @@ func Definition(policy Policy) abuse.Definition {
 		guestChallengeAt = 5
 	}
 	return abuse.Definition{
-		Version:  1,
+		Version:  2,
 		Consumer: "gallery",
 		Actions: []abuse.ActionDefinition{
 			{
@@ -66,13 +68,37 @@ func Definition(policy Policy) abuse.Definition {
 					},
 				},
 			},
+			{
+				Key: ActionGuestComment,
+				Required: abuse.SignalRequirements{
+					Network: abuse.Required,
+					Actor:   abuse.Required,
+				},
+				Meters: []abuse.MeterDefinition{
+					{ID: "gallery.comment.guest.network", Slot: abuse.SlotNetwork, Algorithm: abuse.TokenBucket(20, 20, time.Hour)},
+					{ID: "gallery.comment.guest.actor", Slot: abuse.SlotActor, Algorithm: abuse.SlidingWindow(8, time.Hour)},
+				},
+			},
+			{
+				Key: ActionMemberComment,
+				Required: abuse.SignalRequirements{
+					Network: abuse.Required,
+					Actor:   abuse.Required,
+				},
+				Meters: []abuse.MeterDefinition{
+					{ID: "gallery.comment.member.network", Slot: abuse.SlotNetwork, Algorithm: abuse.TokenBucket(120, 120, time.Hour)},
+					{ID: "gallery.comment.member.actor", Slot: abuse.SlotActor, Algorithm: abuse.SlidingWindow(40, 24*time.Hour)},
+				},
+			},
 		},
 	}
 }
 
 type Actions struct {
-	Guest  abuse.Action
-	Member abuse.Action
+	Guest         abuse.Action
+	Member        abuse.Action
+	GuestComment  abuse.Action
+	MemberComment abuse.Action
 }
 
 func Bind(module abuse.Module) (Actions, error) {
@@ -84,7 +110,15 @@ func Bind(module abuse.Module) (Actions, error) {
 	if err != nil {
 		return Actions{}, err
 	}
-	return Actions{Guest: guest, Member: member}, nil
+	guestComment, err := module.Action(ActionGuestComment)
+	if err != nil {
+		return Actions{}, err
+	}
+	memberComment, err := module.Action(ActionMemberComment)
+	if err != nil {
+		return Actions{}, err
+	}
+	return Actions{Guest: guest, Member: member, GuestComment: guestComment, MemberComment: memberComment}, nil
 }
 
 func NetworkPrefix(value string) (netip.Prefix, error) {
