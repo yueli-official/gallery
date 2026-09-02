@@ -148,5 +148,5 @@ func commentAvatarURL(mediaKey string) string {
 	if strings.TrimSpace(mediaKey) == "" {
 		return ""
 	}
-	return "/media/" + url.PathEscape(mediaKey) + "?format=webp&name=thumbnail"
+	return "/media/" + url.PathEscape(mediaKey) + "?format=webp&name=thumbnail&v=1"
 }
