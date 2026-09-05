@@ -41,7 +41,7 @@ function section(key: GalleryHomeSectionKey): GalleryHomeSection | undefined {
 const latestSize = computed(() => section("latest")?.itemLimit || 1);
 const [{ data: collections }, { data: latest }, { data: ranking }] =
   await Promise.all([
-    useFetch<{ collections: GalleryCollection[] }>("/api/gallery/collections"),
+    useFetch<{ items: GalleryCollection[] }>("/api/gallery/collections"),
     useFetch<GalleryImagePage>("/api/gallery/images", {
       query: computed(() => ({
         sort: "newest",
@@ -57,7 +57,7 @@ const [{ data: collections }, { data: latest }, { data: ranking }] =
 
 const featuredCollections = computed(() => {
   const limit = section("collections")?.itemLimit || 0;
-  return collections.value?.collections.slice(0, limit) || [];
+  return collections.value?.items.slice(0, limit) || [];
 });
 const trendingImages = computed(() => {
   const limit = section("trending")?.itemLimit || 0;

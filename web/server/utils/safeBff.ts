@@ -8,7 +8,9 @@ export function withSafeBffErrors(
       return await handler(event);
     } catch (error) {
       const safe = sanitizeBffError(error);
-      setResponseStatus(event, safe.statusCode, safe.statusMessage);
+      setResponseStatus(event, safe.status);
+      setResponseHeader(event, "content-type", "application/problem+json");
+      setResponseHeader(event, "x-trace-id", safe.traceId);
       return safe;
     }
   });

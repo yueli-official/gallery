@@ -13,6 +13,7 @@ type CreateSubmissionReq struct {
 	ChallengeProof string `json:"challengeProof" v:"length:0,4096"`
 }
 type CreateSubmissionRes struct {
+	g.Meta     `status:"201"`
 	Submission model.Submission `json:"submission"`
 }
 
@@ -33,11 +34,11 @@ type ListMySubmissionsReq struct {
 	ReviewState     string `p:"reviewState"`
 }
 type ListMySubmissionsRes struct {
-	Submissions []model.Submission `json:"submissions"`
+	Submissions []model.Submission `json:"items"`
 	Total       int                `json:"total"`
 	Page        int                `json:"page"`
-	PageSize    int                `json:"pageSize"`
-	TotalPages  int                `json:"totalPages"`
+	PageSize    int                `json:"size"`
+	TotalPages  int                `json:"-"`
 }
 
 type WithdrawSubmissionReq struct {
@@ -112,6 +113,7 @@ type CreateClassificationIdentityReq struct {
 }
 
 type CreateClassificationIdentityRes struct {
+	g.Meta   `status:"201"`
 	Identity model.ClassificationIdentityCreateResult `json:"identity"`
 }
 
@@ -130,9 +132,7 @@ type ListClassificationTagsReq struct {
 	Cursor string `p:"cursor"`
 	Size   int    `p:"size" d:"50"`
 }
-type ListClassificationTagsRes struct {
-	Page model.ClassificationTagPage `json:"page"`
-}
+type ListClassificationTagsRes struct{ model.ClassificationTagPage }
 
 type ListClassificationTagProposalsReq struct {
 	g.Meta `path:"/api/v1/gallery/admin/classification/tag-proposals" method:"GET" tags:"Gallery admin" summary:"List tag proposals awaiting or completing governance"`
@@ -141,7 +141,9 @@ type ListClassificationTagProposalsReq struct {
 	Size   int    `p:"size" d:"30"`
 }
 type ListClassificationTagProposalsRes struct {
-	Proposals []model.ClassificationTagProposal `json:"proposals"`
+	Page      int                               `json:"page"`
+	Size      int                               `json:"size"`
+	Proposals []model.ClassificationTagProposal `json:"items"`
 	Total     int                               `json:"total"`
 }
 
@@ -215,7 +217,7 @@ type HideImageReq struct {
 	Reason  string `json:"reason" v:"required"`
 }
 type HideImageRes struct {
-	Hidden bool `json:"hidden"`
+	g.Meta `status:"204"`
 }
 
 type ListAdminImagesReq struct {
@@ -258,7 +260,7 @@ type DeleteAdminImageReq struct {
 }
 
 type DeleteAdminImageRes struct {
-	Deleted bool `json:"deleted"`
+	g.Meta `status:"204"`
 }
 
 type BulkHideImagesReq struct {
@@ -303,6 +305,7 @@ type CreateEditorialCollectionReq struct {
 	model.EditorialCollectionInput
 }
 type CreateEditorialCollectionRes struct {
+	g.Meta     `status:"201"`
 	Collection model.Collection `json:"collection"`
 }
 
@@ -310,7 +313,7 @@ type ListEditorialCollectionsReq struct {
 	g.Meta `path:"/api/v1/gallery/admin/collections" method:"GET" tags:"Gallery admin" summary:"List private and public editorial collections"`
 }
 type ListEditorialCollectionsRes struct {
-	Collections []model.Collection `json:"collections"`
+	Collections []model.Collection `json:"items"`
 }
 
 type GetEditorialCollectionReq struct {

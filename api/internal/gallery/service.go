@@ -620,6 +620,10 @@ func (s *Service) Collection(ctx context.Context, slug string, page, size int) (
 	}
 	normalizeCollection(&value.Collection)
 	normalizeCards(value.Images)
+	value.Total = value.ItemCount
+	if value.Images == nil {
+		value.Images = []model.ImageCard{}
+	}
 	value.Page = bounded(page, 1, 100000, 1)
 	value.PageSize = bounded(size, 12, 60, 24)
 	if value.ItemCount > 0 {
@@ -644,6 +648,10 @@ func (s *Service) AdminCollection(ctx context.Context, rawID string, page, size 
 	}
 	normalizeCollection(&value.Collection)
 	normalizeCards(value.Images)
+	value.Total = value.ItemCount
+	if value.Images == nil {
+		value.Images = []model.ImageCard{}
+	}
 	value.Page, value.PageSize = page, size
 	if value.ItemCount > 0 {
 		value.TotalPages = int(math.Ceil(float64(value.ItemCount) / float64(size)))
@@ -1451,11 +1459,19 @@ func (s *Service) Favorites(ctx context.Context, userID string, page, size int, 
 		detail = &model.CollectionDetail{Collection: *value, Images: []model.ImageCard{}}
 	}
 	detail.Page, detail.PageSize = page, size
+	detail.Total = detail.ItemCount
+	if detail.Images == nil {
+		detail.Images = []model.ImageCard{}
+	}
 	if detail.ItemCount > 0 {
 		detail.TotalPages = int(math.Ceil(float64(detail.ItemCount) / float64(size)))
 	}
 	detail.ID = PublicID(detail.ID)
 	normalizeCards(detail.Images)
+	detail.Total = detail.ItemCount
+	if detail.Images == nil {
+		detail.Images = []model.ImageCard{}
+	}
 	return detail, nil
 }
 
@@ -1719,9 +1735,9 @@ func (s *Service) BulkHideImages(ctx context.Context, operator string, input mod
 		seen[publicID] = struct{}{}
 		result := model.BulkImageActionResult{ImageID: publicID}
 		if reason == "" {
-			result.Error = "reason_required"
+			result.Cause = galleryerr.Validation("reason", "required")
 		} else if err := s.HideImage(ctx, operator, publicID, reason); err != nil {
-			result.Error = "not_hidden"
+			result.Cause = err
 		} else {
 			result.Success = true
 		}
@@ -1754,26 +1770,26 @@ func (s *Service) BulkImages(ctx context.Context, operator string, input model.B
 		result := model.BulkImageActionResult{ImageID: publicID}
 		switch {
 		case input.Action == "hide" && input.Reason == "":
-			result.Error = "reason_required"
+			result.Cause = galleryerr.Validation("reason", "required")
 		case input.Action == "hide":
 			if err := s.HideImage(ctx, operator, publicID, input.Reason); err != nil {
-				result.Error = "not_hidden"
+				result.Cause = err
 			} else {
 				result.Success = true
 			}
 		case input.Action == "set_primary_category" && categoryInvalid:
-			result.Error = "category_required"
+			result.Cause = galleryerr.Validation("primaryCategoryId", "required")
 		case input.Action == "set_primary_category":
 			imageID, err := DatabaseID(publicID)
 			if err != nil {
-				result.Error = "image_not_found"
+				result.Cause = galleryerr.NotFound("image", publicID)
 			} else if err := s.store.SetImagePrimaryCategory(ctx, imageID, categoryID); err != nil {
-				result.Error = "category_not_set"
+				result.Cause = err
 			} else {
 				result.Success = true
 			}
 		default:
-			result.Error = "unsupported_action"
+			result.Cause = galleryerr.Validation("action", "unsupported")
 		}
 		results = append(results, result)
 	}
@@ -1888,7 +1904,7 @@ func (s *Service) BulkReviewSubmissions(ctx context.Context, operator string, in
 			Decision: input.Decision,
 			Note:     input.Note,
 		}); err != nil {
-			result.Error = err.Error()
+			result.Cause = err
 		} else {
 			result.Success = true
 		}

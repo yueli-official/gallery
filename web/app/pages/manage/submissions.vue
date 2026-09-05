@@ -82,7 +82,7 @@ async function loadSubmissions(
     );
     const lastPage = Math.max(
       1,
-      data.totalPages || Math.ceil(data.total / nextQuery.size),
+      galleryPageCount(data) || Math.ceil(data.total / nextQuery.size),
     );
     if (nextQuery.page > lastPage) {
       activeWorkflow.setQuery({ ...nextQuery, page: lastPage });
@@ -411,7 +411,7 @@ async function review(
     actionErrors.value = {
       ...actionErrors.value,
       [item.id]:
-        reason?.data?.message || "操作没有完成；状态可能已变化，请刷新后重试。",
+        galleryFailureMessage(reason, "操作没有完成；状态可能已变化，请刷新后重试。"),
     };
     return false;
   } finally {
@@ -438,7 +438,7 @@ async function bulkApprove() {
       results: Array<{
         submissionId: string;
         success: boolean;
-        error?: string;
+        failure?: import("~/utils/galleryFailure").GalleryOperationFailure;
       }>;
     }>("/admin/submissions/bulk-review", {
       method: "POST",
@@ -453,13 +453,14 @@ async function bulkApprove() {
     bulkResult.value = {
       approved: response.results.length - failed.length,
       failed: failed.length,
+      message: failed.length ? galleryBatchFailureMessage(failed[0]?.failure, "部分项目未完成，请刷新后重试。") : undefined,
     };
     await refresh();
   } catch (reason: any) {
     bulkResult.value = {
       approved: 0,
       failed: selectedIds.value.length,
-      message: reason?.data?.message || "批量请求中断，当前选择已保留。",
+      message: galleryFailureMessage(reason, "批量请求中断，当前选择已保留。"),
     };
   } finally {
     bulkPending.value = false;

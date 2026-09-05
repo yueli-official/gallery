@@ -8,7 +8,6 @@ const contract = JSON.parse(
   fs.readFileSync(path.join(e2eRoot, "contract.json"), "utf8"),
 );
 const localHost = process.env.LOCAL_LAN_HOST?.trim() || "127.0.0.1";
-const identityPort = process.env.LOCAL_IDENTITY_PORT?.trim() || "8081";
 const accountPort = process.env.LOCAL_ACCOUNT_PORT?.trim() || "3000";
 const galleryPort = process.env.LOCAL_GALLERY_WEB_PORT?.trim() || "3007";
 const galleryURL =
@@ -24,7 +23,7 @@ process.env.GALLERY_E2E_SITES ||= JSON.stringify([
 ]);
 process.env.GALLERY_E2E_IDENTITY_URL ||=
   process.env.IDENTITY_BASE_URL?.trim() ||
-  `http://${localHost}:${identityPort}`;
+  `http://${localHost}:${accountPort}`;
 process.env.GALLERY_E2E_ACCOUNT_URL ||=
   process.env.NUXT_PUBLIC_ACCOUNT_URL?.trim() ||
   `http://${localHost}:${accountPort}`;

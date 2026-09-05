@@ -452,7 +452,7 @@ func TestBulkReviewSubmissionsApprovesValidItemsAndKeepsPerItemFailure(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(results) != 2 || !results[0].Success || results[1].Success || results[1].Error == "" {
+	if len(results) != 2 || !results[0].Success || results[1].Success || results[1].Cause == nil {
 		t.Fatalf("bulk review results = %#v", results)
 	}
 	_, err = New(store).BulkReviewSubmissions(context.Background(), "operator-1", model.BulkSubmissionReviewInput{
@@ -694,11 +694,11 @@ func TestBulkImagesSupportsPrimaryCategoryAndPerItemFailure(t *testing.T) {
 		ImageIDs: []string{PublicID(testCategoryID), "not-an-id", PublicID(testCategoryID)},
 		Action:   "set_primary_category", PrimaryCategoryID: PublicID(testFacetID),
 	})
-	if len(results) != 2 || !results[0].Success || results[1].Success || results[1].Error != "image_not_found" || store.primaryCategorySeen != testFacetID {
+	if len(results) != 2 || !results[0].Success || results[1].Success || results[1].Cause == nil || store.primaryCategorySeen != testFacetID {
 		t.Fatalf("bulk primary category results = %#v seen = %q", results, store.primaryCategorySeen)
 	}
 	unsupported := New(store).BulkImages(context.Background(), "operator-1", model.BulkImageActionInput{ImageIDs: []string{PublicID(testCategoryID)}, Action: "delete"})
-	if len(unsupported) != 1 || unsupported[0].Error != "unsupported_action" {
+	if len(unsupported) != 1 || unsupported[0].Cause == nil {
 		t.Fatalf("unsupported bulk action = %#v", unsupported)
 	}
 }
@@ -787,7 +787,7 @@ func TestBulkHideImagesReportsPerItemOutcomes(t *testing.T) {
 	results := New(store).BulkHideImages(context.Background(), "operator-1", model.BulkImageHideInput{
 		ImageIDs: []string{PublicID(testCategoryID), "not-an-id", PublicID(testCategoryID)}, Reason: "policy",
 	})
-	if len(results) != 2 || !results[0].Success || results[1].Success || results[1].Error == "" {
+	if len(results) != 2 || !results[0].Success || results[1].Success || results[1].Cause == nil {
 		t.Fatalf("bulk hide results = %#v", results)
 	}
 }

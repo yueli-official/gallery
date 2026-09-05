@@ -1,0 +1,103 @@
+{
+  "schemaVersion": "errors.yueli.dev/i18n-inventory/v1",
+  "namespace": "gallery",
+  "messages": [
+    {
+      "code": "gallery.abuse_attempt_replayed",
+      "messageKey": "errors.gallery.abuse_attempt_replayed"
+    },
+    {
+      "code": "gallery.abuse_unavailable",
+      "messageKey": "errors.gallery.abuse_unavailable"
+    },
+    {
+      "code": "gallery.authorization_unavailable",
+      "messageKey": "errors.gallery.authorization_unavailable"
+    },
+    {
+      "code": "gallery.challenge_required",
+      "messageKey": "errors.gallery.challenge_required",
+      "params": [
+        "attemptId",
+        "challenge"
+      ]
+    },
+    {
+      "code": "gallery.conflict",
+      "messageKey": "errors.gallery.conflict",
+      "params": [
+        "resource"
+      ]
+    },
+    {
+      "code": "gallery.forbidden",
+      "messageKey": "errors.gallery.forbidden"
+    },
+    {
+      "code": "gallery.gateway.timeout",
+      "messageKey": "errors.gallery.gateway.timeout"
+    },
+    {
+      "code": "gallery.gateway.unavailable",
+      "messageKey": "errors.gallery.gateway.unavailable"
+    },
+    {
+      "code": "gallery.gone",
+      "messageKey": "errors.gallery.gone",
+      "params": [
+        "id",
+        "resource"
+      ]
+    },
+    {
+      "code": "gallery.invalid_state",
+      "messageKey": "errors.gallery.invalid_state",
+      "params": [
+        "resource",
+        "state"
+      ]
+    },
+    {
+      "code": "gallery.not_authenticated",
+      "messageKey": "errors.gallery.not_authenticated"
+    },
+    {
+      "code": "gallery.not_found",
+      "messageKey": "errors.gallery.not_found",
+      "params": [
+        "id",
+        "resource"
+      ]
+    },
+    {
+      "code": "gallery.not_initialized",
+      "messageKey": "errors.gallery.not_initialized",
+      "params": [
+        "resource"
+      ]
+    },
+    {
+      "code": "gallery.rate_limited",
+      "messageKey": "errors.gallery.rate_limited"
+    },
+    {
+      "code": "gallery.request.body_too_large",
+      "messageKey": "errors.gallery.request.body_too_large"
+    },
+    {
+      "code": "gallery.request.invalid",
+      "messageKey": "errors.gallery.request.invalid"
+    },
+    {
+      "code": "gallery.request.method_not_allowed",
+      "messageKey": "errors.gallery.request.method_not_allowed"
+    },
+    {
+      "code": "gallery.upstream_failed",
+      "messageKey": "errors.gallery.upstream_failed",
+      "params": [
+        "upstreamCode"
+      ]
+    }
+  ]
+}

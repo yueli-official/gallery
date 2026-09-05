@@ -65,12 +65,12 @@ func (c *Public) ListRelatedImages(ctx context.Context, req *v1.ListRelatedImage
 	if err != nil {
 		return nil, err
 	}
-	return &v1.ListRelatedImagesRes{Items: values}, nil
+	return &v1.ListRelatedImagesRes{Items: itemsOrEmpty(values)}, nil
 }
 
 func (c *Public) ListCollections(ctx context.Context, _ *v1.ListCollectionsReq) (*v1.ListCollectionsRes, error) {
 	values, err := c.service.Collections(ctx)
-	return &v1.ListCollectionsRes{Collections: values}, err
+	return &v1.ListCollectionsRes{Collections: itemsOrEmpty(values)}, err
 }
 
 func (c *Public) GetCollection(ctx context.Context, req *v1.GetCollectionReq) (*v1.GetCollectionRes, error) {
@@ -95,6 +95,7 @@ func (c *Public) CreateCase(ctx context.Context, req *v1.CreateCaseReq) (*v1.Cre
 	if err != nil {
 		return nil, err
 	}
+	writeSuccess(ctx, 201, "")
 	return &v1.CreateCaseRes{Case: *value}, nil
 }
 
@@ -103,7 +104,8 @@ func (c *Public) TrackImageEvent(ctx context.Context, req *v1.TrackImageEventReq
 	if err := c.service.TrackEvent(ctx, subject, req.ImageID, req.EventInput); err != nil {
 		return nil, err
 	}
-	return &v1.TrackImageEventRes{Recorded: true}, nil
+	writeSuccess(ctx, 204, "")
+	return &v1.TrackImageEventRes{}, nil
 }
 
 func splitCSV(value string) []string {

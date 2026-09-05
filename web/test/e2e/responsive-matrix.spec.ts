@@ -124,7 +124,11 @@ export function registerResponsiveSuite(product: string) {
             .locator("#authorization")
             .boundingBox();
           expect(manageBounds).not.toBeNull();
-          expect(manageBounds!.width).toBeLessThanOrEqual(1537);
+          const panel = await managePage.locator("[data-admin-console-panel]").boundingBox();
+          expect(panel).not.toBeNull();
+          expect(manageBounds!.x).toBeGreaterThanOrEqual(panel!.x - 1);
+          expect(manageBounds!.x + manageBounds!.width).toBeLessThanOrEqual(panel!.x + panel!.width + 1);
+          expect(manageBounds!.width).toBeGreaterThanOrEqual(Math.min(1200, panel!.width));
         } finally {
           await context.close();
         }

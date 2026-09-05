@@ -50,7 +50,7 @@ async function submit(): Promise<void> {
   } catch (reason: any) {
     toast.add({
       title: "提交失败",
-      description: reason?.data?.message || reason?.message || "请稍后重试",
+      description: galleryFailureMessage(reason, "请稍后重试"),
       color: "error",
     });
   } finally {

@@ -1,3 +1,4 @@
+import { failureFromProblemResponse } from "@yueli/http-runtime";
 import type { GalleryUploadedAsset } from "~/types/gallery";
 import { assetUploadURL } from "@yueli/asset-nuxt/upload";
 
@@ -11,18 +12,50 @@ export function useGalleryAssetUpload() {
   const { call } = useAssetApi();
   const { assetNamespace } = useSiteRuntime();
 
-  function put(url: string, file: File, headers: Record<string, string>, onProgress?: (value: number) => void) {
+  function put(
+    url: string,
+    file: File,
+    headers: Record<string, string>,
+    onProgress?: (value: number) => void,
+  ) {
     return new Promise<void>((resolve, reject) => {
       const request = new XMLHttpRequest();
       request.open("PUT", assetUploadURL(url));
-      Object.entries(headers).forEach(([key, value]) => request.setRequestHeader(key, value));
+      Object.entries(headers).forEach(([key, value]) =>
+        request.setRequestHeader(key, value),
+      );
       request.upload.onprogress = (event) => {
-        if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 95));
+        if (event.lengthComputable)
+          onProgress?.(Math.round((event.loaded / event.total) * 95));
       };
-      request.onload = () => request.status >= 200 && request.status < 300
-        ? resolve()
-        : reject(new Error(`上传失败 (HTTP ${request.status})`));
-      request.onerror = () => reject(new Error("上传网络错误，请确认资源服务在线"));
+      request.onload = async () => {
+        if (request.status >= 200 && request.status < 300) {
+          resolve();
+          return;
+        }
+        if (request.status < 400) {
+          reject({
+            kind: "network",
+            code: "foundation.request.network",
+            reauth: "not-attempted",
+          });
+          return;
+        }
+        const response = new Response(request.responseText, {
+          status: request.status,
+          headers: {
+            "content-type": request.getResponseHeader("content-type") || "",
+            "x-trace-id": request.getResponseHeader("x-trace-id") || "",
+          },
+        });
+        reject(await failureFromProblemResponse(response, 64 * 1024));
+      };
+      request.onerror = () =>
+        reject({
+          kind: "network",
+          code: "foundation.request.network",
+          reauth: "not-attempted",
+        });
       request.send(file);
     });
   }
@@ -43,10 +76,13 @@ export function useGalleryAssetUpload() {
     });
     await put(init.uploadUrl, file, init.uploadHeaders ?? {}, onProgress);
     onProgress?.(98);
-    const finalized = await call<{ asset: GalleryUploadedAsset }>("/api/v1/assets/finalize", {
-      method: "POST",
-      body: { uploadToken: init.uploadToken },
-    });
+    const finalized = await call<{ asset: GalleryUploadedAsset }>(
+      "/api/v1/assets/finalize",
+      {
+        method: "POST",
+        body: { uploadToken: init.uploadToken },
+      },
+    );
     onProgress?.(100);
     return finalized.asset;
   }

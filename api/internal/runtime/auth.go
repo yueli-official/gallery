@@ -15,7 +15,7 @@ import (
 
 const (
 	traceHeader             = "X-Trace-Id"
-	unauthorizedProblemType = "https://yueli.dev/problems/common.unauthorized"
+	unauthorizedProblemType = "https://errors.yueli.dev/problems/common.unauthorized"
 )
 
 var unauthorizedKind = problem.MustKind("common.unauthorized", http.StatusUnauthorized)

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { FailureFeedback } from "@yueli/http-runtime";
+const editFailure = ref<FailureFeedback | null>(null);
 import { galleryAdminMutationErrorMessage } from "~/utils/galleryAdminErrors";
 import { ManagePage } from "@yueli/ui/admin";
 import { createGalleryNotifier } from "~/utils/feedback";
@@ -106,7 +108,7 @@ async function loadImages(
     });
     const lastPage = Math.max(
       1,
-      data.totalPages || Math.ceil(data.total / nextQuery.size),
+      galleryPageCount(data) || Math.ceil(data.total / nextQuery.size),
     );
     if (nextQuery.page > lastPage) {
       activeWorkflow.setQuery({ ...nextQuery, page: lastPage });
@@ -271,13 +273,13 @@ const facetOptions = computed(() => [
 const { data: tagData } = await useAsyncData(
   "gallery-manage-image-tags",
   () =>
-    call<{ page: GalleryClassificationTagPage }>(
+    call<GalleryClassificationTagPage>(
       "/admin/classification/tags?size=100",
     ),
-  { server: false, default: () => ({ page: { items: [], nextCursor: "" } }) },
+  { server: false, default: () => ({ items: [], nextCursor: "" }) },
 );
 const tagOptions = computed(() =>
-  tagData.value.page.items
+  tagData.value.items
     .filter((item) => item.status === "active")
     .map((item) => ({ label: item.name, value: item.id })),
 );
@@ -286,12 +288,12 @@ const { data: collectionData, refresh: refreshCollections } =
     "gallery-manage-image-collection-options",
     () =>
       canCollectionManage.value
-        ? call<{ collections: GalleryCollection[] }>("/admin/collections")
-        : Promise.resolve({ collections: [] }),
-    { server: false, default: () => ({ collections: [] }) },
+        ? call<{ items: GalleryCollection[] }>("/admin/collections")
+        : Promise.resolve({ items: [] }),
+    { server: false, default: () => ({ items: [] }) },
   );
 const collectionOptions = computed(() =>
-  collectionData.value.collections.map((item) => ({
+  collectionData.value.items.map((item) => ({
     label: `${item.name} · ${item.itemCount} 张`,
     value: item.id,
   })),
@@ -449,6 +451,7 @@ const editForm = reactive({
   tagIds: [] as string[],
 });
 function hydrateEditForm(item: GalleryAdminImage) {
+  editFailure.value = null;
   editing.value = item;
   deleteConfirming.value = false;
   deleteError.value = "";
@@ -500,7 +503,7 @@ async function openEdit(item: GalleryAdminImage) {
     toast.add({
       title: "无法打开图片编辑器",
       description:
-        reason?.data?.message || "图片记录可能已变化，请刷新后重试。",
+        galleryFailureMessage(reason, "图片记录可能已变化，请刷新后重试。"),
       color: "error",
     });
   } finally {
@@ -517,6 +520,7 @@ async function saveEdit() {
   )
     return;
   editPending.value = true;
+  editFailure.value = null;
   try {
     await call(`/admin/images/${encodeURIComponent(editing.value.id)}`, {
       method: "PATCH",
@@ -538,12 +542,7 @@ async function saveEdit() {
     editing.value = undefined;
     await refresh();
   } catch (reason: any) {
-    toast.add({
-      title: "图片信息没有保存",
-      description: galleryAdminMutationErrorMessage(reason),
-      color: "error",
-    });
-    await refresh();
+    editFailure.value = galleryFailureFeedback(reason,"图片信息没有保存，请检查后重试。",{"/title":"title","/altText":"altText","/description":"description","/sourceUrl":"sourceUrl","/primaryCategoryId":"primaryCategoryId","/classification/primaryCategoryId":"primaryCategoryId","/tagIds":"tagIds","/classification/tagIds":"tagIds"});
   } finally {
     editPending.value = false;
   }
@@ -605,7 +604,7 @@ async function runBatch() {
   batchPending.value = true;
   try {
     if (batchAction.value === "add_to_collection") {
-      const target = collectionData.value.collections.find(
+      const target = collectionData.value.items.find(
         (item) => item.id === batchCollectionId.value,
       );
       if (!target) return;
@@ -630,7 +629,7 @@ async function runBatch() {
       return;
     }
     const response = await call<{
-      results: Array<{ imageId: string; success: boolean; error?: string }>;
+      results: Array<{ imageId: string; success: boolean; failure?: import("~/utils/galleryFailure").GalleryOperationFailure }>;
     }>("/admin/images/bulk", {
       method: "POST",
       body: {
@@ -646,6 +645,7 @@ async function runBatch() {
     batchResult.value = {
       changed: response.results.length - failed.length,
       failed: failed.length,
+      message: failed.length ? galleryBatchFailureMessage(failed[0]?.failure, "部分项目未完成，请刷新后重试。") : undefined,
     };
     batchOpen.value = false;
     batchAction.value = undefined;
@@ -658,7 +658,7 @@ async function runBatch() {
       changed: 0,
       failed: selectedIds.value.length,
       interrupted: true,
-      message: reason?.data?.message || "批量请求中断，当前选择已保留。",
+      message: galleryFailureMessage(reason, "批量请求中断，当前选择已保留。"),
     };
   } finally {
     batchPending.value = false;
@@ -1085,16 +1085,17 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
             title="图片没有删除"
             :description="deleteError"
           />
-          <UFormField label="标题" required
+          <GalleryFailureNotice :feedback="editFailure" />
+          <UFormField :error="editFailure?.fieldErrors.title?.join(' ')" label="标题" required
             ><UInput v-model="editForm.title" maxlength="160" class="w-full"
           /></UFormField>
-          <UFormField label="替代文本" required
+          <UFormField :error="editFailure?.fieldErrors.altText?.join(' ')" label="替代文本" required
             ><UInput v-model="editForm.altText" class="w-full"
           /></UFormField>
-          <UFormField label="说明"
+          <UFormField :error="editFailure?.fieldErrors.description?.join(' ')" label="说明"
             ><UTextarea v-model="editForm.description" :rows="4" class="w-full"
           /></UFormField>
-          <UFormField label="来源地址"
+          <UFormField :error="editFailure?.fieldErrors.sourceUrl?.join(' ')" label="来源地址"
             ><UInput
               v-model="editForm.sourceUrl"
               type="url"
@@ -1107,7 +1108,7 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
               主分类用于导航；每个维度最多选择一个值。
             </p>
           </div>
-          <UFormField label="主分类" required>
+          <UFormField :error="editFailure?.fieldErrors.primaryCategoryId?.join(' ')" label="主分类" required>
             <USelectMenu
               v-model="editForm.primaryCategoryId"
               aria-label="主分类"
@@ -1137,7 +1138,7 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
               />
             </UFormField>
           </div>
-          <UFormField label="标签" hint="可多选">
+          <UFormField :error="editFailure?.fieldErrors.tagIds?.join(' ')" label="标签" hint="可多选">
             <USelectMenu
               v-model="editForm.tagIds"
               aria-label="标签"

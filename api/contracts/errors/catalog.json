@@ -1,53 +1,172 @@
 {
-  "schemaVersion": "gallery.yueli.dev/error-catalog/v1",
+  "schemaVersion": "errors.yueli.dev/catalog/v1",
   "errors": [
     {
       "code": "gallery.abuse_attempt_replayed",
-      "status": 409
+      "status": 409,
+      "goName": "AbuseReplay",
+      "messageKey": "errors.gallery.abuse_attempt_replayed"
     },
     {
       "code": "gallery.abuse_unavailable",
-      "status": 503
+      "status": 503,
+      "goName": "AbuseUnavailable",
+      "messageKey": "errors.gallery.abuse_unavailable"
     },
     {
       "code": "gallery.authorization_unavailable",
-      "status": 503
+      "status": 503,
+      "goName": "AuthorizationUnavailable",
+      "messageKey": "errors.gallery.authorization_unavailable"
     },
     {
       "code": "gallery.challenge_required",
-      "status": 403
+      "status": 403,
+      "goName": "ChallengeRequired",
+      "messageKey": "errors.gallery.challenge_required",
+      "params": {
+        "attemptId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "challenge": {
+          "type": "string",
+          "maxLength": 32
+        }
+      }
     },
     {
       "code": "gallery.conflict",
-      "status": 409
+      "status": 409,
+      "goName": "Conflict",
+      "messageKey": "errors.gallery.conflict",
+      "params": {
+        "resource": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
     },
     {
       "code": "gallery.forbidden",
-      "status": 403
+      "status": 403,
+      "goName": "Forbidden",
+      "messageKey": "errors.gallery.forbidden"
     },
     {
       "code": "gallery.gone",
-      "status": 410
+      "status": 410,
+      "goName": "Gone",
+      "messageKey": "errors.gallery.gone",
+      "params": {
+        "resource": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        }
+      }
     },
     {
       "code": "gallery.invalid_state",
-      "status": 409
+      "status": 409,
+      "goName": "InvalidState",
+      "messageKey": "errors.gallery.invalid_state",
+      "params": {
+        "resource": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "state": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
     },
     {
       "code": "gallery.not_found",
-      "status": 404
+      "status": 404,
+      "goName": "NotFound",
+      "messageKey": "errors.gallery.not_found",
+      "params": {
+        "resource": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 128
+        }
+      }
     },
     {
       "code": "gallery.not_initialized",
-      "status": 503
+      "status": 503,
+      "goName": "NotInitialized",
+      "messageKey": "errors.gallery.not_initialized",
+      "params": {
+        "resource": {
+          "type": "string",
+          "maxLength": 64
+        }
+      }
     },
     {
       "code": "gallery.rate_limited",
-      "status": 429
+      "status": 429,
+      "goName": "RateLimited",
+      "messageKey": "errors.gallery.rate_limited"
     },
     {
       "code": "gallery.upstream_failed",
-      "status": 502
+      "status": 502,
+      "goName": "UpstreamFailed",
+      "messageKey": "errors.gallery.upstream_failed",
+      "params": {
+        "upstreamCode": {
+          "type": "string",
+          "maxLength": 128
+        }
+      }
+    },
+    {
+      "code": "gallery.gateway.unavailable",
+      "goName": "GatewayUnavailable",
+      "status": 502,
+      "messageKey": "errors.gallery.gateway.unavailable"
+    },
+    {
+      "code": "gallery.gateway.timeout",
+      "goName": "GatewayTimeout",
+      "status": 504,
+      "messageKey": "errors.gallery.gateway.timeout"
+    },
+    {
+      "code": "gallery.request.invalid",
+      "goName": "RequestInvalid",
+      "status": 400,
+      "messageKey": "errors.gallery.request.invalid"
+    },
+    {
+      "code": "gallery.request.method_not_allowed",
+      "goName": "MethodNotAllowed",
+      "status": 405,
+      "messageKey": "errors.gallery.request.method_not_allowed"
+    },
+    {
+      "code": "gallery.request.body_too_large",
+      "goName": "BodyTooLarge",
+      "status": 413,
+      "messageKey": "errors.gallery.request.body_too_large"
+    },
+    {
+      "code": "gallery.not_authenticated",
+      "goName": "Unauthorized",
+      "status": 401,
+      "messageKey": "errors.gallery.not_authenticated"
     }
-  ]
+  ],
+  "namespace": "gallery"
 }

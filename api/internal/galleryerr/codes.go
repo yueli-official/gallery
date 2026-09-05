@@ -4,75 +4,32 @@ package galleryerr
 import (
 	"fmt"
 	"net/http"
-	"sort"
+	"regexp"
 	"strings"
 
 	"github.com/yueli-official/foundation/go/problem"
-)
-
-const (
-	CodeNotFound                 = "gallery.not_found"
-	CodeGone                     = "gallery.gone"
-	CodeNotInitialized           = "gallery.not_initialized"
-	CodeForbidden                = "gallery.forbidden"
-	CodeConflict                 = "gallery.conflict"
-	CodeInvalidState             = "gallery.invalid_state"
-	CodeUpstreamFailed           = "gallery.upstream_failed"
-	CodeRateLimited              = "gallery.rate_limited"
-	CodeChallengeRequired        = "gallery.challenge_required"
-	CodeAbuseUnavailable         = "gallery.abuse_unavailable"
-	CodeAbuseReplay              = "gallery.abuse_attempt_replayed"
-	CodeAuthorizationUnavailable = "gallery.authorization_unavailable"
 )
 
 var (
 	DescriptorRateLimited = descriptor("common.rate_limited", http.StatusTooManyRequests)
 	DescriptorValidation  = descriptor("common.validation_failed", http.StatusBadRequest)
 	DescriptorInternal    = descriptor("common.internal", http.StatusInternalServerError)
-
-	descriptors = map[string]problem.Descriptor{
-		CodeNotFound:                 descriptor(CodeNotFound, http.StatusNotFound),
-		CodeGone:                     descriptor(CodeGone, http.StatusGone),
-		CodeNotInitialized:           descriptor(CodeNotInitialized, http.StatusServiceUnavailable),
-		CodeForbidden:                descriptor(CodeForbidden, http.StatusForbidden),
-		CodeConflict:                 descriptor(CodeConflict, http.StatusConflict),
-		CodeInvalidState:             descriptor(CodeInvalidState, http.StatusConflict),
-		CodeUpstreamFailed:           descriptor(CodeUpstreamFailed, http.StatusBadGateway),
-		CodeRateLimited:              descriptor(CodeRateLimited, http.StatusTooManyRequests),
-		CodeChallengeRequired:        descriptor(CodeChallengeRequired, http.StatusForbidden),
-		CodeAbuseUnavailable:         descriptor(CodeAbuseUnavailable, http.StatusServiceUnavailable),
-		CodeAbuseReplay:              descriptor(CodeAbuseReplay, http.StatusConflict),
-		CodeAuthorizationUnavailable: descriptor(CodeAuthorizationUnavailable, http.StatusServiceUnavailable),
-	}
 )
 
-func descriptor(code string, status int) problem.Descriptor {
-	return problem.MustDescriptor(
-		problem.MustKind(code, status),
-		"https://errors.yueli.dev/problems/"+code,
-	)
-}
-
-func DescriptorForCode(code string) (problem.Descriptor, bool) {
-	value, ok := descriptors[code]
-	return value, ok
-}
-
-type CatalogEntry struct {
-	Code   string `json:"code"`
-	Status int    `json:"status"`
-}
-
-func Catalog() []CatalogEntry {
-	result := make([]CatalogEntry, 0, len(descriptors))
-	for code, value := range descriptors {
-		result = append(result, CatalogEntry{Code: code, Status: value.Kind().Status()})
-	}
-	sort.Slice(result, func(i, j int) bool { return result[i].Code < result[j].Code })
-	return result
-}
-
 func mapped(code string, params problem.Parameters) error {
+	for key, value := range params {
+		text, ok := value.(string)
+		limit := 128
+		switch key {
+		case "resource", "state":
+			limit = 64
+		case "challenge":
+			limit = 32
+		}
+		if !ok || len(text) > limit || strings.ContainsAny(text, "\r\n") {
+			return fmt.Errorf("gallery public parameter %s exceeds its declared budget", key)
+		}
+	}
 	value, ok := DescriptorForCode(code)
 	if !ok {
 		return fmt.Errorf("gallery public error code is not declared: %s", code)
@@ -104,11 +61,10 @@ func Gone(resource, id string) error {
 	return mapped(CodeGone, map[string]any{"resource": resource, "id": id})
 }
 
-func Validation(field, detail string) error {
+func Validation(field, _ string) error {
 	pointer := "/" + strings.ReplaceAll(strings.ReplaceAll(field, "~", "~0"), "/", "~1")
 	violation := problem.Violation{
 		Pointer: pointer, Code: "validation.invalid",
-		Params: problem.Parameters{"detail": detail},
 	}
 	result, err := problem.NewError(DescriptorValidation, nil, violation)
 	if err != nil {
@@ -122,6 +78,9 @@ func InvalidState(resource, state string) error {
 }
 
 func UpstreamFailed(code string) error {
+	if !regexp.MustCompile(`^[a-z][a-z0-9._-]{0,127}$`).MatchString(code) {
+		code = "asset.unavailable"
+	}
 	return mapped(CodeUpstreamFailed, map[string]any{"upstreamCode": code})
 }
 

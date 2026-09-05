@@ -2,7 +2,7 @@
 import type { GalleryCollection } from "~/types/gallery";
 
 const { data, error, status, refresh } = await useFetch<{
-  collections: GalleryCollection[];
+  items: GalleryCollection[];
 }>("/api/gallery/collections");
 useSeoMeta({ title: "专题集合", description: "由运营方整理的公开图片专题。" });
 </script>
@@ -25,11 +25,11 @@ useSeoMeta({ title: "专题集合", description: "由运营方整理的公开图
       ><template #actions><UButton label="重试" @click="refresh()" /></template
     ></UAlert>
     <div
-      v-else-if="data?.collections.length"
+      v-else-if="data?.items.length"
       class="grid gap-x-5 gap-y-9 sm:grid-cols-2 lg:grid-cols-3"
     >
       <NuxtLink
-        v-for="collection in data.collections"
+        v-for="collection in data.items"
         :key="collection.id"
         :to="`/collections/${collection.slug}`"
         class="gallery-collection-card group block min-w-0 rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"

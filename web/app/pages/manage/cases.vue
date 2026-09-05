@@ -63,9 +63,8 @@ const { data, pending, error, refresh } = await useAsyncData(
     default: () => ({
       items: [],
       page: 1,
-      pageSize: 20,
+      size: 20,
       total: 0,
-      totalPages: 0,
     }),
   },
 );
@@ -193,8 +192,7 @@ async function resolve(
     actionErrors.value = {
       ...actionErrors.value,
       [item.id]:
-        reason?.data?.message ||
-        "处理单可能已被其他运营者更新；当前备注已保留，请刷新后重试。",
+        galleryFailureMessage(reason, "处理单可能已被其他运营者更新；当前备注已保留，请刷新后重试。"),
     };
   } finally {
     acting.value = "";
@@ -400,13 +398,13 @@ async function resolve(
       />
 
       <nav
-        v-if="data.totalPages > 1"
+        v-if="galleryPageCount(data) > 1"
         class="flex items-center justify-center gap-3 border-t border-default p-4"
         aria-label="处理单分页"
       >
         <CollectionPagination
           :model-value="page"
-          :total-pages="data.totalPages"
+          :total-pages="galleryPageCount(data)"
           @update:model-value="setQuery({ page: $event })"
         />
       </nav>

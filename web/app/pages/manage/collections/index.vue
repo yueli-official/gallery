@@ -23,16 +23,16 @@ const form = reactive({
 const { data, pending, error, refresh } = await useAsyncData(
   "gallery-manage-collections",
   () =>
-    call<{ collections: GalleryCollection[] }>(
+    call<{ items: GalleryCollection[] }>(
       "/admin/collections",
     ),
-  { server: false, default: () => ({ collections: [] }) },
+  { server: false, default: () => ({ items: [] }) },
 );
 const search = ref("");
 const visibility = ref<"all" | "public" | "private">("all");
 const filteredCollections = computed(() => {
   const query = search.value.trim().toLowerCase();
-  return data.value.collections.filter(
+  return data.value.items.filter(
     (item) =>
       (visibility.value === "all" || item.visibility === visibility.value) &&
       (!query ||
@@ -93,7 +93,7 @@ async function createCollection() {
     await refresh();
   } catch (reason: any) {
     createError.value =
-      reason?.data?.message || reason?.message || "专题没有创建，请重试。";
+      galleryFailureMessage(reason, "专题没有创建，请重试。");
   } finally {
     creating.value = false;
   }
@@ -119,7 +119,7 @@ async function createCollection() {
       ><template #actions><UButton label="重试" @click="refresh()" /></template
     ></UAlert>
     <section
-      v-else-if="data.collections.length"
+      v-else-if="data.items.length"
       class="overflow-hidden rounded-xl border border-default bg-default"
       aria-label="专题列表"
     >

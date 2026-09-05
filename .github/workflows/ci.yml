@@ -20,6 +20,8 @@ jobs:
         working-directory: api
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: api/go.mod
@@ -34,7 +36,12 @@ jobs:
       - name: 检查错误目录
         env:
           GOWORK: "off"
-        run: go run ./cmd/errorcatalog --check
+        run: >-
+          go run github.com/yueli-official/foundation/go/httpcontract/cmd/httpcontract@v0.4.1
+          -errors contracts/errors/catalog.json -operations contracts/http-result/operations.json
+          -generate-go internal/galleryerr/catalog_gen.go -package galleryerr
+          -generate-ts ../web/app/generated/galleryFailure.ts -ts-type GalleryFailure
+          -generate-i18n ../web/app/generated/error-i18n-inventory.json -check
       - name: 检查 OpenAPI 契约
         env:
           GOWORK: "off"
@@ -42,6 +49,19 @@ jobs:
         run: |
           go run ./cmd/gallery
           diff -u ../contracts/openapi/gallery.json "$GALLERY_OPENAPI_OUTPUT"
+      - name: HTTP Result compatibility
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          base_ref="${PR_BASE_SHA:-HEAD^}"
+          if git cat-file -e "${base_ref}:api/contracts/http-result/operations.json"; then
+            temp_dir="$(mktemp -d)"
+            git show "${base_ref}:api/contracts/errors/catalog.json" > "${temp_dir}/errors.json"
+            git show "${base_ref}:api/contracts/http-result/operations.json" > "${temp_dir}/operations.json"
+            go run github.com/yueli-official/foundation/go/httpcontract/cmd/httpcontract@v0.4.1 \
+              -errors contracts/errors/catalog.json -operations contracts/http-result/operations.json \
+              -base-errors "${temp_dir}/errors.json" -base-operations "${temp_dir}/operations.json"
+          fi
       - name: 运行测试
         env:
           GOWORK: "off"
@@ -56,7 +76,6 @@ jobs:
         run: >-
           go build
           ./cmd/gallery
-          ./cmd/errorcatalog
           ./cmd/devseed
           ./cmd/bootstrap
           ./cmd/bindingcheck

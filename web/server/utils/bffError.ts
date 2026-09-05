@@ -1,42 +1,29 @@
-interface SafeBffError {
-  error: true;
-  statusCode: number;
-  statusMessage: string;
-  message: string;
-}
-
-const genericMessages: Record<number, string> = {
-  500: "BFF request failed",
-  502: "Downstream service is unavailable",
-  503: "Downstream service is unavailable",
-  504: "Downstream service timed out",
+import { randomUUID } from "node:crypto";
+import type { GalleryFailureCode } from "../../app/generated/galleryFailure";
+const statuses: Record<number, GalleryFailureCode> = {
+  400: "gallery.request.invalid",
+  401: "gallery.not_authenticated",
+  403: "gallery.forbidden",
+  404: "gallery.not_found",
+  405: "gallery.request.method_not_allowed",
+  409: "gallery.conflict",
+  413: "gallery.request.body_too_large",
+  502: "gallery.gateway.unavailable",
+  504: "gallery.gateway.timeout",
 };
-
-export function sanitizeBffError(error: unknown): SafeBffError {
-  const candidate =
+export function sanitizeBffError(error: unknown, traceId = randomUUID()) {
+  const raw =
     error && typeof error === "object"
-      ? (error as { statusCode?: unknown; statusMessage?: unknown })
-      : {};
-  const rawStatus = Number(candidate.statusCode);
-  const statusCode =
-    Number.isInteger(rawStatus) && rawStatus >= 400 && rawStatus <= 599
-      ? rawStatus
+      ? Number((error as { statusCode?: unknown }).statusCode)
       : 500;
-  const candidateMessage =
-    typeof candidate.statusMessage === "string"
-      ? candidate.statusMessage.trim()
-      : "";
-  const statusMessage =
-    genericMessages[statusCode] ||
-    (candidateMessage &&
-    candidateMessage.length <= 120 &&
-    !/[\r\n]/u.test(candidateMessage)
-      ? candidateMessage
-      : "BFF request was rejected");
+  const status = statuses[raw] ? raw : raw === 429 ? 429 : 500;
+  const code =
+    statuses[status] ||
+    (status === 429 ? "common.rate_limited" : "common.internal");
   return {
-    error: true,
-    statusCode,
-    statusMessage,
-    message: statusMessage,
+    type: `https://errors.yueli.dev/problems/${code}`,
+    status,
+    code,
+    traceId,
   };
 }

@@ -57,3 +57,13 @@ func TestConstructorsCarryCode(t *testing.T) {
 		}
 	}
 }
+
+func TestValidationDoesNotPublishCauseText(t *testing.T) {
+	value, ok, err := problem.FromError(galleryerr.Validation("title", "SQL password=secret"), "trace")
+	if err != nil || !ok {
+		t.Fatal(err)
+	}
+	if len(value.Violations) != 1 || len(value.Violations[0].Params) != 0 {
+		t.Fatalf("unsafe violation: %#v", value)
+	}
+}

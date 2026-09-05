@@ -61,21 +61,21 @@ export default defineNuxtConfig({
       platform: {
         path: "/",
         ssr: {
-          cookies: ["yueli_guest", "__Host-yueli_guest"],
+          cookies: [],
           headers: ["accept-language", "user-agent"],
         },
       },
       asset: {
         path: "/asset-api",
         ssr: {
-          cookies: ["yueli_guest", "__Host-yueli_guest"],
+          cookies: [],
           headers: ["accept-language", "user-agent"],
         },
       },
       gallery: {
         path: "/api/gallery",
         ssr: {
-          cookies: ["yueli_guest", "__Host-yueli_guest"],
+          cookies: [],
           headers: ["accept-language", "user-agent"],
         },
       },
@@ -185,5 +185,5 @@ export default defineNuxtConfig({
       },
     },
   },
-  devtools: { enabled: true },
+  devtools: { enabled: process.env.NUXT_DEVTOOLS === "true" },
 });

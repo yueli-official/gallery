@@ -55,6 +55,7 @@ func (c *Workflow) CreateSubmission(ctx context.Context, req *v1.CreateSubmissio
 	if err != nil {
 		return nil, err
 	}
+	writeSuccess(ctx, 201, "")
 	return &v1.CreateSubmissionRes{Submission: *value}, nil
 }
 
@@ -88,7 +89,7 @@ func (c *Workflow) ListMySubmissions(ctx context.Context, req *v1.ListMySubmissi
 		pages = (total + query.PageSize - 1) / query.PageSize
 	}
 	return &v1.ListMySubmissionsRes{
-		Submissions: values, Total: total, Page: query.Page, PageSize: query.PageSize, TotalPages: pages,
+		Submissions: itemsOrEmpty(values), Total: total, Page: query.Page, PageSize: query.PageSize, TotalPages: pages,
 	}, err
 }
 
@@ -196,7 +197,7 @@ func (c *Admin) ListClassificationTags(ctx context.Context, req *v1.ListClassifi
 	if err != nil {
 		return nil, err
 	}
-	return &v1.ListClassificationTagsRes{Page: *page}, nil
+	return &v1.ListClassificationTagsRes{ClassificationTagPage: *page}, nil
 }
 
 func (c *Admin) CreateClassificationIdentity(ctx context.Context, req *v1.CreateClassificationIdentityReq) (*v1.CreateClassificationIdentityRes, error) {
@@ -208,6 +209,7 @@ func (c *Admin) CreateClassificationIdentity(ctx context.Context, req *v1.Create
 	if err != nil {
 		return nil, err
 	}
+	writeSuccess(ctx, 201, "")
 	return &v1.CreateClassificationIdentityRes{Identity: *identity}, nil
 }
 
@@ -228,7 +230,7 @@ func (c *Admin) ListClassificationTagProposals(ctx context.Context, req *v1.List
 		return nil, err
 	}
 	proposals, total, err := c.service.ClassificationTagProposals(ctx, req.Status, req.Page, req.Size)
-	return &v1.ListClassificationTagProposalsRes{Proposals: proposals, Total: total}, err
+	return &v1.ListClassificationTagProposalsRes{Proposals: itemsOrEmpty(proposals), Total: total, Page: boundedPage(req.Page), Size: boundedSize(req.Size, 30)}, err
 }
 
 func (c *Admin) ReviewClassificationTagProposal(ctx context.Context, req *v1.ReviewClassificationTagProposalReq) (*v1.ReviewClassificationTagProposalRes, error) {
@@ -302,7 +304,7 @@ func (c *Admin) BulkReviewSubmissions(ctx context.Context, req *v1.BulkReviewSub
 	if err != nil {
 		return nil, err
 	}
-	return &v1.BulkReviewSubmissionsRes{Results: results}, nil
+	return &v1.BulkReviewSubmissionsRes{Results: submissionBatch(ctx, results)}, nil
 }
 
 func (c *Admin) PreviewSubmission(ctx context.Context, req *v1.PreviewSubmissionReq) (*v1.PreviewSubmissionRes, error) {
@@ -324,7 +326,8 @@ func (c *Admin) HideImage(ctx context.Context, req *v1.HideImageReq) (*v1.HideIm
 	if err := c.service.HideImage(ctx, operator, req.ImageID, req.Reason); err != nil {
 		return nil, err
 	}
-	return &v1.HideImageRes{Hidden: true}, nil
+	writeSuccess(ctx, 204, "")
+	return &v1.HideImageRes{}, nil
 }
 
 func (c *Admin) ListAdminImages(ctx context.Context, req *v1.ListAdminImagesReq) (*v1.ListAdminImagesRes, error) {
@@ -373,7 +376,8 @@ func (c *Admin) DeleteAdminImage(ctx context.Context, req *v1.DeleteAdminImageRe
 	if err := c.service.DeleteAdminImage(ctx, operator, req.ImageID, req.AdminImageDeleteInput); err != nil {
 		return nil, err
 	}
-	return &v1.DeleteAdminImageRes{Deleted: true}, nil
+	writeSuccess(ctx, 204, "")
+	return &v1.DeleteAdminImageRes{}, nil
 }
 
 func (c *Admin) BulkHideImages(ctx context.Context, req *v1.BulkHideImagesReq) (*v1.BulkHideImagesRes, error) {
@@ -381,7 +385,7 @@ func (c *Admin) BulkHideImages(ctx context.Context, req *v1.BulkHideImagesReq) (
 	if err != nil {
 		return nil, err
 	}
-	return &v1.BulkHideImagesRes{Results: c.service.BulkHideImages(ctx, operator, req.BulkImageHideInput)}, nil
+	return &v1.BulkHideImagesRes{Results: imageBatch(ctx, c.service.BulkHideImages(ctx, operator, req.BulkImageHideInput))}, nil
 }
 
 func (c *Admin) BulkImages(ctx context.Context, req *v1.BulkImagesReq) (*v1.BulkImagesRes, error) {
@@ -393,7 +397,7 @@ func (c *Admin) BulkImages(ctx context.Context, req *v1.BulkImagesReq) (*v1.Bulk
 	if err != nil {
 		return nil, err
 	}
-	return &v1.BulkImagesRes{Results: c.service.BulkImages(ctx, operator, req.BulkImageActionInput)}, nil
+	return &v1.BulkImagesRes{Results: imageBatch(ctx, c.service.BulkImages(ctx, operator, req.BulkImageActionInput))}, nil
 }
 
 func (c *Admin) ListCases(ctx context.Context, req *v1.ListCasesReq) (*v1.ListCasesRes, error) {
@@ -430,6 +434,7 @@ func (c *Admin) CreateEditorialCollection(ctx context.Context, req *v1.CreateEdi
 	if err != nil {
 		return nil, err
 	}
+	writeSuccess(ctx, 201, "/api/v1/gallery/admin/collections/"+value.ID)
 	return &v1.CreateEditorialCollectionRes{Collection: *value}, nil
 }
 
@@ -438,7 +443,7 @@ func (c *Admin) ListEditorialCollections(ctx context.Context, _ *v1.ListEditoria
 		return nil, err
 	}
 	values, err := c.service.AdminCollections(ctx)
-	return &v1.ListEditorialCollectionsRes{Collections: values}, err
+	return &v1.ListEditorialCollectionsRes{Collections: itemsOrEmpty(values)}, err
 }
 
 func (c *Admin) GetEditorialCollection(ctx context.Context, req *v1.GetEditorialCollectionReq) (*v1.GetEditorialCollectionRes, error) {

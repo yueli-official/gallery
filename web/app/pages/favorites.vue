@@ -32,7 +32,7 @@ const { data, error, pending, refresh } = await useAsyncData(
   { server: false, watch: [page, sort] },
 );
 const collection = computed(() => data.value?.collection);
-const images = computed(() => collection.value?.images || []);
+const images = computed(() => collection.value?.items || []);
 const removing = ref("");
 
 function updateQuery(next: { page?: number; sort?: string }) {
@@ -66,7 +66,7 @@ async function removeFavorite(imageId: string) {
     await refresh();
     toast.add({
       title: "收藏状态已变化",
-      description: reason?.data?.message || "列表已刷新，请再试一次",
+      description: galleryFailureMessage(reason, "列表已刷新，请再试一次"),
       color: "warning",
     });
   } finally {
@@ -137,7 +137,7 @@ useSeoMeta({ title: "我的收藏", robots: "noindex,nofollow" });
     </GalleryCompactEmpty>
 
     <nav
-      v-if="collection && collection.totalPages > 1"
+      v-if="collection && galleryPageCount(collection) > 1"
       class="mt-10 flex items-center justify-center gap-3"
       aria-label="收藏分页"
     >
@@ -150,14 +150,14 @@ useSeoMeta({ title: "我的收藏", robots: "noindex,nofollow" });
         @click="updateQuery({ page: page - 1 })"
       />
       <span class="text-sm tabular-nums text-muted"
-        >{{ page }} / {{ collection.totalPages }}</span
+        >{{ page }} / {{ galleryPageCount(collection) }}</span
       >
       <UButton
         color="neutral"
         variant="outline"
         trailing-icon="i-tabler-arrow-right"
         label="下一页"
-        :disabled="page >= collection.totalPages"
+        :disabled="page >= galleryPageCount(collection)"
         @click="updateQuery({ page: page + 1 })"
       />
     </nav>

@@ -1,6 +1,68 @@
 {
   "components": {
     "schemas": {
+      "error": {
+        "properties": {},
+        "type": "object"
+      },
+      "github.com.yueli-official.foundation.go.problem.Problem": {
+        "properties": {
+          "code": {
+            "format": "string",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/interface",
+              "description": ""
+            },
+            "format": "problem.Parameters",
+            "type": "object"
+          },
+          "status": {
+            "format": "int",
+            "type": "integer"
+          },
+          "traceId": {
+            "format": "string",
+            "type": "string"
+          },
+          "type": {
+            "format": "string",
+            "type": "string"
+          },
+          "violations": {
+            "format": "[]problem.Violation",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.foundation.go.problem.Violation",
+              "description": ""
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.foundation.go.problem.Violation": {
+        "properties": {
+          "code": {
+            "format": "string",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/interface",
+              "description": ""
+            },
+            "format": "problem.Parameters",
+            "type": "object"
+          },
+          "pointer": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.api.v1.ActivateAuthorizationPolicyReq": {
         "properties": {
           "expectedActiveRevision": {
@@ -757,12 +819,7 @@
         "type": "object"
       },
       "github.com.yueli-official.gallery.api.api.v1.DeleteAdminImageRes": {
-        "properties": {
-          "deleted": {
-            "format": "bool",
-            "type": "boolean"
-          }
-        },
+        "properties": {},
         "type": "object"
       },
       "github.com.yueli-official.gallery.api.api.v1.DeleteCommentReq": {
@@ -778,12 +835,7 @@
         "type": "object"
       },
       "github.com.yueli-official.gallery.api.api.v1.DeleteCommentRes": {
-        "properties": {
-          "deleted": {
-            "format": "bool",
-            "type": "boolean"
-          }
-        },
+        "properties": {},
         "type": "object"
       },
       "github.com.yueli-official.gallery.api.api.v1.ExecuteClassificationGovernanceReq": {
@@ -1242,12 +1294,7 @@
         "type": "object"
       },
       "github.com.yueli-official.gallery.api.api.v1.HideImageRes": {
-        "properties": {
-          "hidden": {
-            "format": "bool",
-            "type": "boolean"
-          }
-        },
+        "properties": {},
         "type": "object"
       },
       "github.com.yueli-official.gallery.api.api.v1.ListAdminCommentsReq": {
@@ -1383,15 +1430,11 @@
             "format": "int",
             "type": "integer"
           },
-          "pageSize": {
+          "size": {
             "format": "int",
             "type": "integer"
           },
           "total": {
-            "format": "int",
-            "type": "integer"
-          },
-          "totalPages": {
             "format": "int",
             "type": "integer"
           }
@@ -1450,15 +1493,11 @@
             "format": "int",
             "type": "integer"
           },
-          "pageSize": {
+          "size": {
             "format": "int",
             "type": "integer"
           },
           "total": {
-            "format": "int",
-            "type": "integer"
-          },
-          "totalPages": {
             "format": "int",
             "type": "integer"
           }
@@ -1487,13 +1526,21 @@
       },
       "github.com.yueli-official.gallery.api.api.v1.ListClassificationTagProposalsRes": {
         "properties": {
-          "proposals": {
+          "items": {
             "format": "[]model.ClassificationTagProposal",
             "items": {
               "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationTagProposal",
               "description": ""
             },
             "type": "array"
+          },
+          "page": {
+            "format": "int",
+            "type": "integer"
+          },
+          "size": {
+            "format": "int",
+            "type": "integer"
           },
           "total": {
             "format": "int",
@@ -1518,9 +1565,17 @@
       },
       "github.com.yueli-official.gallery.api.api.v1.ListClassificationTagsRes": {
         "properties": {
-          "page": {
-            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationTagPage",
-            "description": ""
+          "items": {
+            "format": "[]model.ClassificationTag",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationTag",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "nextCursor": {
+            "format": "string",
+            "type": "string"
           }
         },
         "type": "object"
@@ -1531,7 +1586,7 @@
       },
       "github.com.yueli-official.gallery.api.api.v1.ListCollectionsRes": {
         "properties": {
-          "collections": {
+          "items": {
             "format": "[]model.Collection",
             "items": {
               "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.Collection",
@@ -1548,7 +1603,7 @@
       },
       "github.com.yueli-official.gallery.api.api.v1.ListEditorialCollectionsRes": {
         "properties": {
-          "collections": {
+          "items": {
             "format": "[]model.Collection",
             "items": {
               "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.Collection",
@@ -1685,7 +1740,7 @@
             "format": "int",
             "type": "integer"
           },
-          "pageSize": {
+          "size": {
             "format": "int",
             "type": "integer"
           },
@@ -1698,10 +1753,6 @@
             "type": "array"
           },
           "total": {
-            "format": "int",
-            "type": "integer"
-          },
-          "totalPages": {
             "format": "int",
             "type": "integer"
           }
@@ -1754,15 +1805,7 @@
       },
       "github.com.yueli-official.gallery.api.api.v1.ListMySubmissionsRes": {
         "properties": {
-          "page": {
-            "format": "int",
-            "type": "integer"
-          },
-          "pageSize": {
-            "format": "int",
-            "type": "integer"
-          },
-          "submissions": {
+          "items": {
             "format": "[]model.Submission",
             "items": {
               "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.Submission",
@@ -1770,11 +1813,15 @@
             },
             "type": "array"
           },
-          "total": {
+          "page": {
             "format": "int",
             "type": "integer"
           },
-          "totalPages": {
+          "size": {
+            "format": "int",
+            "type": "integer"
+          },
+          "total": {
             "format": "int",
             "type": "integer"
           }
@@ -1887,15 +1934,11 @@
             "format": "int",
             "type": "integer"
           },
-          "pageSize": {
+          "size": {
             "format": "int",
             "type": "integer"
           },
           "total": {
-            "format": "int",
-            "type": "integer"
-          },
-          "totalPages": {
             "format": "int",
             "type": "integer"
           }
@@ -2353,12 +2396,7 @@
         "type": "object"
       },
       "github.com.yueli-official.gallery.api.api.v1.TrackImageEventRes": {
-        "properties": {
-          "recorded": {
-            "format": "bool",
-            "type": "boolean"
-          }
-        },
+        "properties": {},
         "type": "object"
       },
       "github.com.yueli-official.gallery.api.api.v1.UpdateAdminImageReq": {
@@ -2854,9 +2892,9 @@
       },
       "github.com.yueli-official.gallery.api.internal.model.BulkImageActionResult": {
         "properties": {
-          "error": {
-            "format": "string",
-            "type": "string"
+          "failure": {
+            "$ref": "#/components/schemas/github.com.yueli-official.foundation.go.problem.Problem",
+            "description": ""
           },
           "imageId": {
             "format": "string",
@@ -2871,9 +2909,9 @@
       },
       "github.com.yueli-official.gallery.api.internal.model.BulkSubmissionReviewResult": {
         "properties": {
-          "error": {
-            "format": "string",
-            "type": "string"
+          "failure": {
+            "$ref": "#/components/schemas/github.com.yueli-official.foundation.go.problem.Problem",
+            "description": ""
           },
           "submissionId": {
             "format": "string",
@@ -3347,23 +3385,6 @@
         },
         "type": "object"
       },
-      "github.com.yueli-official.gallery.api.internal.model.ClassificationTagPage": {
-        "properties": {
-          "items": {
-            "format": "[]model.ClassificationTag",
-            "items": {
-              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationTag",
-              "description": ""
-            },
-            "type": "array"
-          },
-          "nextCursor": {
-            "format": "string",
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
       "github.com.yueli-official.gallery.api.internal.model.ClassificationTagProposal": {
         "properties": {
           "createdAt": {
@@ -3577,17 +3598,17 @@
             "format": "string",
             "type": "string"
           },
-          "images": {
+          "itemCount": {
+            "format": "int",
+            "type": "integer"
+          },
+          "items": {
             "format": "[]model.ImageCard",
             "items": {
               "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ImageCard",
               "description": ""
             },
             "type": "array"
-          },
-          "itemCount": {
-            "format": "int",
-            "type": "integer"
           },
           "kind": {
             "format": "string",
@@ -3605,10 +3626,6 @@
             "format": "int",
             "type": "integer"
           },
-          "pageSize": {
-            "format": "int",
-            "type": "integer"
-          },
           "resourceKind": {
             "format": "string",
             "type": "string"
@@ -3621,11 +3638,15 @@
             "format": "string",
             "type": "string"
           },
+          "size": {
+            "format": "int",
+            "type": "integer"
+          },
           "slug": {
             "format": "string",
             "type": "string"
           },
-          "totalPages": {
+          "total": {
             "format": "int",
             "type": "integer"
           },
@@ -4126,6 +4147,10 @@
           }
         },
         "type": "object"
+      },
+      "interface": {
+        "properties": {},
+        "type": "object"
       }
     }
   },
@@ -4148,7 +4173,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -4312,7 +4337,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -4375,7 +4400,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -4589,7 +4614,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -4996,7 +5021,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -5242,7 +5267,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -5590,7 +5615,7 @@
           }
         ],
         "responses": {
-          "200": {
+          "204": {
             "content": {
               "application/json": {
                 "schema": {
@@ -5855,7 +5880,7 @@
           }
         ],
         "responses": {
-          "200": {
+          "204": {
             "content": {
               "application/json": {
                 "schema": {
@@ -6000,7 +6025,7 @@
           }
         },
         "responses": {
-          "200": {
+          "204": {
             "content": {
               "application/json": {
                 "schema": {
@@ -6601,7 +6626,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -6728,7 +6753,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {
@@ -6779,7 +6804,7 @@
           }
         },
         "responses": {
-          "200": {
+          "204": {
             "content": {
               "application/json": {
                 "schema": {
@@ -7187,7 +7212,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "content": {
               "application/json": {
                 "schema": {

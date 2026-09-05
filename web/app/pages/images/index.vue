@@ -53,7 +53,7 @@ watch(
     viewerNavigation.value = createCatalogViewerNavigationSession(
       currentPage.items,
       currentRequest,
-      currentPage.totalPages,
+      galleryPageCount(currentPage),
     );
   },
   { immediate: true },
@@ -81,7 +81,7 @@ const draftFilterCount = computed(
     (selectedTag.value ? 1 : 0),
 );
 const pageNumbers = computed(() => {
-  const total = pageData.value?.totalPages || 0;
+  const total = galleryPageCount(pageData.value) || 0;
   if (!total) return [];
   const start = Math.max(1, Math.min(page.value - 2, total - 4));
   return Array.from(
@@ -472,7 +472,7 @@ useSeoMeta({
         </GalleryCompactEmpty>
 
         <nav
-          v-if="pageData?.totalPages && pageData.totalPages > 1"
+          v-if="galleryPageCount(pageData) && galleryPageCount(pageData) > 1"
           class="mt-10 flex items-center justify-center gap-1"
           aria-label="图片分页"
         >
@@ -498,7 +498,7 @@ useSeoMeta({
             variant="ghost"
             icon="i-tabler-chevron-right"
             aria-label="下一页"
-            :disabled="page >= pageData.totalPages"
+            :disabled="page >= galleryPageCount(pageData)"
             @click="setPage(page + 1)"
           />
         </nav>

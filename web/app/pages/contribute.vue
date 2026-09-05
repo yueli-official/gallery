@@ -58,7 +58,7 @@ async function apply() {
     await refresh();
   } catch (failure) {
     const apiError = failure as { data?: { message?: string } };
-    message.value = apiError.data?.message || "申请提交失败，请稍后重试。";
+    message.value = galleryFailureMessage(apiError, "申请提交失败，请稍后重试。");
   } finally {
     submitting.value = false;
   }
@@ -77,7 +77,7 @@ async function withdraw() {
     await refresh();
   } catch (failure) {
     const apiError = failure as { data?: { message?: string } };
-    message.value = apiError.data?.message || "撤回失败，请稍后重试。";
+    message.value = galleryFailureMessage(apiError, "撤回失败，请稍后重试。");
   } finally {
     submitting.value = false;
   }

@@ -94,7 +94,7 @@ export function useGalleryImageActions(
       }
       toast.add({
         title: "收藏没有保存",
-        description: reason?.data?.message || reason?.message || "请稍后重试",
+        description: galleryFailureMessage(reason, "请稍后重试"),
         color: "error",
       });
     } finally {

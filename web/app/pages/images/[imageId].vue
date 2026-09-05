@@ -106,7 +106,7 @@ async function ensureContinuation(): Promise<void> {
         catalog: {
           ...catalog,
           nextPage:
-            requestedPage < response.totalPages
+            requestedPage < galleryPageCount(response)
               ? requestedPage + 1
               : undefined,
         },

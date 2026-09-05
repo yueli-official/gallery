@@ -106,9 +106,9 @@ export interface GalleryFacet {
 export interface GalleryImagePage {
   items: GalleryImageCard[];
   page: number;
-  pageSize: number;
+  size: number;
   total: number;
-  totalPages: number;
+
   diagnostics: GalleryClassificationDiagnostic[];
   categories: GalleryClassificationNode[];
   facets: GalleryFacet[];
@@ -132,9 +132,9 @@ export interface GalleryAdminImage extends GalleryImageCard {
 export interface GalleryAdminImagePage {
   items: GalleryAdminImage[];
   page: number;
-  pageSize: number;
+  size: number;
   total: number;
-  totalPages: number;
+
   counts: Record<string, number>;
 }
 
@@ -230,7 +230,7 @@ export interface GalleryClassificationTag {
 
 export interface GalleryClassificationTagPage {
   items: GalleryClassificationTag[];
-  nextCursor: string;
+  nextCursor?: string;
 }
 
 export interface GalleryClassificationTagProposal {
@@ -268,10 +268,11 @@ export interface GalleryCollection {
 }
 
 export interface GalleryCollectionDetail extends GalleryCollection {
-  images: GalleryImageCard[];
+  items: GalleryImageCard[];
   page: number;
-  pageSize: number;
-  totalPages: number;
+  size: number;
+
+  total: number;
 }
 
 export interface GallerySubmission {
@@ -297,9 +298,9 @@ export interface GallerySubmission {
 export interface GalleryAdminSubmissionPage {
   items: GallerySubmission[];
   page: number;
-  pageSize: number;
+  size: number;
   total: number;
-  totalPages: number;
+
 }
 
 export interface GalleryRanking {
@@ -331,9 +332,9 @@ export interface GalleryCase {
 export interface GalleryAdminCasePage {
   items: GalleryCase[];
   page: number;
-  pageSize: number;
+  size: number;
   total: number;
-  totalPages: number;
+
 }
 
 export interface GalleryAdminOverview {

@@ -53,6 +53,7 @@ type CreateImageCommentReq struct {
 	ChallengeProof string `json:"challengeProof,omitempty"`
 }
 type CreateImageCommentRes struct {
+	g.Meta  `status:"201"`
 	Comment CommentView `json:"comment"`
 	Pending bool        `json:"pending"`
 }
@@ -87,5 +88,5 @@ type DeleteCommentReq struct {
 	CommentID string `p:"commentId" v:"required"`
 }
 type DeleteCommentRes struct {
-	Deleted bool `json:"deleted"`
+	g.Meta `status:"204"`
 }

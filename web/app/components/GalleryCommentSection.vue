@@ -81,7 +81,7 @@ async function submitComment(draft: PublicCommentDraft) {
     if (!response.pending) await load();
     return { pending: response.pending };
   } catch (error: any) {
-    throw new Error(error?.data?.message || messages.submitError);
+    throw new Error(galleryFailureMessage(error, messages.submitError));
   }
 }
 

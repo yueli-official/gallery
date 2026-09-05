@@ -57,6 +57,7 @@ func (controller *PublicComments) CreateImageComment(ctx context.Context, req *v
 	if err != nil {
 		return nil, err
 	}
+	writeSuccess(ctx, 201, "")
 	return &v1.CreateImageCommentRes{Comment: publicCommentView(comment), Pending: pending}, nil
 }
 
@@ -102,7 +103,8 @@ func (controller *Comments) DeleteComment(ctx context.Context, req *v1.DeleteCom
 	if err := controller.module.Delete(ctx, req.CommentID); err != nil {
 		return nil, err
 	}
-	return &v1.DeleteCommentRes{Deleted: true}, nil
+	writeSuccess(ctx, 204, "")
+	return &v1.DeleteCommentRes{}, nil
 }
 
 func publicCommentViews(threads []gallerycomments.Thread) []v1.CommentView {

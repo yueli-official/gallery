@@ -67,7 +67,7 @@ type ListCollectionsReq struct {
 	g.Meta `path:"/api/v1/gallery/collections" method:"GET" tags:"Gallery collections" summary:"List public editorial collections"`
 }
 type ListCollectionsRes struct {
-	Collections []model.Collection `json:"collections"`
+	Collections []model.Collection `json:"items"`
 }
 
 type GetCollectionReq struct {
@@ -95,7 +95,8 @@ type CreateCaseReq struct {
 	model.CaseInput
 }
 type CreateCaseRes struct {
-	Case model.Case `json:"case"`
+	g.Meta `status:"201"`
+	Case   model.Case `json:"case"`
 }
 
 type TrackImageEventReq struct {
@@ -104,5 +105,5 @@ type TrackImageEventReq struct {
 	model.EventInput
 }
 type TrackImageEventRes struct {
-	Recorded bool `json:"recorded"`
+	g.Meta `status:"204"`
 }

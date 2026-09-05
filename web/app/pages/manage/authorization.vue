@@ -121,10 +121,7 @@ async function mutate(task: () => Promise<unknown>, _success: string) {
     if (result === false) return;
     await refresh();
   } catch (failure) {
-    const message =
-      failure instanceof Error
-        ? failure.message
-        : (failure as { data?: { message?: string } }).data?.message;
+    const message = galleryFailureMessage(failure,"请刷新后重试。");
     toast.add({
       title: "操作失败",
       description: message || "请刷新后重试。",

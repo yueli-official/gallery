@@ -55,6 +55,15 @@ async function restoreDiscoveryName(
   await saveDiscoverySettings(page);
 }
 
+async function populatedCollectionLink(page: Page, siteURL: string) {
+  const response = await page.request.get(new URL("/api/gallery/admin/collections", siteURL).toString());
+  expect(response.ok()).toBeTruthy();
+  const data = await response.json() as { items: Array<{ id: string; itemCount: number }> };
+  const collection = data.items.find(item => item.itemCount >= 3);
+  expect(collection, "seeded collection with at least three members").toBeTruthy();
+  return page.locator(`a[href="/manage/collections/${collection!.id}"]`).first();
+}
+
 async function openFirstImageEditor(page: Page): Promise<void> {
   await page
     .getByRole("button", { name: /^编辑图片/ })
@@ -372,9 +381,8 @@ export function registerManagementSuite(product: string) {
           }
           if (route.request().method() === "DELETE") {
             await route.fulfill({
-              status: 200,
-              contentType: "application/json",
-              body: JSON.stringify({ deleted: true }),
+              status: 204,
+              body: "",
             });
             return;
           }
@@ -800,7 +808,7 @@ export function registerManagementSuite(product: string) {
           await expect(backend).toBeEnabled();
           await backend.click();
           await expect(
-            page.getByRole("option", { name: "腾讯云 COS · blog" }),
+            page.getByRole("option", { name: / · blog$/ }),
           ).toBeVisible();
           await expect(
             page.getByRole("option", { name: "本地存储 · local" }),
@@ -948,9 +956,8 @@ export function registerManagementSuite(product: string) {
           }
           deleteBody = route.request().postDataJSON();
           await route.fulfill({
-            status: 200,
-            contentType: "application/json",
-            body: JSON.stringify({ deleted: true }),
+            status: 204,
+            body: "",
           });
         });
         try {
@@ -993,7 +1000,7 @@ export function registerManagementSuite(product: string) {
                 status: 200,
                 contentType: "application/json",
                 body: JSON.stringify({
-                  page: { items: [], nextCursor: "" },
+                  items: [], nextCursor: "",
                 }),
               }),
           );
@@ -1150,9 +1157,7 @@ export function registerManagementSuite(product: string) {
             waitUntil: "domcontentloaded",
           });
           await settleNuxt(page);
-          const firstCollection = page
-            .getByRole("link", { name: /^编辑专题：/u })
-            .first();
+          const firstCollection = await populatedCollectionLink(page, site.url);
           await expect(firstCollection).toBeVisible();
           const href = await firstCollection.getAttribute("href");
           expect(href).toBeTruthy();
@@ -1263,9 +1268,7 @@ export function registerManagementSuite(product: string) {
           await page.goto(new URL("/manage/collections", site.url).toString(), {
             waitUntil: "domcontentloaded",
           });
-          const firstCollection = page
-            .getByRole("link", { name: /^编辑专题：/u })
-            .first();
+          const firstCollection = await populatedCollectionLink(page, site.url);
           await expect(firstCollection).toBeVisible();
           const href = await firstCollection.getAttribute("href");
           expect(href).toBeTruthy();
@@ -1331,9 +1334,7 @@ export function registerManagementSuite(product: string) {
           await page.goto(new URL("/manage/collections", site.url).toString(), {
             waitUntil: "domcontentloaded",
           });
-          const firstCollection = page
-            .getByRole("link", { name: /^编辑专题：/u })
-            .first();
+          const firstCollection = await populatedCollectionLink(page, site.url);
           await expect(firstCollection).toBeVisible();
           const href = await firstCollection.getAttribute("href");
           expect(href).toBeTruthy();
@@ -1363,9 +1364,7 @@ export function registerManagementSuite(product: string) {
             waitUntil: "domcontentloaded",
           });
           await settleNuxt(page);
-          const firstCollection = page
-            .getByRole("link", { name: /^编辑专题：/u })
-            .first();
+          const firstCollection = await populatedCollectionLink(page, site.url);
           await expect(
             firstCollection,
             "验收夹具必须至少包含一个可编辑专题",

@@ -12,7 +12,7 @@ const { data, error, status, refresh } = await useFetch<{
 });
 if (import.meta.server && error.value) setResponseStatus(404);
 const collection = computed(() => data.value?.collection);
-const images = computed(() => collection.value?.images || []);
+const images = computed(() => collection.value?.items || []);
 
 useSeoMeta({
   title: () => collection.value?.seoTitle || collection.value?.name || "专题",
@@ -113,7 +113,7 @@ function setPage(value: number): void {
     </template>
 
     <nav
-      v-if="collection && collection.totalPages > 1"
+      v-if="collection && galleryPageCount(collection) > 1"
       class="mt-10 flex items-center justify-center gap-3"
       aria-label="专题分页"
     >
@@ -126,14 +126,14 @@ function setPage(value: number): void {
         @click="setPage(page - 1)"
       />
       <span class="text-sm tabular-nums text-muted"
-        >{{ page }} / {{ collection.totalPages }}</span
+        >{{ page }} / {{ galleryPageCount(collection) }}</span
       >
       <UButton
         color="neutral"
         variant="outline"
         trailing-icon="i-tabler-arrow-right"
         label="下一页"
-        :disabled="page >= collection.totalPages"
+        :disabled="page >= galleryPageCount(collection)"
         @click="setPage(page + 1)"
       />
     </nav>

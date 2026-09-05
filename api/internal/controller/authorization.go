@@ -83,6 +83,7 @@ func (*Authorization) CreateAuthorizationDraft(
 	if err != nil {
 		return nil, mapAuthorizationError(err)
 	}
+	writeSuccess(ctx, 201, "")
 	return &v1.CreateAuthorizationDraftRes{Policy: authorizationPolicyView(revision)}, nil
 }
 
@@ -115,6 +116,7 @@ func (*Authorization) CreateAuthorizationRole(
 	if err != nil {
 		return nil, mapAuthorizationError(err)
 	}
+	writeSuccess(ctx, 201, "")
 	return &v1.CreateAuthorizationRoleRes{Role: authorizationRoleView(role)}, nil
 }
 
@@ -217,6 +219,7 @@ func (*Authorization) ApplyForRole(
 	if err != nil {
 		return nil, mapAuthorizationError(err)
 	}
+	writeSuccess(ctx, 201, "")
 	return &v1.ApplyForRoleRes{Application: authorizationApplicationView(application)}, nil
 }
 
@@ -278,6 +281,7 @@ func (*Authorization) GrantAuthorizationRole(
 	if err != nil {
 		return nil, mapAuthorizationError(err)
 	}
+	writeSuccess(ctx, 201, "")
 	return &v1.GrantAuthorizationRoleRes{Grant: authorizationGrantView(grant)}, nil
 }
 

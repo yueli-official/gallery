@@ -85,7 +85,7 @@ const { data, pending, error, refresh } = await useAsyncData(
 const collection = computed(() => data.value?.collection);
 const members = computed(() => {
   const byID = new Map(
-    (collection.value?.images || []).map((item) => [item.id, item]),
+    (collection.value?.items || []).map((item) => [item.id, item]),
   );
   return orderedIds.value.flatMap((id) => {
     const item = byID.get(id);
@@ -105,7 +105,7 @@ const visibleMembers = computed(() => {
 const selectedCover = computed(() =>
   members.value.find((item) => item.id === form.coverImageId),
 );
-const canReorder = computed(() => (collection.value?.totalPages || 0) <= 1);
+const canReorder = computed(() => (galleryPageCount(collection.value) || 0) <= 1);
 const canArrangeMembers = computed(
   () => canReorder.value && !memberSearch.value.trim(),
 );
@@ -150,7 +150,7 @@ const metadataDirty = computed(() => {
   );
 });
 const orderDirty = computed(() => {
-  const serverOrder = collection.value?.images.map((item) => item.id) || [];
+  const serverOrder = collection.value?.items.map((item) => item.id) || [];
   return orderTouched.value && !sameOrder(orderedIds.value, serverOrder);
 });
 const hasUnsavedChanges = computed(
@@ -214,7 +214,7 @@ watch(
       syncingForm = false;
     }
     if (!orderTouched.value)
-      orderedIds.value = value.images.map((item) => item.id);
+      orderedIds.value = value.items.map((item) => item.id);
   },
   { immediate: true },
 );
@@ -232,7 +232,7 @@ watch(
 useSeoMeta({ title: () => `${collection.value?.name || "专题"} · 图库管理` });
 
 function message(reason: any): string {
-  return reason?.data?.message || reason?.message || "请稍后重试";
+  return galleryFailureMessage(reason, "请稍后重试");
 }
 
 function submitMemberSearch(value: string) {
@@ -332,7 +332,7 @@ async function searchImages(): Promise<void> {
   pickerPending.value = true;
   try {
     const existing = new Set(
-      collection.value?.images.map((item) => item.id) || [],
+      collection.value?.items.map((item) => item.id) || [],
     );
     const candidates: GalleryImageCard[] = [];
     const seen = new Set<string>();
@@ -343,7 +343,7 @@ async function searchImages(): Promise<void> {
       const result = await call<GalleryImagePage>(
         `/images?q=${encodeURIComponent(imageSearch.value.trim())}&page=${nextPage}&size=${pageSize}&sort=newest`,
       );
-      totalPages = result.totalPages || Math.ceil(result.total / pageSize) || 1;
+      totalPages = galleryPageCount(result) || Math.ceil(result.total / pageSize) || 1;
       for (const item of result.items) {
         if (existing.has(item.id) || seen.has(item.id)) continue;
         seen.add(item.id);
@@ -379,7 +379,7 @@ async function mutateMembers(
       },
     );
     await refresh();
-    const serverOrder = collection.value?.images.map((item) => item.id) || [];
+    const serverOrder = collection.value?.items.map((item) => item.id) || [];
     const serverIDs = new Set(serverOrder);
     const preserved = previousOrder.filter((id) => serverIDs.has(id));
     orderedIds.value = [

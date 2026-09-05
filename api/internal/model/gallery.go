@@ -1,6 +1,7 @@
 package model
 
 import (
+	"github.com/yueli-official/foundation/go/problem"
 	"time"
 
 	"github.com/gogf/gf/v2/os/gtime"
@@ -98,9 +99,9 @@ type ImageQuery struct {
 type ImagePage struct {
 	Items       []ImageCard                `json:"items"`
 	Page        int                        `json:"page"`
-	PageSize    int                        `json:"pageSize"`
+	PageSize    int                        `json:"size"`
 	Total       int                        `json:"total"`
-	TotalPages  int                        `json:"totalPages"`
+	TotalPages  int                        `json:"-"`
 	Diagnostics []ClassificationDiagnostic `json:"diagnostics"`
 	Categories  []ClassificationNode       `json:"categories"`
 	Facets      []ClassificationFacet      `json:"facets"`
@@ -145,9 +146,9 @@ type AdminImageQuery struct {
 type AdminImagePage struct {
 	Items      []AdminImage   `json:"items"`
 	Page       int            `json:"page"`
-	PageSize   int            `json:"pageSize"`
+	PageSize   int            `json:"size"`
 	Total      int            `json:"total"`
-	TotalPages int            `json:"totalPages"`
+	TotalPages int            `json:"-"`
 	Counts     map[string]int `json:"counts"`
 }
 
@@ -183,9 +184,10 @@ type BulkImageActionInput struct {
 }
 
 type BulkImageActionResult struct {
-	ImageID string `json:"imageId"`
-	Success bool   `json:"success"`
-	Error   string `json:"error,omitempty"`
+	ImageID string           `json:"imageId"`
+	Success bool             `json:"success"`
+	Cause   error            `json:"-"`
+	Failure *problem.Problem `json:"failure,omitempty"`
 }
 
 type ClassificationDiagnostic struct {
@@ -259,10 +261,11 @@ type Collection struct {
 
 type CollectionDetail struct {
 	Collection
-	Images     []ImageCard `json:"images"`
+	Images     []ImageCard `json:"items"`
+	Total      int         `json:"total"`
 	Page       int         `json:"page"`
-	PageSize   int         `json:"pageSize"`
-	TotalPages int         `json:"totalPages"`
+	PageSize   int         `json:"size"`
+	TotalPages int         `json:"-"`
 }
 
 type EditorialCollectionInput struct {
@@ -485,7 +488,7 @@ type ClassificationTag struct {
 
 type ClassificationTagPage struct {
 	Items      []ClassificationTag `json:"items"`
-	NextCursor string              `json:"nextCursor"`
+	NextCursor string              `json:"nextCursor,omitempty"`
 }
 
 type ClassificationTagProposal struct {
@@ -548,9 +551,9 @@ type AdminSubmissionQuery struct {
 type AdminSubmissionPage struct {
 	Items      []Submission `json:"items"`
 	Page       int          `json:"page"`
-	PageSize   int          `json:"pageSize"`
+	PageSize   int          `json:"size"`
 	Total      int          `json:"total"`
-	TotalPages int          `json:"totalPages"`
+	TotalPages int          `json:"-"`
 }
 
 type SubmissionReviewInput struct {
@@ -565,9 +568,10 @@ type BulkSubmissionReviewInput struct {
 }
 
 type BulkSubmissionReviewResult struct {
-	SubmissionID string `json:"submissionId"`
-	Success      bool   `json:"success"`
-	Error        string `json:"error,omitempty"`
+	SubmissionID string           `json:"submissionId"`
+	Success      bool             `json:"success"`
+	Cause        error            `json:"-"`
+	Failure      *problem.Problem `json:"failure,omitempty"`
 }
 
 type CaseInput struct {
@@ -604,9 +608,9 @@ type AdminCaseQuery struct {
 type AdminCasePage struct {
 	Items      []Case `json:"items"`
 	Page       int    `json:"page"`
-	PageSize   int    `json:"pageSize"`
+	PageSize   int    `json:"size"`
 	Total      int    `json:"total"`
-	TotalPages int    `json:"totalPages"`
+	TotalPages int    `json:"-"`
 }
 
 type CaseResolutionInput struct {

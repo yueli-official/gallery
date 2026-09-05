@@ -3,11 +3,11 @@ import { createGalleryNotifier } from "~/utils/feedback";
 import type { GallerySubmission } from "~/types/gallery";
 
 interface SubmissionPage {
-  submissions: GallerySubmission[];
+  items: GallerySubmission[];
   total: number;
   page: number;
-  pageSize: number;
-  totalPages: number;
+  size: number;
+
 }
 
 const { loggedIn, login } = useAuth();
@@ -38,11 +38,10 @@ const { data, error, pending, refresh } = await useAsyncData(
     server: false,
     watch: [page, outcome, processingState, reviewState],
     default: () => ({
-      submissions: [],
+      items: [],
       total: 0,
       page: 1,
-      pageSize: 20,
-      totalPages: 0,
+      size: 20,
     }),
   },
 );
@@ -158,7 +157,7 @@ async function withdraw(id: string) {
   } catch (reason: any) {
     toast.add({
       title: "无法撤回这条投稿",
-      description: reason?.data?.message || "状态可能已经变化，请刷新后重试",
+      description: galleryFailureMessage(reason, "状态可能已经变化，请刷新后重试"),
       color: "error",
     });
     await refresh();
@@ -251,11 +250,11 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
       ><template #actions><UButton label="重试" @click="refresh()" /></template
     ></UAlert>
     <div
-      v-else-if="data.submissions.length"
+      v-else-if="data.items.length"
       class="overflow-hidden rounded-2xl border border-default bg-default/70 px-5 shadow-sm"
     >
       <article
-        v-for="submission in data.submissions"
+        v-for="submission in data.items"
         :key="submission.id"
         class="grid gap-4 border-b border-default py-5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
       >
@@ -340,7 +339,7 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
     </GalleryCompactEmpty>
 
     <nav
-      v-if="data.totalPages > 1"
+      v-if="galleryPageCount(data) > 1"
       class="mt-8 flex items-center justify-center gap-3"
       aria-label="投稿记录分页"
     >
@@ -353,14 +352,14 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
         @click="setPage(page - 1)"
       />
       <span class="text-sm tabular-nums text-muted"
-        >{{ page }} / {{ data.totalPages }}</span
+        >{{ page }} / {{ galleryPageCount(data) }}</span
       >
       <UButton
         color="neutral"
         variant="outline"
         trailing-icon="i-tabler-arrow-right"
         label="下一页"
-        :disabled="page >= data.totalPages"
+        :disabled="page >= galleryPageCount(data)"
         @click="setPage(page + 1)"
       />
     </nav>

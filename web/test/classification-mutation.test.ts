@@ -1,45 +1,39 @@
 import { describe, expect, it } from "vitest";
-
 import { classificationMutationErrorMessage } from "../app/utils/classificationMutation";
-
+import { remoteFailure } from "./http-failure-fixture";
 describe("classification mutation errors", () => {
-  it("replaces a protocol-level 404 with the actionable API restart message", () => {
+  it("uses the action fallback for malformed transport failures", () => {
     expect(
       classificationMutationErrorMessage(
-        {
-          failure: {
-            code: "foundation.problem.invalid_body",
-          },
-        },
-        "创建失败",
+        { statusCode: 404, message: "restart /server/path" },
+        "创建失败，请刷新后重试。",
       ),
-    ).toContain("重启 Gallery API");
+    ).toBe("创建失败，请刷新后重试。");
   });
-
-  it("explains duplicate slugs without exposing the resource key", () => {
+  it("explains duplicate slugs without exposing internal resource keys", () => {
     expect(
       classificationMutationErrorMessage(
-        {
-          failure: {
-            code: "gallery.conflict",
-            params: { resource: "classification_slug" },
-          },
-        },
+        remoteFailure("gallery.conflict", 409, {
+          params: { resource: "classification_slug" },
+        }),
         "创建失败",
       ),
     ).toBe("这个标识已经存在，请换一个标识。");
   });
-
-  it("keeps server validation details next to the form", () => {
-    expect(
-      classificationMutationErrorMessage(
-        {
-          failure: {
-            violations: [{ params: { detail: "标识只能使用小写字母" } }],
+  it("localizes validation codes without using server detail", () => {
+    const message = classificationMutationErrorMessage(
+      remoteFailure("common.validation_failed", 400, {
+        violations: [
+          {
+            pointer: "/slug",
+            code: "validation.invalid",
+            params: { detail: "SQL password=secret" },
           },
-        },
-        "创建失败",
-      ),
-    ).toBe("标识只能使用小写字母");
+        ],
+      }),
+      "创建失败",
+    );
+    expect(message).toContain("此项内容不符合要求");
+    expect(message).not.toContain("SQL");
   });
 });

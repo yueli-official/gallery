@@ -85,10 +85,10 @@ const {
 } = await useAsyncData(
   "gallery-manage-classification-tags",
   () =>
-    call<{ page: GalleryClassificationTagPage }>(
+    call<GalleryClassificationTagPage>(
       "/admin/classification/tags?size=40",
     ),
-  { server: false, default: () => ({ page: { items: [], nextCursor: "" } }) },
+  { server: false, default: () => ({ items: [], nextCursor: "" }) },
 );
 const {
   data: proposalData,
@@ -97,15 +97,15 @@ const {
 } = await useAsyncData(
   "gallery-manage-classification-tag-proposals",
   async () => {
-    if (!canReviewProposals.value) return { proposals: [], total: 0 };
+    if (!canReviewProposals.value) return { items: [], total: 0, page: 1, size: 30 };
     return await call<{
-      proposals: GalleryClassificationTagProposal[];
+      items: GalleryClassificationTagProposal[];
       total: number;
     }>(
       "/admin/classification/tag-proposals?status=pending&page=1&size=30",
     );
   },
-  { server: false, default: () => ({ proposals: [], total: 0 }) },
+  { server: false, default: () => ({ items: [], total: 0, page: 1, size: 30 }) },
 );
 
 const previewOpen = ref(false);
@@ -158,10 +158,10 @@ const visibleFacets = computed(() =>
     })),
 );
 const visibleTags = computed(() =>
-  tagData.value.page.items.filter((item) => matches(item.name, item.slug)),
+  tagData.value.items.filter((item) => matches(item.name, item.slug)),
 );
 const visibleProposals = computed(() =>
-  proposalData.value.proposals.filter((item) =>
+  proposalData.value.items.filter((item) =>
     matches(item.inputValue, item.lookupKey),
   ),
 );
@@ -356,7 +356,7 @@ const editorTargets = computed<ManagedIdentity[]>(() => {
       (item) => item.id !== source.id && item.status === "active",
     );
   if (editorKind.value === "tag")
-    return tagData.value.page.items.filter(
+    return tagData.value.items.filter(
       (item) => item.id !== source.id && item.status === "active",
     );
   return [];
@@ -505,16 +505,16 @@ async function executePreview() {
 }
 
 async function loadMoreTags() {
-  const cursor = tagData.value.page.nextCursor;
+  const cursor = tagData.value.nextCursor;
   if (!cursor || loadingMoreTags.value) return;
   loadingMoreTags.value = true;
   try {
-    const response = await call<{ page: GalleryClassificationTagPage }>(
+    const response = await call<GalleryClassificationTagPage>(
       `/admin/classification/tags?size=40&cursor=${encodeURIComponent(cursor)}`,
     );
-    tagData.value.page = {
-      items: [...tagData.value.page.items, ...response.page.items],
-      nextCursor: response.page.nextCursor,
+    tagData.value = {
+      items: [...tagData.value.items, ...response.items],
+      nextCursor: response.nextCursor,
     };
   } finally {
     loadingMoreTags.value = false;
@@ -644,7 +644,7 @@ async function reviewTagProposal(
             v-else-if="section === 'proposals'"
             :proposals="visibleProposals"
             :total="proposalData.total"
-            :tags="tagData.page.items"
+            :tags="tagData.items"
             :pending="proposalsPending"
             :hydrated="hydrated"
             :reviewing-id="reviewingProposal"
@@ -655,7 +655,7 @@ async function reviewTagProposal(
             :tags="visibleTags"
             :pending="tagsPending"
             :hydrated="hydrated"
-            :next-cursor="tagData.page.nextCursor"
+            :next-cursor="tagData.nextCursor || ''"
             :loading-more="loadingMoreTags"
             :can-govern="canGovern"
             @action="handleIdentityAction"

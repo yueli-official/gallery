@@ -171,7 +171,7 @@ function message(reason: unknown): string {
     data?: { message?: string };
     message?: string;
   };
-  return value?.data?.message || value?.message || "请稍后重试";
+  return galleryFailureMessage(value, "请稍后重试");
 }
 
 async function saveSettings(): Promise<void> {

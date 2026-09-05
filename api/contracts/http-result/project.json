@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "http.yueli.dev/project/v1",
+  "namespace": "gallery",
+  "openapi": {
+    "output": "../contracts/openapi/gallery.json",
+    "producer": {
+      "command": [
+        "go",
+        "run",
+        "github.com/yueli-official/gallery/api/cmd/gallery"
+      ],
+      "outputEnv": "GALLERY_OPENAPI_OUTPUT"
+    }
+  },
+  "errorCatalog": "contracts/errors/catalog.json",
+  "operations": {
+    "output": "contracts/http-result/operations.json",
+    "errorsFile": "contracts/http-result/operation-errors.json"
+  },
+  "generate": {
+    "goOutput": "internal/galleryerr/catalog_gen.go",
+    "goPackage": "galleryerr",
+    "tsOutput": "../web/app/generated/galleryFailure.ts",
+    "tsType": "GalleryFailure",
+    "i18nOutput": "../web/app/generated/error-i18n-inventory.json"
+  },
+  "allowUnusedErrors": [
+    "gallery.gateway.unavailable",
+    "gallery.gateway.timeout",
+    "gallery.request.invalid",
+    "gallery.request.method_not_allowed",
+    "gallery.request.body_too_large",
+    "gallery.not_authenticated"
+  ]
+}
