@@ -34,23 +34,24 @@ useSeoMeta({
 </script>
 
 <template>
-  <div class="gallery-page">
-    <header class="gallery-page-header">
-      <div>
-        <h1 class="gallery-page-title">排行榜</h1>
-        <p class="gallery-page-copy">
-          看看最近被反复浏览和收藏的图片，首页仍然保持随机。
-        </p>
-      </div>
-      <USelect
-        :model-value="windowKey"
-        :items="windows"
-        value-key="value"
-        class="w-32"
-        @update:model-value="(value) => setQuery({ window: String(value) })"
-      />
-    </header>
-    <div class="gallery-ranking-tabs">
+  <GalleryPublicPage>
+    <GalleryPageHeader
+      title="排行榜"
+      description="看看最近被反复浏览和收藏的图片，首页仍然保持随机。"
+    >
+      <template #actions>
+        <USelect
+          :model-value="windowKey"
+          :items="windows"
+          value-key="value"
+          class="w-32"
+          @update:model-value="(value) => setQuery({ window: String(value) })"
+        />
+      </template>
+    </GalleryPageHeader>
+    <div
+      class="gallery-ranking-tabs mb-7 flex w-max max-w-full gap-1 overflow-x-auto rounded-xl border border-default bg-muted p-1.5"
+    >
       <UButton
         v-for="item in kinds"
         :key="item.value"
@@ -79,16 +80,11 @@ useSeoMeta({
       :items="images"
       priority
     />
-    <div v-else class="gallery-compact-empty">
-      <span class="gallery-empty-icon"
-        ><UIcon name="i-tabler-chart-bar" class="size-6"
-      /></span>
-      <h2 class="mt-4 text-lg font-semibold text-highlighted">
-        还没有形成排行
-      </h2>
-      <p class="mt-2 text-sm text-muted">
-        有更多公开浏览和收藏后，这里会开始更新。
-      </p>
-    </div>
-  </div>
+    <GalleryCompactEmpty
+      v-else
+      icon="i-tabler-chart-bar"
+      title="还没有形成排行"
+      description="有更多公开浏览和收藏后，这里会开始更新。"
+    />
+  </GalleryPublicPage>
 </template>

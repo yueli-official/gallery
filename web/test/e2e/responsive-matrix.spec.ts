@@ -37,7 +37,7 @@ export function registerResponsiveSuite(product: string) {
         ).toBeVisible();
       });
 
-      test("1920px 宽屏内容有上限并保持居中", async ({ browser }) => {
+      test("1920px 宽屏公共壳统一为 1200px 并保持居中", async ({ browser }) => {
         const viewport = { width: 1920, height: 1080 };
         const publicContext = await browser.newContext({ viewport });
         try {
@@ -46,21 +46,72 @@ export function registerResponsiveSuite(product: string) {
             path: contract.public.path,
             readySelector: contract.public.readySelector,
           });
-          const publicBounds = await page
-            .locator(".gallery-page")
-            .first()
+          for (const selector of [
+            ".gallery-header-inner",
+            ".gallery-main",
+            ".gallery-page",
+            ".gallery-footer-inner",
+          ]) {
+            const bounds = await page.locator(selector).first().boundingBox();
+            expect(bounds, selector).not.toBeNull();
+            expect(bounds!.width, selector).toBeCloseTo(1200, 0);
+            expect(
+              Math.abs(bounds!.x - (viewport.width - bounds!.width) / 2),
+              selector,
+            ).toBeLessThanOrEqual(2);
+          }
+
+          await openReady(page, site.url, scenario(contract, "viewer"));
+          const detailBounds = await page
+            .locator(".gallery-detail")
             .boundingBox();
-          expect(publicBounds).not.toBeNull();
-          expect(publicBounds!.width).toBeLessThanOrEqual(1601);
-          expect(
-            Math.abs(
-              publicBounds!.x - (viewport.width - publicBounds!.width) / 2,
-            ),
-          ).toBeLessThanOrEqual(2);
+          const commentsBounds = await page
+            .locator(".gallery-detail-comments")
+            .boundingBox();
+          const relatedBounds = await page
+            .locator(".gallery-detail-related")
+            .boundingBox();
+          expect(detailBounds).not.toBeNull();
+          expect(detailBounds!.width).toBeCloseTo(1200, 0);
+          expect(commentsBounds).not.toBeNull();
+          expect(relatedBounds).not.toBeNull();
+          expect(commentsBounds!.width).toBeCloseTo(relatedBounds!.width, 0);
+          expect(commentsBounds!.x).toBeCloseTo(relatedBounds!.x, 0);
+          const sectionStyles = await page.evaluate(() => {
+            const comments = getComputedStyle(
+              document.querySelector<HTMLElement>(
+                ".gallery-detail-comments",
+              )!,
+            );
+            const related = getComputedStyle(
+              document.querySelector<HTMLElement>(
+                ".gallery-detail-related",
+              )!,
+            );
+            return {
+              commentBackground: comments.backgroundColor,
+              relatedBackground: related.backgroundColor,
+              commentBorder: comments.borderTopWidth,
+              commentShadow: comments.boxShadow,
+              commentMargin: Number.parseFloat(comments.marginTop),
+              relatedMargin: Number.parseFloat(related.marginTop),
+            };
+          });
+          expect(sectionStyles.commentBackground).not.toBe(
+            sectionStyles.relatedBackground,
+          );
+          expect(sectionStyles.commentBorder).toBe("0px");
+          expect(sectionStyles.commentShadow).toBe("none");
+          expect(sectionStyles.relatedMargin).toBeGreaterThan(
+            sectionStyles.commentMargin,
+          );
         } finally {
           await publicContext.close();
         }
+      });
 
+      test("1920px 管理后台仍使用可用工作画布", async ({ browser }) => {
+        const viewport = { width: 1920, height: 1080 };
         const context = await loginE2E(browser, { viewport });
         try {
           const managePage = await context.newPage();

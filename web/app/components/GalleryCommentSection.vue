@@ -103,7 +103,10 @@ onMounted(load);
 </script>
 
 <template>
-  <section class="gallery-detail-comments" data-gallery-comments>
+  <section
+    class="gallery-detail-comments mt-12 w-full rounded-2xl bg-muted p-3 sm:p-6 lg:mt-16 lg:p-8"
+    data-gallery-comments
+  >
     <PublicCommentThread
       v-model:order="order"
       :comments="items"

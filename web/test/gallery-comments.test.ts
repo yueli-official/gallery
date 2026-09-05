@@ -18,7 +18,8 @@ const me = source("../app/composables/useGalleryMe.ts");
 
 describe("Gallery comments", () => {
   it("attaches a two-level public thread to an Image rather than its Submission", () => {
-    expect(viewer).toContain('<GalleryCommentSection :image-id="image.id" />');
+    expect(viewer).toContain("<GalleryCommentSection");
+    expect(viewer).toContain('v-show="!fullscreen"');
     expect(section).toContain("PublicCommentThread");
     expect(section).toContain("sortOrder: order.value");
     expect(section).not.toContain("submissionId");
@@ -30,6 +31,14 @@ describe("Gallery comments", () => {
     );
     expect(publicStyles).not.toMatch(
       /\.gallery-detail-related\s*\{[^}]*border-top/,
+    );
+    expect(section).toContain(
+      "mt-12 w-full rounded-2xl bg-muted p-3 sm:p-6 lg:mt-16 lg:p-8",
+    );
+    expect(viewer).toContain("gallery-detail-related mt-20 lg:mt-28");
+    expect(publicStyles).not.toMatch(/\.gallery-detail-comments\s*\{/);
+    expect(publicStyles).not.toMatch(
+      /\.gallery-detail-related\s*\{[^}]*(?:margin|padding|background)/,
     );
   });
 

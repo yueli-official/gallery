@@ -277,9 +277,9 @@ export function registerManagementSuite(product: string) {
           ).toBeVisible();
 
           const header = managePage.locator("[data-manage-page-header]");
-          const collection = managePage
-            .locator('section[aria-label="图片列表"]')
-            .first();
+          const collection = managePage.getByRole("region", {
+            name: "图片管理",
+          }).first();
           const search = collection.locator("[data-collection-table-search]");
           const controls = collection.locator(
             "[data-collection-table-controls]",
@@ -441,6 +441,7 @@ export function registerManagementSuite(product: string) {
           const emptyTrash = page.getByRole("dialog", { name: "清空回收站" });
           await expect(emptyTrash).toBeVisible();
           await emptyTrash.getByRole("button", { name: "取消" }).click();
+          await expect(emptyTrash).toHaveCount(0);
           const accessibility = await new AxeBuilder({ page })
             .exclude("nuxt-devtools-frame")
             .analyze();
@@ -726,6 +727,8 @@ export function registerManagementSuite(product: string) {
             expect(navigationBox).toBeTruthy();
             expect(firstTabBox).toBeTruthy();
             expect(lastTabBox).toBeTruthy();
+            expect(firstTabBox!.height).toBeGreaterThanOrEqual(44);
+            expect(lastTabBox!.height).toBeGreaterThanOrEqual(44);
             expect(firstTabBox!.x).toBeGreaterThanOrEqual(navigationBox!.x - 1);
             expect(lastTabBox!.x + lastTabBox!.width).toBeLessThanOrEqual(
               navigationBox!.x + navigationBox!.width + 1,
@@ -981,6 +984,19 @@ export function registerManagementSuite(product: string) {
         const context = await loginE2E(browser);
         const page = await authenticatedPage(context, site.url);
         try {
+          await page.route(
+            (url) =>
+              url.pathname === "/api/gallery/admin/classification/tags" &&
+              url.searchParams.get("size") === "100",
+            (route) =>
+              route.fulfill({
+                status: 200,
+                contentType: "application/json",
+                body: JSON.stringify({
+                  page: { items: [], nextCursor: "" },
+                }),
+              }),
+          );
           await page.goto(new URL("/manage/images", site.url).toString(), {
             waitUntil: "domcontentloaded",
           });

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { productSites } from "./contracts";
 import { registerProductSuite } from "./product-suite";
-import { loginE2E } from "./runtime";
+import { loginE2E, settleNuxt } from "./runtime";
 
 registerProductSuite("gallery");
 
@@ -83,6 +83,50 @@ if (suite === "all" || suite === "journeys") {
 
       await page.getByRole("button", { name: "返回图片目录" }).click();
       await expect(page).toHaveURL(new URL("/images", site.url).toString());
+    });
+
+    test(`${site.slug} 图册从目录页末尾继续到下一页第一张`, async ({ page }) => {
+      await page.goto(new URL("/images", site.url).toString(), {
+        waitUntil: "domcontentloaded",
+      });
+      await settleNuxt(page);
+
+      const firstPageTiles = page.locator("a.gallery-tile-link");
+      await expect(firstPageTiles).toHaveCount(24);
+      const lastFirstPageHref = await firstPageTiles.last().getAttribute("href");
+      expect(lastFirstPageHref).toBeTruthy();
+
+      await page.getByRole("button", { name: "2", exact: true }).click();
+      await expect(page).toHaveURL(/page=2/u);
+      await expect(page.locator("a.gallery-tile-link")).toHaveCount(24);
+      const firstSecondPageHref = await page
+        .locator("a.gallery-tile-link")
+        .first()
+        .getAttribute("href");
+      expect(firstSecondPageHref).toBeTruthy();
+
+      await page.goto(new URL("/images", site.url).toString(), {
+        waitUntil: "domcontentloaded",
+      });
+      await settleNuxt(page);
+      await page.locator("a.gallery-tile-link").last().click();
+      await expect(page.locator('[data-navigation-ready="true"]')).toBeVisible();
+      await page.getByRole("button", { name: "进入图册模式" }).click();
+      await expect
+        .poll(() => page.evaluate(() => Boolean(document.fullscreenElement)))
+        .toBe(true);
+
+      await page.getByRole("button", { name: "查看下一张图片" }).click();
+      await expect(page).toHaveURL(
+        new URL(firstSecondPageHref!, site.url).toString(),
+      );
+      await expect
+        .poll(() => page.evaluate(() => Boolean(document.fullscreenElement)))
+        .toBe(true);
+      await page.getByRole("button", { name: "查看上一张图片" }).click();
+      await expect(page).toHaveURL(
+        new URL(lastFirstPageHref!, site.url).toString(),
+      );
     });
   }
 }

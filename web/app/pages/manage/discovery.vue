@@ -136,7 +136,7 @@ watch(
     restoreForm(site);
     settingsWorkflow.capture();
   },
-  { immediate: true },
+  { immediate: true, flush: "sync" },
 );
 
 watch(
@@ -147,7 +147,7 @@ watch(
       saveError.value = "";
     }
   },
-  { deep: true },
+  { deep: true, flush: "sync" },
 );
 
 function sectionLimit(section: GalleryHomeSection): { min: number; max: number } {

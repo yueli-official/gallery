@@ -36,35 +36,28 @@ describe("gallery image detail viewer", () => {
   });
 
   it("keeps the image dominant and long titles subordinate", () => {
-    expect(viewer).toContain('class="gallery-detail-titleline"');
-    expect(styles).toMatch(
-      /\.gallery-detail-stage\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
-    );
-    expect(styles).toMatch(
-      /\.gallery-detail-heading h1\s*\{[^}]*font-size:\s*clamp\(1\.05rem,\s*1\.35vw,\s*1\.25rem\)/s,
-    );
-    expect(styles).toMatch(
-      /\.gallery-detail-heading h1\s*\{[^}]*overflow-wrap:\s*anywhere/s,
-    );
+    expect(viewer).toContain("gallery-detail-stage grid grid-cols-1");
+    expect(viewer).toContain("text-[clamp(1.05rem,1.35vw,1.25rem)]");
+    expect(viewer).toContain("[overflow-wrap:anywhere]");
+    expect(styles).not.toMatch(/(?:^|\n)\.gallery-detail-stage\s*\{/);
+    expect(styles).not.toMatch(/\.gallery-detail-heading h1\s*\{/);
     expect(styles).not.toContain("font-size: clamp(2rem, 3vw, 3.35rem)");
   });
 
   it("keeps the image description below the title without a redundant label", () => {
     expect(viewer).not.toContain('class="gallery-detail-facts"');
-    expect(viewer).toContain(
-      'class="gallery-detail-description"',
-    );
+    expect(viewer).toContain("gallery-detail-description");
     expect(viewer).not.toContain("<strong>图片说明</strong>");
-    expect(viewer.indexOf('class="gallery-detail-description"')).toBeLessThan(
-      viewer.indexOf('class="gallery-detail-stats"'),
+    expect(viewer.indexOf("gallery-detail-description")).toBeLessThan(
+      viewer.indexOf("gallery-detail-stats"),
     );
   });
 
   it("distills dimensions and governance behind an explicit disclosure", () => {
-    expect(viewer).toContain('class="gallery-detail-more"');
+    expect(viewer).toContain("gallery-detail-more");
     expect(viewer).toContain("<dt>图片尺寸</dt>");
     expect(viewer.indexOf("<dt>图片尺寸</dt>")).toBeGreaterThan(
-      viewer.indexOf('class="gallery-detail-more-panel"'),
+      viewer.indexOf("gallery-detail-more-panel"),
     );
     expect(viewer).not.toContain(
       '<span aria-hidden="true">·</span>',
@@ -85,7 +78,7 @@ describe("gallery image detail viewer", () => {
   });
 
   it("uses quiet icon-only actions and compact icon statistics", () => {
-    expect(viewer).toContain('class="gallery-detail-stats"');
+    expect(viewer).toContain("gallery-detail-stats");
     expect(viewer).toContain('aria-label="分享图片"');
     expect(viewer).toContain(
       ':aria-label="image.favorited ? \'取消收藏\' : \'收藏图片\'"',

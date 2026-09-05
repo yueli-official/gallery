@@ -410,6 +410,30 @@ const imageKey = (image: GalleryAdminImage) => image.id;
 const imageLabel = (image: GalleryAdminImage) => image.title;
 
 const editing = shallowRef<GalleryAdminImage>();
+const editCategoryOptions = computed(() => {
+  const items = categoryOptions.value.filter((item) => item.value !== ALL);
+  const current = editing.value;
+  if (
+    current?.primaryCategoryId &&
+    current.primaryCategory &&
+    !items.some((item) => item.value === current.primaryCategoryId)
+  ) {
+    return [
+      ...items,
+      { label: current.primaryCategory, value: current.primaryCategoryId },
+    ];
+  }
+  return items;
+});
+const editTagOptions = computed(() => {
+  const items = new Map(
+    tagOptions.value.map((item) => [item.value, item] as const),
+  );
+  for (const tag of editing.value?.tags || []) {
+    items.set(tag.id, { label: tag.name, value: tag.id });
+  }
+  return [...items.values()];
+});
 const editPending = ref(false);
 const editLoading = ref(false);
 const deleteConfirming = ref(false);
@@ -1087,7 +1111,7 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
             <USelectMenu
               v-model="editForm.primaryCategoryId"
               aria-label="主分类"
-              :items="categoryOptions.filter((item) => item.value !== ALL)"
+              :items="editCategoryOptions"
               value-key="value"
               class="w-full"
               :search-input="{ placeholder: '搜索分类…' }"
@@ -1117,7 +1141,7 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
             <USelectMenu
               v-model="editForm.tagIds"
               aria-label="标签"
-              :items="tagOptions"
+              :items="editTagOptions"
               value-key="value"
               multiple
               class="w-full"

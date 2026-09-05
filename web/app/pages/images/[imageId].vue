@@ -3,6 +3,7 @@ import type {
   GalleryDiscovery,
   GalleryImage,
   GalleryImageCard,
+  GalleryImagePage,
   GalleryRelatedImage,
 } from "~/types/gallery";
 
@@ -40,13 +41,7 @@ if (import.meta.server && error.value) {
 
 const image = computed(() => data.value?.image);
 const related = computed(() => relatedData.value?.items || []);
-const navigationSession = useState<{
-  sequence: ReturnType<typeof createViewerSequence>;
-  candidates: GalleryImageCard[];
-}>("gallery-viewer-navigation", () => ({
-  sequence: createViewerSequence(imageId.value),
-  candidates: [],
-}));
+const navigationSession = useGalleryViewerNavigation(imageId.value);
 const sequence = computed({
   get: () => navigationSession.value.sequence,
   set: (value) => {
@@ -60,6 +55,7 @@ const candidatePool = computed({
   },
 });
 const continuationPending = ref(false);
+const previousContinuationPending = ref(false);
 const closeTarget = ref("/images");
 const navigationReady = ref(false);
 
@@ -93,6 +89,30 @@ async function ensureContinuation(): Promise<void> {
     return;
   continuationPending.value = true;
   try {
+    const catalog = navigationSession.value.catalog;
+    if (catalog) {
+      if (!catalog.nextPage) return;
+      const requestedPage = catalog.nextPage;
+      const response = await $fetch<GalleryImagePage>("/api/gallery/images", {
+        query: { ...catalog.request, page: requestedPage },
+      });
+      mergeCandidates(response.items);
+      sequence.value = extendViewerSequence(
+        sequence.value,
+        response.items.map((item) => item.id),
+      );
+      navigationSession.value = {
+        ...navigationSession.value,
+        catalog: {
+          ...catalog,
+          nextPage:
+            requestedPage < response.totalPages
+              ? requestedPage + 1
+              : undefined,
+        },
+      };
+      return;
+    }
     const seed =
       globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
     const discovery = await $fetch<GalleryDiscovery>("/api/gallery/discovery", {
@@ -110,16 +130,53 @@ async function ensureContinuation(): Promise<void> {
   }
 }
 
+async function ensurePreviousContinuation(): Promise<void> {
+  const catalog = navigationSession.value.catalog;
+  if (
+    !import.meta.client ||
+    previous.value ||
+    !catalog?.previousPage ||
+    previousContinuationPending.value
+  )
+    return;
+  previousContinuationPending.value = true;
+  try {
+    const requestedPage = catalog.previousPage;
+    const response = await $fetch<GalleryImagePage>("/api/gallery/images", {
+      query: { ...catalog.request, page: requestedPage },
+    });
+    mergeCandidates(response.items);
+    sequence.value = prependViewerSequence(
+      sequence.value,
+      response.items.map((item) => item.id),
+    );
+    navigationSession.value = {
+      ...navigationSession.value,
+      catalog: {
+        ...catalog,
+        previousPage: requestedPage > 1 ? requestedPage - 1 : undefined,
+      },
+    };
+  } catch {
+    // Keep the catalog boundary available for a later retry.
+  } finally {
+    previousContinuationPending.value = false;
+  }
+}
+
 watch(
   [image, related],
   ([current, suggestions]) => {
     if (!current) return;
     mergeCandidates([current, ...suggestions]);
     sequence.value = moveViewerSequence(sequence.value, current.id);
-    sequence.value = extendViewerSequence(
-      sequence.value,
-      suggestions.map((item) => item.id),
-    );
+    if (!navigationSession.value.catalog) {
+      sequence.value = extendViewerSequence(
+        sequence.value,
+        suggestions.map((item) => item.id),
+      );
+    }
+    void ensurePreviousContinuation();
     void ensureContinuation();
   },
   { immediate: true },
@@ -172,10 +229,7 @@ useHead(() =>
 );
 
 function closeViewer(): void {
-  navigationSession.value = {
-    sequence: createViewerSequence(imageId.value),
-    candidates: [],
-  };
+  navigationSession.value = createViewerNavigationSession(imageId.value);
   void router.replace(closeTarget.value);
 }
 
@@ -190,10 +244,7 @@ function retry(): void {
 
 onBeforeRouteLeave((to) => {
   if (/^\/images\/[^/]+/.test(to.path)) return;
-  navigationSession.value = {
-    sequence: createViewerSequence(imageId.value),
-    candidates: [],
-  };
+  navigationSession.value = createViewerNavigationSession(imageId.value);
 });
 </script>
 

@@ -1100,7 +1100,7 @@ async function openPicker(): Promise<void> {
                   />
                 </div>
                 <div
-                  class="gallery-manage-cover"
+                  class="gallery-manage-cover grid aspect-video max-w-[26rem] place-items-center overflow-hidden rounded-xl border border-default bg-default [&_img]:size-full [&_img]:object-cover"
                   :style="{
                     backgroundColor:
                       selectedCover?.dominantColor ||
@@ -1228,7 +1228,7 @@ async function openPicker(): Promise<void> {
           <article
             v-for="item in pickerItems"
             :key="item.id"
-            class="gallery-manage-picker-item"
+            class="gallery-manage-picker-item overflow-hidden rounded-xl border border-default bg-default [&>img]:aspect-[4/3] [&>img]:size-full [&>img]:object-cover"
           >
             <img
               v-bind="galleryImageSources(item.assetId, 'grid', false)"

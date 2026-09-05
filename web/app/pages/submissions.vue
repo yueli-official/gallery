@@ -170,16 +170,19 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
 </script>
 
 <template>
-  <div class="gallery-page max-w-6xl">
-    <header class="gallery-page-header">
-      <div>
-        <h1 class="gallery-page-title">我的投稿</h1>
-        <p class="gallery-page-copy">
-          跟踪每张图片的处理、审核与最终结果，失败原因会保留在对应记录中。
-        </p>
-      </div>
-      <UButton to="/submit" icon="i-tabler-library-plus" label="批量投稿" />
-    </header>
+  <GalleryPublicPage class="max-w-6xl">
+    <GalleryPageHeader
+      title="我的投稿"
+      description="跟踪每张图片的处理、审核与最终结果，失败原因会保留在对应记录中。"
+    >
+      <template #actions>
+        <UButton
+          to="/submit"
+          icon="i-tabler-library-plus"
+          label="批量投稿"
+        />
+      </template>
+    </GalleryPageHeader>
 
     <UAlert
       v-if="!loggedIn"
@@ -311,24 +314,20 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
         </div>
       </article>
     </div>
-    <div v-else class="gallery-compact-empty grid place-items-center">
-      <div>
-        <span class="gallery-empty-icon"
-          ><UIcon
-            :name="
-              outcome || processingState || reviewState
-                ? 'i-tabler-filter-off'
-                : 'i-tabler-photo-up'
-            "
-            class="size-6"
-        /></span>
-        <h2 class="mt-3 font-semibold text-highlighted">
-          {{
-            outcome || processingState || reviewState
-              ? "没有符合筛选条件的记录"
-              : "还没有投稿记录"
-          }}
-        </h2>
+    <GalleryCompactEmpty
+      v-else
+      :icon="
+        outcome || processingState || reviewState
+          ? 'i-tabler-filter-off'
+          : 'i-tabler-photo-up'
+      "
+      :title="
+        outcome || processingState || reviewState
+          ? '没有符合筛选条件的记录'
+          : '还没有投稿记录'
+      "
+    >
+      <template #actions>
         <UButton
           v-if="outcome || processingState || reviewState"
           class="mt-4"
@@ -337,8 +336,8 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
           label="清除筛选"
           @click="clearFilters"
         /><UButton v-else to="/submit" class="mt-4" label="投稿图片" />
-      </div>
-    </div>
+      </template>
+    </GalleryCompactEmpty>
 
     <nav
       v-if="data.totalPages > 1"
@@ -365,5 +364,5 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
         @click="setPage(page + 1)"
       />
     </nav>
-  </div>
+  </GalleryPublicPage>
 </template>

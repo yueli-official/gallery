@@ -275,7 +275,7 @@ onBeforeUnmount(() =>
 </script>
 
 <template>
-  <div class="gallery-page max-w-7xl">
+  <GalleryPublicPage class="max-w-7xl">
     <header class="mb-8 max-w-3xl">
       <div>
         <h1 class="text-3xl font-bold tracking-tight text-highlighted">
@@ -290,7 +290,7 @@ onBeforeUnmount(() =>
 
     <UAlert
       v-if="!loggedIn"
-      class="gallery-submit-notice mb-6"
+      class="gallery-submit-notice mb-6 rounded-2xl"
       color="primary"
       variant="subtle"
       icon="i-tabler-shield-check"
@@ -340,7 +340,7 @@ onBeforeUnmount(() =>
 
         <label
           v-if="!queue.length"
-          class="gallery-upload-field group min-h-[18rem] focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-primary sm:min-h-[22rem]"
+          class="gallery-upload-field group grid min-h-[18rem] cursor-pointer place-items-center overflow-hidden rounded-2xl border border-dashed border-primary/40 hover:bg-muted focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-primary active:scale-[0.995] sm:min-h-[22rem]"
         >
           <input
             type="file"
@@ -352,7 +352,7 @@ onBeforeUnmount(() =>
           <span class="max-w-md px-6 text-center">
             <UIcon
               name="i-tabler-library-plus"
-              class="gallery-upload-icon mx-auto size-11"
+              class="gallery-upload-icon mx-auto size-11 text-primary"
             />
             <span class="mt-4 block font-semibold text-highlighted"
               >选择一组静态图片</span
@@ -533,7 +533,9 @@ onBeforeUnmount(() =>
         </div>
       </section>
 
-      <aside class="gallery-submit-form space-y-5 lg:sticky lg:top-24">
+      <aside
+        class="gallery-submit-form space-y-5 rounded-2xl border border-default bg-muted p-5 shadow-[0_18px_55px_rgb(25_41_73_/_0.07)] lg:sticky lg:top-24"
+      >
         <div>
           <h2 class="text-lg font-semibold text-highlighted">批量默认值</h2>
           <p class="mt-1 text-xs leading-5 text-muted">
@@ -634,5 +636,5 @@ onBeforeUnmount(() =>
         </p>
       </aside>
     </form>
-  </div>
+  </GalleryPublicPage>
 </template>

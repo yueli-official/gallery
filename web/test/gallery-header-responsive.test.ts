@@ -43,9 +43,8 @@ describe("Gallery mobile header", () => {
     expect(header).toContain(
       'class="gallery-desktop-nav hidden items-center gap-1 md:flex"',
     );
-    expect(header).toContain('class="gallery-mobile-nav md:hidden"');
-    expect(stylesheet).toMatch(
-      /\.gallery-mobile-nav\s*\{[\s\S]*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\)/,
+    expect(header).toContain(
+      'class="gallery-mobile-nav grid h-11 grid-cols-4 px-3 text-[0.82rem] text-muted md:hidden"',
     );
     expect(stylesheet).toMatch(
       /\.gallery-mobile-nav a\[aria-current="page"\]::after\s*\{[\s\S]*opacity:\s*1/,
@@ -57,30 +56,22 @@ describe("Gallery mobile header", () => {
       /class="gallery-submit-button"[\s\S]*color="primary"/,
     );
     expect(header).toMatch(
-      /<UColorModeButton[\s\S]*class="gallery-submit-link"[\s\S]*>投稿<\/NuxtLink>[\s\S]*<ConsumerAccountControl/,
+      /<UColorModeButton[\s\S]*class="gallery-submit-link[^\"]*"[\s\S]*>投稿<\/NuxtLink\s*>[\s\S]*<ConsumerAccountControl/,
     );
   });
 
   it("pins compact actions right and collapses search to an icon below 1024px", () => {
     expect(header).toMatch(
-      /<GalleryGlobalSearch[\s\S]*class="gallery-header-search"[\s\S]*compact[\s\S]*:placeholder="props\.searchPlaceholder"/,
+      /<GalleryGlobalSearch[\s\S]*class="gallery-header-search mx-auto hidden flex-1 lg:flex"[\s\S]*compact[\s\S]*:placeholder="props\.searchPlaceholder"/,
     );
     expect(header).toContain(
-      'class="gallery-header-search-trigger"',
+      'class="gallery-header-search-trigger grid size-11',
     );
     expect(header).not.toContain("gallery-header-mobile-search");
-    expect(stylesheet).toMatch(
-      /\.gallery-header-actions\s*\{[\s\S]*margin-left:\s*auto/,
-    );
-    expect(stylesheet).toMatch(
-      /\.gallery-header-search\s*\{[\s\S]*display:\s*none/,
-    );
-    expect(stylesheet).toMatch(
-      /\.gallery-header-search-trigger\s*\{[\s\S]*display:\s*grid/,
-    );
-    expect(stylesheet).toMatch(
-      /@media \(min-width:\s*64rem\)[\s\S]*\.gallery-header-search\s*\{[\s\S]*display:\s*flex[\s\S]*\.gallery-header-search-trigger\s*\{[\s\S]*display:\s*none/,
-    );
+    expect(header).toContain("gallery-header-actions ml-auto flex shrink-0");
+    expect(header).toContain("focus-visible:outline-transparent lg:hidden");
+    expect(stylesheet).not.toMatch(/\.gallery-header-search\s*\{/);
+    expect(stylesheet).not.toMatch(/\.gallery-header-search-trigger\s*\{/);
     expect(home).not.toContain("<GalleryGlobalSearch");
   });
 });

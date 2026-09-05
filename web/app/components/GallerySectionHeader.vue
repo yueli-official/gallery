@@ -8,9 +8,15 @@ defineProps<{
 </script>
 
 <template>
-  <header class="gallery-section-header">
+  <header
+    class="gallery-section-header mb-6 flex items-start justify-between gap-8 md:items-end"
+  >
     <div>
-      <h2>{{ title }}</h2>
+      <h2
+        class="font-display text-[length:var(--gallery-title-section)] font-semibold leading-[1.05] tracking-[-0.04em] text-highlighted"
+      >
+        {{ title }}
+      </h2>
     </div>
     <slot name="action">
       <UButton

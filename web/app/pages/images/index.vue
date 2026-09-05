@@ -33,6 +33,7 @@ const {
 const page = computed(() => catalogState.value.page);
 const sort = computed(() => catalogState.value.sort);
 const view = computed(() => catalogState.value.view);
+const viewerNavigation = useGalleryViewerNavigation();
 
 const [{ data: pageData, error, status, refresh }, { data: discovery }] =
   await Promise.all([
@@ -44,6 +45,19 @@ const [{ data: pageData, error, status, refresh }, { data: discovery }] =
       query: { seed: "catalog-facets" },
     }),
   ]);
+
+watch(
+  [pageData, query],
+  ([currentPage, currentRequest]) => {
+    if (!currentPage || currentPage.page !== currentRequest.page) return;
+    viewerNavigation.value = createCatalogViewerNavigationSession(
+      currentPage.items,
+      currentRequest,
+      currentPage.totalPages,
+    );
+  },
+  { immediate: true },
+);
 
 const facetGroups = computed(() => {
   return (pageData.value?.facets || discovery.value?.facets || []).map(
@@ -251,20 +265,28 @@ useSeoMeta({
 </script>
 
 <template>
-  <div class="gallery-page">
-    <header class="gallery-page-header">
-      <div>
-        <h1 class="gallery-page-title">浏览图片</h1>
-        <p class="gallery-page-copy">
-          按分类、维度和标签组合筛选，页码会记住你停下的位置。
+  <GalleryPublicPage>
+    <GalleryPageHeader
+      title="浏览图片"
+      description="按分类、维度和标签组合筛选，页码会记住你停下的位置。"
+    >
+      <template #actions>
+        <p
+          v-if="pageData"
+          class="gallery-count shrink-0 text-[0.8rem] text-muted max-md:hidden"
+        >
+          <span
+            class="font-display text-[1.8rem] font-semibold text-highlighted"
+            >{{ pageData.total }}</span
+          >
+          张公开图片
         </p>
-      </div>
-      <p v-if="pageData" class="gallery-count">
-        <span>{{ pageData.total }}</span> 张公开图片
-      </p>
-    </header>
+      </template>
+    </GalleryPageHeader>
 
-    <div class="gallery-mobile-search lg:hidden">
+    <div
+      class="gallery-mobile-search mb-6 flex gap-2 rounded-2xl border border-default bg-muted p-2.5 lg:hidden"
+    >
       <UInput
         v-model="searchDraft"
         class="min-w-0 flex-1"
@@ -288,7 +310,9 @@ useSeoMeta({
 
     <div class="grid gap-7 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-8">
       <aside class="hidden lg:block" aria-label="图片过滤器">
-        <div class="gallery-filter-panel sticky top-24 space-y-7">
+        <div
+          class="gallery-filter-panel sticky top-24 max-h-[calc(100dvh-7rem)] space-y-7 overflow-y-auto overscroll-contain rounded-2xl border border-default bg-[color-mix(in_srgb,var(--gallery-panel)_94%,transparent)] p-[1.1rem] [scrollbar-gutter:stable]"
+        >
           <div class="flex items-center justify-between gap-3">
             <h2 class="font-semibold text-highlighted">筛选图片</h2>
             <UBadge
@@ -319,7 +343,9 @@ useSeoMeta({
             @toggle-facet="toggleFacet"
             @toggle-tag="toggleTag"
           />
-          <div class="gallery-filter-actions flex gap-2">
+          <div
+            class="gallery-filter-actions sticky -bottom-[1.1rem] -mx-1 flex gap-2 bg-[linear-gradient(to_bottom,transparent,var(--gallery-panel)_0.75rem)] px-1 pb-[1.1rem] pt-3"
+          >
             <UButton label="应用" size="sm" block @click="applyFilters" />
             <UButton
               v-if="hasFilters || draftFilterCount"
@@ -334,7 +360,9 @@ useSeoMeta({
       </aside>
 
       <section class="min-w-0" aria-live="polite">
-        <div class="gallery-results-toolbar">
+        <div
+          class="gallery-results-toolbar mb-5 flex min-h-[3.7rem] flex-col items-stretch justify-between gap-3 rounded-2xl border border-default bg-muted px-3.5 py-2.5 md:flex-row md:items-center"
+        >
           <div class="flex min-w-0 flex-wrap gap-2">
             <span v-if="!hasFilters" class="px-1 text-sm text-muted">
               全部图片
@@ -342,7 +370,7 @@ useSeoMeta({
             <UButton
               v-for="item in activeRefinements"
               :key="item.key"
-              class="gallery-refinement"
+              class="gallery-refinement max-w-[min(20rem,70vw)] rounded-none [clip-path:polygon(0_0,calc(100%_-_0.42rem)_0,100%_0.42rem,100%_100%,0_100%)]"
               color="neutral"
               variant="soft"
               size="xs"
@@ -361,17 +389,20 @@ useSeoMeta({
             />
           </div>
           <div
-            class="gallery-results-controls flex shrink-0 items-center gap-1"
+            class="gallery-results-controls flex w-full shrink-0 items-center gap-1 md:w-auto"
           >
             <USelect
               :model-value="sort"
               aria-label="图片排序"
               :items="sortItems"
               value-key="value"
-              class="gallery-results-sort w-32 shrink-0"
+              class="gallery-results-sort min-w-0 flex-1 basis-32 md:w-32 md:flex-none md:shrink-0"
               @update:model-value="changeSort"
             />
-            <div class="gallery-view-switch" aria-label="图片布局">
+            <div
+              class="gallery-view-switch flex gap-0.5 rounded-xl border border-default bg-default p-0.5"
+              aria-label="图片布局"
+            >
               <UButton
                 color="neutral"
                 :variant="view === 'grid' ? 'soft' : 'ghost'"
@@ -389,7 +420,10 @@ useSeoMeta({
             </div>
           </div>
         </div>
-        <p v-if="catalogState.q && pageData" class="gallery-search-explanation">
+        <p
+          v-if="catalogState.q && pageData"
+          class="gallery-search-explanation -mt-2.5 mb-5 break-words text-[0.8rem] text-muted"
+        >
           标题、说明、替代文本或标签中包含“{{ catalogState.q }}”的结果，共
           {{ pageData.total }} 张。
         </p>
@@ -420,25 +454,22 @@ useSeoMeta({
           :items="pageData.items"
           :priority="page === 1"
         />
-        <div v-else class="gallery-compact-empty">
-          <span class="gallery-empty-icon"
-            ><UIcon name="i-tabler-filter-off" class="size-6"
-          /></span>
-          <h2 class="mt-4 text-lg font-semibold text-highlighted">
-            没有符合条件的图片
-          </h2>
-          <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted">
-            换一组筛选条件，或者从完整目录重新开始。
-          </p>
-          <UButton
-            v-if="hasFilters"
-            class="mt-4"
-            color="neutral"
-            variant="outline"
-            label="清除筛选"
-            @click="clearFilters"
-          />
-        </div>
+        <GalleryCompactEmpty
+          v-else
+          icon="i-tabler-filter-off"
+          title="没有符合条件的图片"
+          description="换一组筛选条件，或者从完整目录重新开始。"
+        >
+          <template v-if="hasFilters" #actions>
+            <UButton
+              class="mt-4"
+              color="neutral"
+              variant="outline"
+              label="清除筛选"
+              @click="clearFilters"
+            />
+          </template>
+        </GalleryCompactEmpty>
 
         <nav
           v-if="pageData?.totalPages && pageData.totalPages > 1"
@@ -539,5 +570,5 @@ useSeoMeta({
         </div>
       </template>
     </UDrawer>
-  </div>
+  </GalleryPublicPage>
 </template>

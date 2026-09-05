@@ -36,9 +36,12 @@ function setPage(value: number): void {
 </script>
 
 <template>
-  <div class="gallery-page">
-    <header v-if="collection" class="gallery-collection-hero">
-      <div class="gallery-collection-hero-copy">
+  <GalleryPublicPage>
+    <header
+      v-if="collection"
+      class="gallery-collection-hero mb-[clamp(2rem,4vw,3.5rem)] grid items-center gap-6 md:grid-cols-[minmax(0,.9fr)_minmax(20rem,1.1fr)] md:gap-[clamp(1.5rem,4vw,4rem)]"
+    >
+      <div class="gallery-collection-hero-copy py-4">
         <NuxtLink
           to="/collections"
           class="mb-5 inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-highlighted"
@@ -46,8 +49,15 @@ function setPage(value: number): void {
           <UIcon name="i-tabler-arrow-left" class="size-4" />
           全部专题
         </NuxtLink>
-        <h1 class="gallery-page-title">{{ collection.name }}</h1>
-        <p v-if="collection.description" class="gallery-page-copy text-base">
+        <h1
+          class="gallery-page-title font-display text-[1.75rem] font-bold leading-[1.15] tracking-[-0.04em] text-highlighted md:text-[length:var(--gallery-title-page)]"
+        >
+          {{ collection.name }}
+        </h1>
+        <p
+          v-if="collection.description"
+          class="gallery-page-copy mt-1 max-w-[38rem] text-base leading-[1.7] text-muted"
+        >
           {{ collection.description }}
         </p>
         <p class="mt-5 text-sm text-muted">
@@ -59,7 +69,7 @@ function setPage(value: number): void {
         </p>
       </div>
       <div
-        class="gallery-collection-hero-cover"
+        class="gallery-collection-hero-cover row-start-1 grid aspect-[16/10] place-items-center overflow-hidden rounded-[0.9rem] bg-muted md:col-start-2 md:row-auto"
         :style="{ backgroundColor: collection.coverColor || undefined }"
       >
         <img
@@ -68,6 +78,7 @@ function setPage(value: number): void {
           :alt="collection.coverAltText || collection.name"
           :width="collection.coverWidth"
           :height="collection.coverHeight"
+          class="size-full object-cover"
         />
         <UIcon v-else name="i-tabler-folders" class="size-14 text-primary" />
       </div>
@@ -93,18 +104,13 @@ function setPage(value: number): void {
       :items="images"
       priority
     />
-    <div
-      v-else-if="collection"
-      class="gallery-compact-empty grid place-items-center"
-    >
-      <div>
-        <span class="gallery-empty-icon"
-          ><UIcon name="i-tabler-stack-2" class="size-6"
-        /></span>
-        <h2 class="mt-4 font-semibold text-highlighted">专题正在整理</h2>
-        <p class="mt-2 text-sm text-muted">这个专题还没有图片。</p>
-      </div>
-    </div>
+    <template v-else-if="collection">
+      <GalleryCompactEmpty
+        icon="i-tabler-stack-2"
+        title="专题正在整理"
+        description="这个专题还没有图片。"
+      />
+    </template>
 
     <nav
       v-if="collection && collection.totalPages > 1"
@@ -131,5 +137,5 @@ function setPage(value: number): void {
         @click="setPage(page + 1)"
       />
     </nav>
-  </div>
+  </GalleryPublicPage>
 </template>

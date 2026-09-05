@@ -86,7 +86,7 @@ function nextBatch() {
   FORM: 图库标准答案，纯图片优先构图，Pinterest 式发现叠加 Pexels 式搜索，方案 B 的精简版，seed b0a2f453。
   FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
   -->
-  <div class="gallery-page gallery-home">
+  <GalleryPublicPage class="gallery-home">
     <h1 id="gallery-home-title" class="sr-only">
       {{ data?.site.title || data?.site.name }}
     </h1>
@@ -94,16 +94,21 @@ function nextBatch() {
     <template v-for="homeSection in sections" :key="homeSection.key">
       <template v-if="homeSection.enabled && homeSection.key === 'random'">
         <section
-          class="gallery-discovery-tools"
+          class="gallery-discovery-tools flex min-h-13 items-center justify-between gap-3.5 overflow-x-auto border-b border-default [scrollbar-width:none]"
           :aria-labelledby="`${homeSection.key}-title`"
         >
-          <div class="gallery-random-heading">
+          <div class="gallery-random-heading flex items-baseline gap-2.5">
             <div>
-              <h2 :id="`${homeSection.key}-title`">{{ homeSection.title }}</h2>
+              <h2
+                :id="`${homeSection.key}-title`"
+                class="text-[0.95rem] font-bold tracking-[-0.02em] text-highlighted"
+              >
+                {{ homeSection.title }}
+              </h2>
             </div>
           </div>
           <UButton
-            class="gallery-next-batch"
+            class="gallery-next-batch shrink-0"
             color="neutral"
             variant="ghost"
             icon="i-tabler-refresh"
@@ -114,18 +119,18 @@ function nextBatch() {
         </section>
 
         <section
-          class="gallery-home-discovery"
+          class="gallery-home-discovery pt-4"
           :aria-labelledby="`${homeSection.key}-title`"
         >
           <div
             v-if="status === 'pending'"
-            class="gallery-masonry gallery-home-stream"
+            class="gallery-masonry columns-2 gap-3 pt-0 sm:columns-3 sm:gap-[0.8rem] lg:columns-4 lg:gap-4 min-[90rem]:columns-5"
             aria-label="正在加载随机图片"
           >
             <USkeleton
               v-for="index in homeSection.itemLimit"
               :key="index"
-              class="gallery-stream-skeleton"
+              class="gallery-stream-skeleton mb-3 break-inside-avoid rounded-[0.9rem]"
               :style="{ height: `${180 + (index % 4) * 46}px` }"
             />
           </div>
@@ -151,12 +156,24 @@ function nextBatch() {
             v-else-if="data?.images.length"
             :items="data.images.slice(0, homeSection.itemLimit)"
             priority
-            class="gallery-home-stream"
+            class="gallery-home-stream pt-0"
           />
 
-          <div v-else class="gallery-empty gallery-home-empty">
-            <div class="gallery-empty-visual" aria-hidden="true">
-              <span /><span /><span />
+          <div
+            v-else
+            class="gallery-empty gallery-home-empty grid grid-cols-1 items-center gap-8 rounded-2xl border border-default bg-[color-mix(in_srgb,var(--gallery-panel)_92%,transparent)] p-5 shadow-[0_24px_80px_rgb(29_47_81_/_0.07)] md:min-h-88 md:grid-cols-[minmax(0,.9fr)_minmax(18rem,1.1fr)] md:gap-[clamp(2rem,6vw,7rem)] md:p-[clamp(1.5rem,5vw,4.5rem)]"
+          >
+            <div
+              class="gallery-empty-visual grid aspect-[4/3] max-h-48 -rotate-2 grid-cols-[1.2fr_.8fr] grid-rows-2 gap-2.5 md:max-h-none"
+              aria-hidden="true"
+            >
+              <span
+                class="row-span-2 block rounded-2xl bg-[linear-gradient(145deg,var(--gallery-accent),#87a8ff)]"
+              /><span
+                class="block rounded-2xl bg-[color-mix(in_srgb,var(--gallery-ink)_12%,var(--gallery-panel))]"
+              /><span
+                class="block rounded-2xl bg-[color-mix(in_srgb,var(--gallery-accent)_20%,var(--gallery-panel))]"
+              />
             </div>
             <div class="max-w-md">
               <p class="text-sm font-medium text-primary">
@@ -194,30 +211,39 @@ function nextBatch() {
           homeSection.key === 'collections' &&
           featuredCollections.length
         "
-        class="gallery-section"
+        class="gallery-section pt-[clamp(2rem,4vw,3.75rem)]"
       >
         <GallerySectionHeader
           :title="homeSection.title"
           to="/collections"
           :action-label="homeSection.actionLabel"
         />
-        <div class="gallery-editorial-grid">
+        <div class="gallery-editorial-grid grid border-t border-default">
           <NuxtLink
             v-for="(collection, index) in featuredCollections"
             :key="collection.id"
             :to="`/collections/${collection.slug}`"
-            class="gallery-editorial-item"
+            class="gallery-editorial-item grid grid-cols-[2rem_minmax(0,1fr)] items-start gap-4 border-b border-default px-1 py-[1.35rem] transition-[background,padding] hover:bg-muted hover:px-3 focus-visible:bg-muted focus-visible:px-3 md:grid-cols-[2.5rem_minmax(0,1fr)_auto]"
           >
-            <span class="gallery-editorial-index"
+            <span
+              class="gallery-editorial-index font-display text-xs font-semibold text-primary"
               >{{ String(index + 1).padStart(2, "0") }}</span
             >
             <div>
-              <h3>{{ collection.name }}</h3>
-              <p v-if="collection.description">
+              <h3 class="font-semibold text-highlighted">
+                {{ collection.name }}
+              </h3>
+              <p
+                v-if="collection.description"
+                class="mt-1.5 max-w-[46rem] text-[0.85rem] leading-[1.55] text-muted"
+              >
                 {{ collection.description }}
               </p>
             </div>
-            <span>{{ collection.itemCount }} 张</span>
+            <span
+              class="col-start-2 text-xs tabular-nums text-dimmed md:col-auto"
+              >{{ collection.itemCount }} 张</span
+            >
           </NuxtLink>
         </div>
       </section>
@@ -228,7 +254,7 @@ function nextBatch() {
           homeSection.key === 'latest' &&
           latest?.items.length
         "
-        class="gallery-section"
+        class="gallery-section pt-[clamp(2rem,4vw,3.75rem)]"
       >
         <GallerySectionHeader
           :title="homeSection.title"
@@ -246,7 +272,7 @@ function nextBatch() {
           homeSection.key === 'trending' &&
           trendingImages.length
         "
-        class="gallery-section"
+        class="gallery-section pt-[clamp(2rem,4vw,3.75rem)]"
       >
         <GallerySectionHeader
           :title="homeSection.title"
@@ -256,5 +282,5 @@ function nextBatch() {
         <GalleryImageGrid :items="trendingImages" />
       </section>
     </template>
-  </div>
+  </GalleryPublicPage>
 </template>

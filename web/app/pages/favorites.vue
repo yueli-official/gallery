@@ -78,28 +78,27 @@ useSeoMeta({ title: "我的收藏", robots: "noindex,nofollow" });
 </script>
 
 <template>
-  <div class="gallery-page">
-    <header class="gallery-page-header">
-      <div>
-        <h1 class="gallery-page-title">我的收藏</h1>
-        <p class="gallery-page-copy">
-          只对你可见。按收藏时间或标题整理，点击图片查看完整详情。
-        </p>
-      </div>
-      <div v-if="collection" class="flex items-center gap-3">
-        <span class="text-sm tabular-nums text-muted"
-          >{{ collection.itemCount }} 张</span
-        >
-        <USelect
-          :model-value="sort"
-          :items="sortItems"
-          value-key="value"
-          class="w-36"
-          aria-label="收藏排序"
-          @update:model-value="updateQuery({ sort: String($event) })"
-        />
-      </div>
-    </header>
+  <GalleryPublicPage>
+    <GalleryPageHeader
+      title="我的收藏"
+      description="只对你可见。按收藏时间或标题整理，点击图片查看完整详情。"
+    >
+      <template #actions>
+        <div v-if="collection" class="flex items-center gap-3">
+          <span class="text-sm tabular-nums text-muted"
+            >{{ collection.itemCount }} 张</span
+          >
+          <USelect
+            :model-value="sort"
+            :items="sortItems"
+            value-key="value"
+            class="w-36"
+            aria-label="收藏排序"
+            @update:model-value="updateQuery({ sort: String($event) })"
+          />
+        </div>
+      </template>
+    </GalleryPageHeader>
     <div v-if="!hydrated || pending" class="gallery-grid">
       <USkeleton
         v-for="index in 12"
@@ -120,15 +119,13 @@ useSeoMeta({ title: "我的收藏", robots: "noindex,nofollow" });
       :removing="removing"
       @remove="removeFavorite"
     />
-    <div v-else class="gallery-compact-empty">
-      <div>
-        <span class="gallery-empty-icon"
-          ><UIcon name="i-tabler-heart" class="size-6"
-        /></span>
-        <h2 class="mt-4 text-lg font-semibold text-highlighted">
-          还没有收藏图片
-        </h2>
-        <p class="mt-2 text-sm text-muted">遇到想再看的图片时，点一下收藏。</p>
+    <GalleryCompactEmpty
+      v-else
+      icon="i-tabler-heart"
+      title="还没有收藏图片"
+      description="遇到想再看的图片时，点一下收藏。"
+    >
+      <template #actions>
         <UButton
           to="/images"
           class="mt-4"
@@ -136,8 +133,8 @@ useSeoMeta({ title: "我的收藏", robots: "noindex,nofollow" });
           variant="outline"
           label="去浏览"
         />
-      </div>
-    </div>
+      </template>
+    </GalleryCompactEmpty>
 
     <nav
       v-if="collection && collection.totalPages > 1"
@@ -164,5 +161,5 @@ useSeoMeta({ title: "我的收藏", robots: "noindex,nofollow" });
         @click="updateQuery({ page: page + 1 })"
       />
     </nav>
-  </div>
+  </GalleryPublicPage>
 </template>

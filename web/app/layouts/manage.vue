@@ -227,6 +227,7 @@ const searchGroups = computed<readonly AdminSearchGroup[]>(() => {
     :immersive="immersive"
     back-to-top-label="返回顶部"
     data-gallery-manage-shell
+    class="max-sm:[&_a]:min-h-11 max-sm:[&_summary]:min-h-11 max-sm:[&_button]:min-h-11 max-sm:[&_a[aria-label]]:min-w-11 max-sm:[&_button[aria-label]]:min-w-11 max-sm:[&_button[role='checkbox']]:relative max-sm:[&_button[role='checkbox']]:min-h-4 max-sm:[&_button[role='checkbox']]:min-w-4 max-sm:[&_button[role='checkbox']]:after:absolute max-sm:[&_button[role='checkbox']]:after:-inset-3.5 max-sm:[&_button[role='checkbox']]:after:content-[''] max-sm:[&_button[role='switch']]:relative max-sm:[&_button[role='switch']]:min-h-5 max-sm:[&_button[role='switch']]:after:absolute max-sm:[&_button[role='switch']]:after:-inset-3.5 max-sm:[&_button[role='switch']]:after:content-['']"
   >
     <template #account="{ collapsed }">
       <ConsumerManageAccountControl
@@ -238,36 +239,3 @@ const searchGroups = computed<readonly AdminSearchGroup[]>(() => {
     <slot />
   </YAdminConsoleLayout>
 </template>
-
-<style scoped>
-@media (max-width: 640px) {
-  [data-gallery-manage-shell] :deep(button),
-  [data-gallery-manage-shell] :deep(a[href]),
-  [data-gallery-manage-shell] :deep(summary) {
-    min-height: 44px;
-  }
-
-  [data-gallery-manage-shell] :deep(button[aria-label]),
-  [data-gallery-manage-shell] :deep(a[aria-label]) {
-    min-width: 44px;
-  }
-
-  [data-gallery-manage-shell] :deep(button[role="checkbox"]) {
-    position: relative;
-    min-width: 1rem;
-    min-height: 1rem;
-  }
-
-  [data-gallery-manage-shell] :deep(button[role="switch"]) {
-    position: relative;
-    min-height: 1.25rem;
-  }
-
-  [data-gallery-manage-shell]
-    :deep(:is(button[role="checkbox"], button[role="switch"]))::after {
-    position: absolute;
-    inset: -0.875rem;
-    content: "";
-  }
-}
-</style>
