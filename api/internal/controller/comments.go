@@ -138,6 +138,8 @@ func adminCommentViews(comments []gallerycomments.AdminComment) []v1.AdminCommen
 func adminCommentView(item gallerycomments.AdminComment) v1.AdminCommentView {
 	comment := item.Comment
 	return v1.AdminCommentView{
+		ImageAssetID:     item.ImageAssetID,
+		ParentAuthorName: item.ParentAuthorName, ParentContent: item.ParentContent,
 		ID: comment.ID, ImageID: comment.ImageID, ImageTitle: item.ImageTitle,
 		ParentID: comment.ParentID, AuthorName: comment.AuthorName,
 		AvatarURL: commentAvatarURL(comment.AvatarMediaKey), AuthorEmail: comment.AuthorEmail,
@@ -150,5 +152,5 @@ func commentAvatarURL(mediaKey string) string {
 	if strings.TrimSpace(mediaKey) == "" {
 		return ""
 	}
-	return "/media/" + url.PathEscape(mediaKey) + "?format=webp&name=thumbnail&v=1"
+	return "/media/" + url.PathEscape(mediaKey) + "?format=webp&preset=thumbnail&v=1"
 }

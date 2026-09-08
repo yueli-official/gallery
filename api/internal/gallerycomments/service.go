@@ -62,6 +62,10 @@ type ImageHead struct {
 }
 
 type AdminComment struct {
+	ImageAssetID     string
+	ParentUserKey    string
+	ParentAuthorName string
+	ParentContent    string
 	Comment
 	ImageTitle string
 }
@@ -252,10 +256,18 @@ func (module *Module) ListAdmin(ctx context.Context, query AdminQuery) (*AdminPa
 	comments := make([]Comment, 0, len(items))
 	for _, item := range items {
 		comments = append(comments, item.Comment)
+		comments = append(comments, Comment{UserKey: item.ParentUserKey})
 	}
 	profiles := module.resolveProfiles(ctx, comments, nil)
 	for index := range items {
 		items[index].Comment = module.present(items[index].Comment, profiles)
+		if items[index].ParentContent != "" {
+			parent := module.present(Comment{UserKey: items[index].ParentUserKey, AuthorName: items[index].ParentAuthorName}, profiles)
+			items[index].ParentAuthorName = parent.AuthorName
+			if items[index].ParentAuthorName == "" {
+				items[index].ParentAuthorName = "匿名用户"
+			}
+		}
 	}
 	return &AdminPage{Items: items, Total: total, Page: query.Page, Size: query.Size}, nil
 }

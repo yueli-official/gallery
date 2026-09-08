@@ -99,6 +99,7 @@ func (store *PG) Replies(ctx context.Context, parentIDs []string) (map[string][]
 func (store *PG) AdminComments(ctx context.Context, input gallerycomments.AdminQuery) ([]gallerycomments.AdminComment, int, error) {
 	query := store.db.Model(tComments+" c").Ctx(ctx).
 		LeftJoin("gallery_images i", "i.id=c.image_id").
+		LeftJoin(tComments+" parent", "parent.id=c.parent_id AND parent.image_id=c.image_id AND parent.deleted_at IS NULL").
 		Where("c.deleted_at IS NULL")
 	if input.Status != "" {
 		query = query.Where("c.status", string(input.Status))
@@ -114,7 +115,7 @@ func (store *PG) AdminComments(ctx context.Context, input gallerycomments.AdminQ
 	if err != nil {
 		return nil, 0, err
 	}
-	ordered := query.Fields("c.*, i.title AS image_title")
+	ordered := query.Fields("c.*, i.title AS image_title, CASE WHEN i.public_rendition_ready AND i.deleted_at IS NULL THEN i.asset_id::text ELSE NULL END AS image_asset_id, COALESCE(parent.user_key, '') AS parent_user_key, COALESCE(parent.author_name, '') AS parent_author_name, COALESCE(LEFT(parent.content, 160), '') AS parent_content")
 	if input.Ascending {
 		ordered = ordered.OrderAsc("c.created_at").OrderAsc("c.id")
 	} else {

@@ -373,10 +373,13 @@ export interface GalleryCommentPage {
 }
 
 export interface GalleryAdminComment {
+  imageAssetId?: string;
   id: string;
   imageId: string;
   imageTitle: string;
   parentId?: string;
+  parentAuthorName?: string;
+  parentContent?: string;
   authorName: string;
   avatarUrl?: string;
   authorEmail?: string;

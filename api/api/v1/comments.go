@@ -14,18 +14,21 @@ type CommentView struct {
 }
 
 type AdminCommentView struct {
-	ID          string `json:"id"`
-	ImageID     string `json:"imageId"`
-	ImageTitle  string `json:"imageTitle"`
-	ParentID    string `json:"parentId,omitempty"`
-	AuthorName  string `json:"authorName"`
-	AvatarURL   string `json:"avatarUrl,omitempty"`
-	AuthorEmail string `json:"authorEmail,omitempty"`
-	UserKey     string `json:"userKey,omitempty"`
-	Content     string `json:"content"`
-	Status      string `json:"status"`
-	IP          string `json:"ip,omitempty"`
-	CreatedAt   string `json:"createdAt"`
+	ImageAssetID     string `json:"imageAssetId,omitempty"`
+	ParentAuthorName string `json:"parentAuthorName,omitempty"`
+	ParentContent    string `json:"parentContent,omitempty"`
+	ID               string `json:"id"`
+	ImageID          string `json:"imageId"`
+	ImageTitle       string `json:"imageTitle"`
+	ParentID         string `json:"parentId,omitempty"`
+	AuthorName       string `json:"authorName"`
+	AvatarURL        string `json:"avatarUrl,omitempty"`
+	AuthorEmail      string `json:"authorEmail,omitempty"`
+	UserKey          string `json:"userKey,omitempty"`
+	Content          string `json:"content"`
+	Status           string `json:"status"`
+	IP               string `json:"ip,omitempty"`
+	CreatedAt        string `json:"createdAt"`
 }
 
 type ListImageCommentsReq struct {

@@ -7,7 +7,7 @@ import {
 } from "@yueli/ui/collection";
 import { useVueCollectionWorkflow } from "@yueli/ui/collection/vue";
 import { createVueRouterCollectionQuerySync } from "@yueli/ui/collection/vue-router";
-import { CommentModerationCollection } from "@yueli/ui/comments/admin";
+import { CommentModerationCollection, CommentModerationToolbar } from "@yueli/ui/comments/admin";
 import type {
   CommentModerationCollectionActions,
   CommentModerationCollectionModel,
@@ -407,6 +407,7 @@ function moderationItem(comment: GalleryAdminComment): CommentModerationItem {
     authorEmail: comment.authorEmail,
     anonymous: !comment.userKey,
     reply: Boolean(comment.parentId),
+    replyTo: comment.parentAuthorName ? { authorName: comment.parentAuthorName, content: comment.parentContent || "" } : undefined,
     approve: canModerate.value && comment.status === "pending",
     approving: busy.value === comment.id,
     actions: rowActions(comment),
@@ -414,6 +415,7 @@ function moderationItem(comment: GalleryAdminComment): CommentModerationItem {
       ? {}
       : { status: statusMeta[comment.status] }),
     source: {
+      thumbnailUrl: comment.imageAssetId ? galleryRendition(comment.imageAssetId, "thumbnail") : undefined,
       label: comment.imageTitle || "图片已删除",
       ...(comment.imageId ? { to: `/images/${comment.imageId}` } : {}),
       icon: "i-tabler-photo",
@@ -475,7 +477,12 @@ const moderationActions: CommentModerationCollectionActions = {
 
 <template>
   <ManagePage id="comments" title="评论" icon="i-tabler-messages">
+    <template #actions>
+      <CommentModerationToolbar :model="moderationModel" :actions="moderationActions" />
+    </template>
     <CommentModerationCollection
+      layout="compact"
+      external-controls
       :model="moderationModel"
       :actions="moderationActions"
       :format-date="formatDate"
@@ -526,3 +533,16 @@ const moderationActions: CommentModerationCollectionActions = {
     </UModal>
   </ManagePage>
 </template>
+
+<style scoped>
+:deep([data-manage-page-actions]) {
+  width: 100%;
+  min-width: 0;
+}
+@media (min-width: 768px) {
+  :deep([data-manage-page-actions]) {
+    width: auto;
+    max-width: 100%;
+  }
+}
+</style>

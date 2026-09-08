@@ -154,3 +154,33 @@ func TestCommentValidationAndModeration(t *testing.T) {
 		t.Fatalf("deleted = %q", store.deleted)
 	}
 }
+
+type contextStore struct{ *fakeStore }
+
+func (s contextStore) AdminComments(context.Context, AdminQuery) ([]AdminComment, int, error) {
+	return []AdminComment{{Comment: s.comments[replyID], ParentUserKey: "parent-user", ParentContent: "原文"}}, 1, nil
+}
+
+type contextProfiles struct{ t *testing.T }
+
+func (p contextProfiles) Resolve(_ context.Context, ids []string) map[string]PublicProfile {
+	found := false
+	for _, id := range ids {
+		if id == "parent-user" {
+			found = true
+		}
+	}
+	if !found {
+		p.t.Fatal("parent outside page must be included in profile lookup")
+	}
+	return map[string]PublicProfile{"parent-user": {DisplayName: "原作者昵称"}}
+}
+func TestAdminReplyResolvesParentProfileOutsidePage(t *testing.T) {
+	page, err := New(contextStore{newFakeStore()}, contextProfiles{t}).ListAdmin(context.Background(), AdminQuery{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Items[0].ParentAuthorName != "原作者昵称" {
+		t.Fatalf("parent profile missing: %+v", page.Items[0])
+	}
+}

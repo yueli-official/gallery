@@ -142,6 +142,10 @@
             "format": "string",
             "type": "string"
           },
+          "imageAssetId": {
+            "format": "string",
+            "type": "string"
+          },
           "imageId": {
             "format": "string",
             "type": "string"
@@ -151,6 +155,14 @@
             "type": "string"
           },
           "ip": {
+            "format": "string",
+            "type": "string"
+          },
+          "parentAuthorName": {
+            "format": "string",
+            "type": "string"
+          },
+          "parentContent": {
             "format": "string",
             "type": "string"
           },
