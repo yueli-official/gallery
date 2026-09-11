@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/yueli-official/asset/referencesync"
+	"github.com/yueli-official/gallery/api/internal/assetreferences"
 	"os"
 	"time"
 
@@ -202,6 +204,9 @@ func main() {
 	service.SetAssetReferencePort(assetPort)
 	processorCtx, stopProcessor := context.WithCancel(context.Background())
 	defer stopProcessor()
+	refClient := &referencesync.Client{BaseURL: assetCfg.BaseURL, Token: referencesync.ClientCredentials(assetCfg.TokenURL, assetCfg.ClientID, assetCfg.ClientSecret)}
+	go assetreferences.Run(processorCtx, workDB, refClient, appconfig.AssetNamespace(ctx), func(err error) { g.Log().Warning(ctx, "asset reference reconciliation:", err) }, os.Getenv("ASSET_PUBLIC_ORIGIN"))
+
 	go runSubmissionProcessor(processorCtx, service)
 	workerID := "gallery-worker"
 	if hostname, err := os.Hostname(); err == nil && hostname != "" {

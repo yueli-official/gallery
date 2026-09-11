@@ -844,12 +844,6 @@ func (s *Service) Submit(ctx context.Context, subject model.Subject, input model
 	if err != nil {
 		return nil, err
 	}
-	if s.assets != nil {
-		if err := s.assets.RegisterSubmission(ctx, subject.Bearer, value.AssetID, value.ID, value.Title); err != nil {
-			_ = s.store.FailSubmission(ctx, value.ID, "asset_reference_failed")
-			return nil, err
-		}
-	}
 	normalizeSubmission(value)
 	return value, nil
 }
@@ -1428,9 +1422,6 @@ func (s *Service) Withdraw(ctx context.Context, subject model.Subject, rawID str
 	}
 	if value == nil {
 		return nil, galleryerr.InvalidState("submission", "not_withdrawable")
-	}
-	if s.assets != nil {
-		_ = s.assets.UnregisterSubmission(ctx, subject.Bearer, value.AssetID, id)
 	}
 	normalizeSubmission(value)
 	return value, nil

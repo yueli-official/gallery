@@ -7,6 +7,7 @@
     { "kind": "oauth-client", "subject": "gallery-main-web" },
     { "kind": "service-client", "subject": "gallery-asset-svc" }
   ],
+  "referenceLifecycle": {"complete": true, "strategy": "snapshot", "coverage": "启动及每15秒对账投稿与图片；撤稿撤销投稿关系，隐藏图片仍保留；删除图片撤销业务引用并重试撤销公开派生图授权，不自动删除原文件。"},
   "profiles": [
     {
       "key": "gallery-submission",
