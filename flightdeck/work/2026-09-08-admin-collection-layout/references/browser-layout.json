@@ -1,0 +1,42 @@
+{
+  "site": "gallery",
+  "pages": [
+    {
+      "route": "/manage/submissions",
+      "width": 390,
+      "pagination": 1,
+      "tools": 1
+    },
+    {
+      "route": "/manage/collections",
+      "width": 390,
+      "pagination": 1,
+      "tools": 1
+    },
+    {
+      "route": "/manage/cases",
+      "width": 390,
+      "pagination": 1,
+      "tools": 1
+    },
+    {
+      "route": "/manage/submissions",
+      "width": 1440,
+      "pagination": 1,
+      "tools": 1
+    },
+    {
+      "route": "/manage/collections",
+      "width": 1440,
+      "pagination": 1,
+      "tools": 1
+    },
+    {
+      "route": "/manage/cases",
+      "width": 1440,
+      "pagination": 1,
+      "tools": 1
+    }
+  ],
+  "errors": []
+}

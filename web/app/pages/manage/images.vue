@@ -17,6 +17,7 @@ import { useVueCollectionWorkflow } from "@yueli/ui/collection/vue";
 import { createVueRouterCollectionQuerySync } from "@yueli/ui/collection/vue-router";
 import {
   CollectionPanel,
+  CollectionTableToolbar,
   CollectionSortHeader,
   CollectionViewToggle,
 } from "@yueli/ui/collection/pattern";
@@ -46,6 +47,7 @@ const { can } = useGalleryMe();
 const hydrated = useClientHydrated();
 const toast = createGalleryNotifier(useToast());
 const canImageUpdate = computed(() => can("gallery.image.update"));
+const canImagePublish = computed(() => can("gallery.submission.review"));
 const canImageHide = computed(() => can("gallery.image.hide"));
 const canCollectionManage = computed(() => can("gallery.collection.manage"));
 const canBulkManage = computed(
@@ -441,7 +443,18 @@ const editLoading = ref(false);
 const deleteConfirming = ref(false);
 const deletePending = ref(false);
 const deleteError = ref("");
+const publicationOptions = computed(() => {
+ const current = editing.value;
+ if (!current) return [];
+ return [
+  { label: publicationLabel(current.publicationState), value: current.publicationState },
+  ...(canImagePublish.value && current.publicationState !== "published" && current.publicationState !== "deleted"
+    ? [{ label: "公开", value: "published" as const }] : []),
+  ...(canImageHide.value && current.publicationState === "published" ? [{label: "下架（隐藏）", value: "hidden" as const}] : []),
+ ];
+});
 const editForm = reactive({
+  publicationState: "draft" as GalleryAdminImage["publicationState"],
   title: "",
   description: "",
   altText: "",
@@ -456,6 +469,7 @@ function hydrateEditForm(item: GalleryAdminImage) {
   deleteConfirming.value = false;
   deleteError.value = "";
   Object.assign(editForm, {
+    publicationState: item.publicationState,
     title: item.title,
     description: item.description,
     altText: item.altText,
@@ -526,6 +540,7 @@ async function saveEdit() {
       method: "PATCH",
       body: {
         expectedUpdatedAt: editing.value.updatedAt,
+        publicationState: editForm.publicationState !== editing.value.publicationState ? editForm.publicationState : undefined,
         title: editForm.title,
         description: editForm.description,
         altText: editForm.altText,
@@ -567,6 +582,18 @@ async function deleteEditingImage() {
   }
 }
 
+const singleCollectionImage = shallowRef<GalleryAdminImage>();
+const batchImageIds = computed(() => singleCollectionImage.value ? [singleCollectionImage.value.id] : selectedIds.value);
+const batchError = ref("");
+async function openAddToCollection(image: GalleryAdminImage) {
+  if (!canCollectionManage.value || image.publicationState !== "published") return;
+  singleCollectionImage.value = image;
+  batchAction.value = "add_to_collection";
+  batchCollectionId.value = "";
+  batchError.value = "";
+  batchOpen.value = true;
+  await refreshCollections();
+}
 const batchAction = ref<string>();
 const batchOpen = ref(false);
 const batchPending = ref(false);
@@ -575,6 +602,7 @@ const batchCollectionId = ref("");
 const batchReason = ref("");
 const batchResult = ref<BulkResult>();
 const batchOptions = computed(() => [
+  ...(canImageUpdate.value && canImagePublish.value ? [{label: "上架（公开）", value: "publish"}] : []),
   ...(canImageUpdate.value
     ? [{ label: "设置主分类", value: "set_primary_category" }]
     : []),
@@ -584,6 +612,8 @@ const batchOptions = computed(() => [
     : []),
 ]);
 function prepareBatch() {
+  singleCollectionImage.value = undefined;
+  batchError.value = "";
   if (
     batchAction.value &&
     batchOptions.value.some((item) => item.value === batchAction.value) &&
@@ -592,35 +622,37 @@ function prepareBatch() {
     batchOpen.value = true;
 }
 function cancelBatch() {
+  if (batchPending.value) return;
   batchOpen.value = false;
 }
 async function runBatch() {
   if (
     !batchAction.value ||
     !batchOptions.value.some((item) => item.value === batchAction.value) ||
-    !selectedIds.value.length
+    !batchImageIds.value.length || batchPending.value
   )
     return;
   batchPending.value = true;
+  batchError.value = "";
   try {
     if (batchAction.value === "add_to_collection") {
       const target = collectionData.value.items.find(
         (item) => item.id === batchCollectionId.value,
       );
       if (!target) return;
-      const selectedCount = selectedIds.value.length;
+      const selectedCount = batchImageIds.value.length;
       await call<{ collection: GalleryCollection }>(
         `/admin/collections/${encodeURIComponent(target.id)}/members`,
         {
           method: "POST",
           body: {
             version: target.version,
-            add: selectedIds.value,
+            add: batchImageIds.value,
             remove: [],
           },
         },
       );
-      clearSelection();
+      if (!singleCollectionImage.value) clearSelection();
       batchResult.value = { changed: selectedCount, failed: 0 };
       batchOpen.value = false;
       batchAction.value = undefined;
@@ -654,9 +686,10 @@ async function runBatch() {
     batchReason.value = "";
     await refresh();
   } catch (reason: any) {
+    batchError.value = galleryFailureMessage(reason, "操作没有完成，请重试。");
     batchResult.value = {
       changed: 0,
-      failed: selectedIds.value.length,
+      failed: batchImageIds.value.length,
       interrupted: true,
       message: galleryFailureMessage(reason, "批量请求中断，当前选择已保留。"),
     };
@@ -666,12 +699,6 @@ async function runBatch() {
 }
 
 function imageStatusBadge(image: GalleryAdminImage) {
-  if (!image.publicRenditionReady)
-    return {
-      label: "待生成",
-      color: "warning" as const,
-      help: "公开版本尚未就绪",
-    };
   return {
     label: publicationLabel(image.publicationState),
     color:
@@ -682,7 +709,8 @@ function imageStatusBadge(image: GalleryAdminImage) {
           : image.publicationState === "hidden"
             ? ("warning" as const)
             : ("neutral" as const),
-    help: "",
+    help: image.publicationState === "published" && !image.publicRenditionReady
+      ? "公开版本尚未就绪" : "",
   };
 }
 const timestampFormatter = new Intl.DateTimeFormat("zh-CN", {
@@ -704,6 +732,33 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
     deleted: "已删除",
   }[value];
 }
+
+const imageFiltersOpen = ref(false);
+const imageSortOpen = ref(false);
+const filterDraft = reactive<Record<string, string>>({ status: ALL, category: ALL, facet: ALL });
+const sortDraft = reactive<{ sortBy: ImageSortBy; sortOrder: ImageSortOrder }>({ sortBy: "createdAt", sortOrder: "desc" });
+const imageSortChoices = [
+  { label: "创建时间", value: "createdAt" },
+  { label: "更新时间", value: "updatedAt" },
+  { label: "标题", value: "title" },
+  { label: "浏览量", value: "views" },
+];
+function openImageFilters() {
+  Object.assign(filterDraft, { status: status.value || ALL, category: category.value, facet: facet.value });
+  imageFiltersOpen.value = true;
+}
+function applyImageFilters() {
+  updateCollectionQuery({ status: (filterDraft.status === ALL ? "" : filterDraft.status) as ImageStatus, category: filterDraft.category, facet: filterDraft.facet });
+  imageFiltersOpen.value = false;
+}
+function openImageSort() {
+  Object.assign(sortDraft, { sortBy: sortBy.value, sortOrder: sortOrder.value });
+  imageSortOpen.value = true;
+}
+function applyImageSort() {
+  updateCollectionQuery({ sortBy: sortDraft.sortBy, sortOrder: sortDraft.sortOrder });
+  imageSortOpen.value = false;
+}
 </script>
 
 <template>
@@ -714,10 +769,20 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
     :data-manage-images-state="panelState"
   >
     <template #actions>
-      <UButton to="/submit" icon="i-tabler-upload" label="投稿图片" />
+      <UButton to="/submit" icon="i-tabler-upload" label="投稿图片" class="gallery-image-submit" />
+      <CollectionTableToolbar v-model:search="searchInput" presentation="header" label="图片搜索与筛选" :search-placeholder="messages.searchPlaceholder" filter-label="筛选" :filter-count="activeFilterCount" class="gallery-image-header-tools" @search="submitSearch">
+        <template #utilities>
+          <UButton icon="i-tabler-adjustments-horizontal" :label="activeFilterCount ? `筛选 · ${activeFilterCount}` : '筛选'" color="neutral" variant="outline" size="sm" @click="openImageFilters" />
+          <UButton icon="i-tabler-sort-descending" label="排序" color="neutral" variant="outline" size="sm" @click="openImageSort" />
+          <CollectionViewToggle v-model="viewMode" appearance="surface" :items="[{key: 'list', label: '列表视图', icon: 'i-tabler-list'}, {key: 'grid', label: '网格视图', icon: 'i-tabler-layout-grid'}]" />
+        </template>
+      </CollectionTableToolbar>
     </template>
 
     <CollectionPanel
+      external-controls
+      compact-pagination
+      class="gallery-compact-collection"
       v-model:search="searchInput"
       :items="items"
       :item-key="imageKey"
@@ -748,22 +813,10 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
       @page-change="page = $event"
       @page-size-change="size = $event"
     >
-      <template #view>
-        <CollectionViewToggle
-          v-model="viewMode"
-          :items="[
-            { key: 'list', label: '列表视图', icon: 'i-tabler-list' },
-            {
-              key: 'grid',
-              label: '网格视图',
-              icon: 'i-tabler-layout-grid',
-            },
-          ]"
-        />
-      </template>
-
-      <template v-if="viewMode === 'list'" #columns>
+      <template #columns>
+        <div v-if="viewMode === 'grid'" class="flex items-center justify-between gap-2 text-xs text-muted"><span>选择本页</span><span>{{ imageCollection.total }} 张图片</span></div>
         <div
+          v-else
           class="grid grid-cols-[minmax(0,1fr)_5rem_5rem] items-center gap-3 md:grid-cols-[minmax(0,1fr)_8rem_5rem_8rem_5rem] lg:grid-cols-[minmax(0,1fr)_8rem_5rem_8rem_8rem_5rem]"
         >
           <CollectionSortHeader
@@ -882,8 +935,9 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
                 />
               </UTooltip>
             </span>
+            <p v-if="imageStatusBadge(image).help" class="mt-1 text-xs text-muted">{{ imageStatusBadge(image).help }}</p>
           </div>
-          <div class="flex justify-end gap-1">
+          <div class="flex flex-wrap justify-end gap-1">
             <UTooltip
               v-if="image.publicationState === 'published'"
               text="查看公开图片"
@@ -910,6 +964,11 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
                 :aria-label="`编辑图片：${image.title}`"
                 @click="openEdit(image)"
               />
+            </UTooltip>
+            <UTooltip v-if="canCollectionManage" :text="image.publicationState === 'published' ? '添加到专题' : '公开图片后可添加到专题'">
+              <UButton color="neutral" variant="ghost" size="xs" icon="i-tabler-folder-plus" square
+                :aria-label="`添加到专题：${image.title}`" :disabled="image.publicationState !== 'published'"
+                @click="openAddToCollection(image)" />
             </UTooltip>
           </div>
         </div>
@@ -940,7 +999,8 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
               </UTooltip>
             </span>
           </div>
-          <div class="space-y-3 p-4">
+          <div class="space-y-2 p-2.5">
+            <p v-if="imageStatusBadge(image).help" class="text-xs text-muted">{{ imageStatusBadge(image).help }}</p>
             <div class="min-w-0">
               <button
                 v-if="canImageUpdate"
@@ -953,7 +1013,7 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
               <p v-else class="truncate text-sm font-semibold text-highlighted">
                 {{ image.title }}
               </p>
-              <p class="mt-1 line-clamp-2 min-h-8 text-xs leading-4 text-muted">
+              <p class="mt-1 truncate text-xs leading-4 text-muted">
                 {{ image.description || image.altText }}
               </p>
             </div>
@@ -976,9 +1036,9 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
                 {{ compactMetric(image.metrics.views) }} 次浏览
               </span>
             </div>
-            <div class="flex items-center justify-between gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-1">
               <time class="text-xs text-dimmed" :datetime="image.updatedAt">
-                更新于 {{ formatTimestamp(image.updatedAt) }}
+                {{ formatTimestamp(image.updatedAt).split(" ")[0] }}
               </time>
               <div class="flex shrink-0 justify-end gap-1">
                 <UTooltip
@@ -1008,6 +1068,11 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
                     @click="openEdit(image)"
                   />
                 </UTooltip>
+            <UTooltip v-if="canCollectionManage" :text="image.publicationState === 'published' ? '添加到专题' : '公开图片后可添加到专题'">
+              <UButton color="neutral" variant="ghost" size="xs" icon="i-tabler-folder-plus" square
+                :aria-label="`添加到专题：${image.title}`" :disabled="image.publicationState !== 'published'"
+                @click="openAddToCollection(image)" />
+            </UTooltip>
               </div>
             </div>
           </div>
@@ -1086,6 +1151,11 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
             :description="deleteError"
           />
           <GalleryFailureNotice :feedback="editFailure" />
+          <UFormField label="发布状态" :error="editFailure?.fieldErrors.publicationState?.join(' ')">
+            <USelect v-model="editForm.publicationState" :items="publicationOptions" aria-label="发布状态" class="w-full" :disabled="publicationOptions.length < 2" />
+            <p class="mt-1 text-xs text-muted">公开后会显示在图库中，可加入专题；下架后不再公开展示。</p>
+            <p v-if="editing && (editing.processingState !== 'ready' || !['approved', 'not_required'].includes(editing.reviewState) || editing.safetyState !== 'safe')" class="mt-1 text-xs text-warning">图片须处理完成并通过审核后才能公开。</p>
+          </UFormField>
           <UFormField :error="editFailure?.fieldErrors.title?.join(' ')" label="标题" required
             ><UInput v-model="editForm.title" maxlength="160" class="w-full"
           /></UFormField>
@@ -1209,16 +1279,18 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
       v-if="canBulkManage"
       v-model:open="batchOpen"
       :title="
-        batchAction === 'hide'
+        batchAction === 'publish' ? '批量上架' : batchAction === 'hide'
           ? '批量下架'
           : batchAction === 'add_to_collection'
-            ? '批量加入专题'
+            ? (singleCollectionImage ? '添加到专题' : '批量加入专题')
             : '批量设置主分类'
       "
-      :description="`将处理选中的 ${selectionCount} 张图片；失败项目会保留选择。`"
+      :description="singleCollectionImage ? `为「${singleCollectionImage.title}」选择目标专题。` : `将处理选中的 ${selectionCount} 张图片；失败项目会保留选择。`"
+      :dismissible="!batchPending"
     >
       <template #body
         ><form class="space-y-4" @submit.prevent="runBatch">
+          <UAlert v-if="batchError" color="error" variant="subtle" title="操作没有完成" :description="batchError" />
           <UFormField
             v-if="batchAction === 'set_primary_category'"
             label="主分类"
@@ -1248,6 +1320,7 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
               暂无可用专题，请先创建专题。
             </p>
           </UFormField>
+          <p v-else-if="batchAction === 'publish'" class="text-sm text-muted">将符合公开条件的图片上架；未完成处理或未通过审核的图片不会上架，失败项会保留勾选。</p>
           <UFormField v-else label="下架原因" required
             ><UTextarea
               v-model="batchReason"
@@ -1264,10 +1337,10 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
             /><UButton
               type="submit"
               :color="batchAction === 'hide' ? 'error' : 'primary'"
-              label="确认应用"
+              :label="batchAction === 'publish' ? '确认上架' : batchAction === 'add_to_collection' ? '添加到专题' : '确认应用'"
               :loading="batchPending"
               :disabled="
-                batchAction === 'hide'
+                batchAction === 'publish' ? false : batchAction === 'hide'
                   ? !batchReason.trim()
                   : batchAction === 'add_to_collection'
                     ? !batchCollectionId
@@ -1277,5 +1350,56 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
           </div></form
       ></template>
     </UModal>
+
+    <UModal v-model:open="imageFiltersOpen" title="筛选图片" description="选择公开状态、分类和维度。" :ui="{ content: 'max-w-sm' }">
+      <template #body>
+        <div class="grid gap-4">
+          <template v-for="control in controls" :key="control.id">
+            <div v-if="control.kind === 'select'" class="grid gap-1.5">
+              <span class="text-sm font-medium">{{ control.label }}</span>
+              <USelectMenu v-if="control.searchPlaceholder" v-model="filterDraft[control.id]" :items="control.options.slice()" value-key="value" :aria-label="control.label" :search-input="{ placeholder: control.searchPlaceholder }" class="w-full" />
+              <USelect v-else v-model="filterDraft[control.id]" :items="control.options.slice()" value-key="value" :aria-label="control.label" class="w-full" />
+            </div>
+          </template>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex w-full items-center justify-between gap-2">
+          <UButton label="重置" color="neutral" variant="ghost" @click="void Object.assign(filterDraft, { status: ALL, category: ALL, facet: ALL })" />
+          <div class="flex gap-2"><UButton label="取消" color="neutral" variant="outline" @click="void (imageFiltersOpen = false)" /><UButton label="应用筛选" @click="applyImageFilters" /></div>
+        </div>
+      </template>
+    </UModal>
+    <UModal v-model:open="imageSortOpen" title="图片排序" description="列表与网格共用此排序；也可点击列表表头排序。" :ui="{ content: 'max-w-sm' }">
+      <template #body>
+        <div class="grid gap-5">
+          <URadioGroup v-model="sortDraft.sortBy" :items="imageSortChoices" legend="排序依据" />
+          <URadioGroup v-model="sortDraft.sortOrder" :items="[{label: '升序', value: 'asc'}, {label: '降序', value: 'desc'}]" legend="排列方向" orientation="horizontal" />
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex w-full justify-end gap-2"><UButton label="取消" color="neutral" variant="outline" @click="void (imageSortOpen = false)" /><UButton label="应用排序" @click="applyImageSort" /></div>
+      </template>
+    </UModal>
   </ManagePage>
 </template>
+
+<style scoped>
+:deep([data-manage-page-actions]) { width: 100%; min-width: 0; }
+.gallery-image-header-tools { width: 100%; min-width: 0; }
+.gallery-image-header-tools :deep([data-collection-table-default]) { gap: 0.5rem; }
+.gallery-image-header-tools :deep([data-collection-table-controls]) { flex: 0 1 auto; }
+.gallery-image-header-tools :deep(button:not([data-collection-view-option])), .gallery-image-submit { height: 2.25rem; min-height: 2.25rem; }
+@media (max-width: 1279px) {
+  :deep([data-manage-page-header]) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+  :deep([data-manage-page-actions]) { display: contents; }
+  .gallery-image-submit { grid-column: 2; grid-row: 1; justify-self: end; }
+  .gallery-image-header-tools { grid-column: 1 / -1; grid-row: 2; }
+}
+@media (min-width: 1280px) {
+  .gallery-image-submit { order: 2; }
+  .gallery-image-header-tools { order: 1; }
+  :deep([data-manage-page-actions]) { width: auto; max-width: calc(100% - 8rem); }
+  .gallery-image-header-tools { width: 36rem; max-width: 100%; }
+}
+</style>

@@ -44,7 +44,7 @@ export function galleryRendition(
 ): string {
   const key = mediaKey(assetId);
   if (!key) return "";
-  return `/media/${key}?format=webp&name=${rendition}&v=1`;
+  return `/media/${key}?format=webp&preset=${rendition}&v=1`;
 }
 
 export function galleryImageSources(

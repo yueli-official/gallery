@@ -329,3 +329,25 @@ html:fullscreen .gallery-detail-media-status {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Gallery acceptance only: compact grids grow with available space. */
+.gallery-compact-collection [data-collection-grid] {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
+  gap: 0.75rem;
+}
+@container collection (max-width: 30rem) {
+  .gallery-compact-collection [data-collection-grid] {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 9rem), 1fr));
+    gap: 0.5rem;
+  }
+}
+
+.gallery-compact-collection [data-collection-grid] > article > [data-slot="root"] {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  border-radius: 0;
+  left: 0.625rem;
+  top: 0.625rem;
+}

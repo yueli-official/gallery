@@ -153,6 +153,9 @@ type AdminImagePage struct {
 }
 
 type AdminImageUpdateInput struct {
+	PublicationState  string                         `json:"publicationState,omitempty"`
+	PublicationReady  bool                           `json:"-"`
+	Operator          string                         `json:"-"`
 	ExpectedUpdatedAt string                         `json:"expectedUpdatedAt"`
 	Title             string                         `json:"title"`
 	Description       string                         `json:"description"`

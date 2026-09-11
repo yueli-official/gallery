@@ -893,3 +893,61 @@ func assertExecutionBudget(t *testing.T, name, plan string, milliseconds float64
 		t.Fatalf("%s execution %.3fms exceeds %.0fms budget:\n%s", name, value, milliseconds, plan)
 	}
 }
+
+func TestPostgreSQL18ImagePublicationAndHideAreAtomic(t *testing.T) {
+	f := newGalleryPG18Fixture(t)
+	ctx := context.Background()
+	id := "01990000-0000-7000-8a00-000000000091"
+	if _, err := f.SQL.Exec(`INSERT INTO gallery_images (id,asset_id,title,alt_text,width,height,processing_state,review_state,publication_state,safety_state,public_rendition_ready) VALUES ($1,'01990000-0000-7000-8b00-000000000091','Publication test','Publication test',1600,900,'ready','approved','draft','safe',FALSE)`, id); err != nil {
+		t.Fatal(err)
+	}
+	current, err := f.Store.AdminImage(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := model.AdminImageUpdateInput{ExpectedUpdatedAt: current.UpdatedAt.Format(time.RFC3339Nano), Title: current.Title, AltText: current.AltText, PublicationState: "published", PublicationReady: true, Operator: "admin-test"}
+	published, err := f.Store.UpdateAdminImage(ctx, id, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if published.PublicationState != "published" || !published.PublicRenditionReady {
+		t.Fatal("image was not published")
+	}
+	public, err := f.Store.Image(ctx, id, "")
+	if err != nil || public == nil {
+		t.Fatalf("published image missing: %v", err)
+	}
+	if _, err = f.Store.UpdateAdminImage(ctx, id, input); err == nil {
+		t.Fatal("stale publication accepted")
+	}
+	input.ExpectedUpdatedAt = published.UpdatedAt.Format(time.RFC3339Nano)
+	input.PublicationState = "hidden"
+	input.PublicationReady = false
+	hidden, err := f.Store.UpdateAdminImage(ctx, id, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	public, err = f.Store.Image(ctx, id, "")
+	if err != nil || public != nil {
+		t.Fatalf("hidden image still public: %v", err)
+	}
+	var auditCount int
+	if err = f.SQL.QueryRow(`SELECT count(*) FROM gallery_cases WHERE image_id=$1 AND operator_sub='admin-test'`, id).Scan(&auditCount); err != nil || auditCount != 1 {
+		t.Fatal("missing hide audit", err)
+	}
+	for _, safety := range []string{"blocked", "uncertain", "pending"} {
+		if _, err = f.SQL.Exec(`UPDATE gallery_images SET safety_state=$2 WHERE id=$1`, id, safety); err != nil {
+			t.Fatal(err)
+		}
+		input.ExpectedUpdatedAt = hidden.UpdatedAt.Format(time.RFC3339Nano)
+		input.PublicationState = "published"
+		input.Title = "Must not persist"
+		if _, err = f.Store.UpdateAdminImage(ctx, id, input); err == nil {
+			t.Fatal("unsafe publication accepted")
+		}
+		got, err := f.Store.AdminImage(ctx, id)
+		if err != nil || got.Title == input.Title || got.PublicationState != "hidden" {
+			t.Fatal("rejected publication partially updated metadata", err)
+		}
+	}
+}

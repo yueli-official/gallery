@@ -358,8 +358,19 @@ func (c *Admin) GetAdminImage(ctx context.Context, req *v1.GetAdminImageReq) (*v
 }
 
 func (c *Admin) UpdateAdminImage(ctx context.Context, req *v1.UpdateAdminImageReq) (*v1.UpdateAdminImageRes, error) {
-	if _, err := requireCapability(ctx, galleryauthz.CapabilityImageUpdate); err != nil {
+	operator, err := requireCapability(ctx, galleryauthz.CapabilityImageUpdate)
+	if err != nil {
 		return nil, err
+	}
+	req.Operator = operator
+	if req.PublicationState == "published" {
+		if _, err := requireCapability(ctx, galleryauthz.CapabilitySubmissionReview); err != nil {
+			return nil, err
+		}
+	} else if req.PublicationState == "hidden" {
+		if _, err := requireCapability(ctx, galleryauthz.CapabilityImageHide); err != nil {
+			return nil, err
+		}
 	}
 	value, err := c.service.UpdateAdminImage(ctx, req.ImageID, req.AdminImageUpdateInput)
 	if err != nil {
@@ -396,6 +407,11 @@ func (c *Admin) BulkImages(ctx context.Context, req *v1.BulkImagesReq) (*v1.Bulk
 	operator, err := requireCapability(ctx, capability)
 	if err != nil {
 		return nil, err
+	}
+	if strings.TrimSpace(req.Action) == "publish" {
+		if _, err := requireCapability(ctx, galleryauthz.CapabilitySubmissionReview); err != nil {
+			return nil, err
+		}
 	}
 	return &v1.BulkImagesRes{Results: imageBatch(ctx, c.service.BulkImages(ctx, operator, req.BulkImageActionInput))}, nil
 }

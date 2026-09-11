@@ -1,11 +1,12 @@
 <script setup lang="ts">
+import { CollectionHeaderTools } from "@yueli/ui/collection/pattern";
 import { ManagePage, TabbedSurface } from "@yueli/ui/admin";
 import {
   ManageEmpty,
   SkeletonList,
 } from "~/utils/manageComponents";
 import {
-  CollectionPagination,
+  CollectionPaginationBar,
   CollectionSortHeader,
   CollectionTableToolbar,
 } from "@yueli/ui/collection/pattern";
@@ -20,6 +21,7 @@ const { can } = useGalleryMe();
 const hydrated = useClientHydrated();
 const canResolveCases = computed(() => can("gallery.case.resolve"));
 const page = computed(() => Math.max(1, Number(route.query.page) || 1));
+const pageSize = computed(() => [20, 40, 60].includes(Number(route.query.size)) ? Number(route.query.size) : 20);
 const q = computed(() => String(route.query.q || ""));
 const qDraft = ref(q.value);
 const status = computed(() => String(route.query.status || "open"));
@@ -54,12 +56,12 @@ const { data, pending, error, refresh } = await useAsyncData(
         status: status.value,
         kind: kind.value || undefined,
         page: page.value,
-        size: 20,
+        size: pageSize.value,
       },
     }),
   {
     server: false,
-    watch: [q, sortBy, sortOrder, status, kind, page],
+    watch: [q, sortBy, sortOrder, status, kind, page, pageSize],
     default: () => ({
       items: [],
       page: 1,
@@ -202,36 +204,13 @@ async function resolve(
 
 <template>
   <ManagePage id="cases" title="处理单" icon="i-tabler-shield-check">
+    <template #tools><CollectionHeaderTools v-model:search="qDraft" label="处理单搜索与筛选" search-placeholder="搜索原因、说明或处理结论…" :filter-count="filterCount" :controls="[{kind:'select',id:'kind',label:'处理单类型',value:kind || 'all',options:kindItems}]" @search="search" @filters="values => setQuery({kind:String(values.kind)})" /></template>
     <TabbedSurface
       v-model="statusModel"
       :items="tabItems"
       navigation-label="处理单队列"
       data-manage-surface="cases"
     >
-      <CollectionTableToolbar
-        v-model:search="qDraft"
-        label="处理单工具栏"
-        search-placeholder="搜索原因、说明或处理结论…"
-        search-action="搜索"
-        :filter-count="filterCount"
-        filter-label="筛选"
-        @search="search"
-      >
-        <template #filters>
-          <div class="w-72 max-w-[calc(100vw-2rem)]">
-            <UFormField label="处理单类型">
-              <USelect
-                :model-value="kind || 'all'"
-                :items="kindItems"
-                value-key="value"
-                class="w-full"
-                aria-label="处理单类型"
-                @update:model-value="setQuery({ kind: String($event) })"
-              />
-            </UFormField>
-          </div>
-        </template>
-      </CollectionTableToolbar>
       <div v-if="!hydrated || pending" class="p-4 sm:p-5">
         <SkeletonList :rows="6" />
       </div>
@@ -397,17 +376,9 @@ async function resolve(
         description="选择其他状态或类型可以查看已处理记录。"
       />
 
-      <nav
-        v-if="galleryPageCount(data) > 1"
-        class="flex items-center justify-center gap-3 border-t border-default p-4"
-        aria-label="处理单分页"
-      >
-        <CollectionPagination
-          :model-value="page"
-          :total-pages="galleryPageCount(data)"
-          @update:model-value="setQuery({ page: $event })"
-        />
-      </nav>
+      <div class="border-t border-default p-3 sm:px-4">
+        <CollectionPaginationBar :page="page" :page-size="pageSize" :total="data.total" :page-sizes="[20, 40, 60]" page-size-control="每页处理单数量" label="处理单分页" @page-change="setQuery({ page: $event })" @page-size-change="setQuery({ size: $event })" />
+      </div>
     </TabbedSurface>
   </ManagePage>
 </template>

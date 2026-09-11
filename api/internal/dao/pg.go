@@ -1552,15 +1552,28 @@ func (p *PG) UpdateAdminImage(ctx context.Context, id string, input model.AdminI
 		tx = tx.Ctx(ctx)
 		record, err := tx.GetOne(`
 UPDATE gallery_images
-SET title = ?, description = ?, alt_text = ?, source_url = NULLIF(?, ''), updated_at = NOW()
+SET title = ?, description = ?, alt_text = ?, source_url = NULLIF(?, ''), updated_at = NOW(),
+ publication_state = COALESCE(NULLIF(?, ''), publication_state),
+ public_rendition_ready = public_rendition_ready OR ?,
+ published_at = CASE WHEN ? = 'published' THEN COALESCE(published_at, NOW()) ELSE published_at END,
+ hidden_at = CASE WHEN ? = 'hidden' THEN NOW() WHEN ? = 'published' THEN NULL ELSE hidden_at END
 WHERE id = ?::uuid AND updated_at = ?::timestamptz AND publication_state <> 'deleted'
   AND review_state IN ('approved', 'not_required')
-RETURNING id`, input.Title, input.Description, input.AltText, input.SourceURL, id, input.ExpectedUpdatedAt)
+  AND (? <> 'published' OR (processing_state = 'ready' AND safety_state = 'safe' AND (public_rendition_ready OR ?)))
+RETURNING id`, input.Title, input.Description, input.AltText, input.SourceURL,
+			input.PublicationState, input.PublicationReady, input.PublicationState, input.PublicationState, input.PublicationState,
+			id, input.ExpectedUpdatedAt, input.PublicationState, input.PublicationReady)
 		if err != nil {
 			return gerror.Wrap(err, "update admin gallery image")
 		}
 		if len(record) == 0 {
 			return galleryerr.Conflict("image_version")
+		}
+		if input.PublicationState == "hidden" {
+			if _, err := tx.Exec(`INSERT INTO gallery_cases (id, image_id, kind, status, reporter_kind, reporter_id, reason, operator_sub)
+VALUES (?::uuid, ?::uuid, 'takedown', 'resolved', 'operator', ?, '管理员在图片编辑中下架', ?)`, newIdentifier(), id, input.Operator, input.Operator); err != nil {
+				return err
+			}
 		}
 		if input.Classification == nil {
 			return nil

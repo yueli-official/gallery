@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { AdminRowActions, EditorInspector } from "@yueli/ui/admin";
+import { AdminRowActions, EditorInspector, PageHeader } from "@yueli/ui/admin";
 import {
+  CollectionHeaderTools,
   CollectionPanel,
   CollectionViewToggle,
 } from "@yueli/ui/collection/pattern";
@@ -13,7 +14,6 @@ import type {
   GalleryCollection,
   GalleryCollectionDetail,
   GalleryImageCard,
-  GalleryImagePage,
 } from "~/types/gallery";
 
 definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
@@ -27,10 +27,6 @@ const canManageCollections = computed(() => can("gallery.collection.manage"));
 const collectionId = computed(() => String(route.params.collectionId));
 const settingsOpen = ref(false);
 const settingsSection = ref<"content" | "presentation" | "search">("content");
-const pickerOpen = ref(false);
-const pickerPending = ref(false);
-const imageSearch = ref("");
-const pickerItems = ref<GalleryImageCard[]>([]);
 const memberSearch = ref("");
 const orderedIds = ref<string[]>([]);
 const selectedMemberIds = ref<Set<string>>(new Set());
@@ -76,10 +72,16 @@ const ordering = computed(() => orderSaveStatus.value === "pending");
 
 const { data, pending, error, refresh } = await useAsyncData(
   "gallery-manage-collection-detail",
-  () =>
-    call<{ collection: GalleryCollectionDetail }>(
-      `/admin/collections/${encodeURIComponent(collectionId.value)}?page=1&size=60`,
-    ),
+  async () => {
+    const result = await call<{ collection: GalleryCollectionDetail }>(`/admin/collections/${encodeURIComponent(collectionId.value)}?page=1&size=60`);
+    const items = [...result.collection.items];
+    const pages = galleryPageCount(result.collection);
+    for (let nextPage = 2; nextPage <= pages; nextPage++) {
+      const next = await call<{ collection: GalleryCollectionDetail }>(`/admin/collections/${encodeURIComponent(collectionId.value)}?page=${nextPage}&size=60`);
+      items.push(...next.collection.items);
+    }
+    return { collection: { ...result.collection, items } };
+  },
   { server: false },
 );
 const collection = computed(() => data.value?.collection);
@@ -105,6 +107,11 @@ const visibleMembers = computed(() => {
 const selectedCover = computed(() =>
   members.value.find((item) => item.id === form.coverImageId),
 );
+const memberPage = ref(1);
+const memberPageSize = ref(20);
+const pagedMembers = computed(() => visibleMembers.value.slice((memberPage.value - 1) * memberPageSize.value, memberPage.value * memberPageSize.value));
+watch([memberSearch, memberPageSize], () => { memberPage.value = 1; });
+watch(() => visibleMembers.value.length, total => { memberPage.value = Math.min(memberPage.value, Math.max(1, Math.ceil(total / memberPageSize.value))); });
 const canReorder = computed(() => (galleryPageCount(collection.value) || 0) <= 1);
 const canArrangeMembers = computed(
   () => canReorder.value && !memberSearch.value.trim(),
@@ -112,14 +119,14 @@ const canArrangeMembers = computed(
 const selectedMemberCount = computed(() => selectedMemberIds.value.size);
 const isMemberPageSelected = computed(
   () =>
-    visibleMembers.value.length > 0 &&
-    visibleMembers.value.every((item) => selectedMemberIds.value.has(item.id)),
+    pagedMembers.value.length > 0 &&
+    pagedMembers.value.every((item) => selectedMemberIds.value.has(item.id)),
 );
 const isMemberPageIndeterminate = computed(() => {
-  const count = visibleMembers.value.filter((item) =>
+  const count = pagedMembers.value.filter((item) =>
     selectedMemberIds.value.has(item.id),
   ).length;
-  return count > 0 && count < visibleMembers.value.length;
+  return count > 0 && count < pagedMembers.value.length;
 });
 const memberSortOptions = [
   { label: "手动排序", value: "manual" },
@@ -264,7 +271,7 @@ function toggleMember(imageId: string) {
 
 function toggleMemberPage(selected: boolean) {
   const next = new Set(selectedMemberIds.value);
-  for (const item of visibleMembers.value) {
+  for (const item of pagedMembers.value) {
     if (selected) next.add(item.id);
     else next.delete(item.id);
   }
@@ -327,43 +334,6 @@ async function saveMetadata(): Promise<void> {
   }
 }
 
-async function searchImages(): Promise<void> {
-  if (!canManageCollections.value) return;
-  pickerPending.value = true;
-  try {
-    const existing = new Set(
-      collection.value?.items.map((item) => item.id) || [],
-    );
-    const candidates: GalleryImageCard[] = [];
-    const seen = new Set<string>();
-    const pageSize = 24;
-    let nextPage = 1;
-    let totalPages = 1;
-    while (candidates.length < 12 && nextPage <= totalPages) {
-      const result = await call<GalleryImagePage>(
-        `/images?q=${encodeURIComponent(imageSearch.value.trim())}&page=${nextPage}&size=${pageSize}&sort=newest`,
-      );
-      totalPages = galleryPageCount(result) || Math.ceil(result.total / pageSize) || 1;
-      for (const item of result.items) {
-        if (existing.has(item.id) || seen.has(item.id)) continue;
-        seen.add(item.id);
-        candidates.push(item);
-        if (candidates.length === 12) break;
-      }
-      nextPage += 1;
-    }
-    pickerItems.value = candidates;
-  } catch (reason) {
-    toast.add({
-      title: "图片搜索失败",
-      description: message(reason),
-      color: "error",
-    });
-  } finally {
-    pickerPending.value = false;
-  }
-}
-
 async function mutateMembers(
   add: string[] = [],
   remove: string[] = [],
@@ -391,7 +361,6 @@ async function mutateMembers(
       [...selectedMemberIds.value].filter((id) => serverIDs.has(id)),
     );
     resetOrderSave();
-    if (pickerOpen.value) await searchImages();
     return true;
   } catch (reason) {
     toast.add({
@@ -592,10 +561,6 @@ async function runBulkRemove(): Promise<void> {
   bulkRemovePending.value = false;
 }
 
-async function addMember(imageId: string): Promise<void> {
-  await mutateMembers([imageId], []);
-}
-
 async function saveOrder(): Promise<void> {
   if (
     !canManageCollections.value ||
@@ -627,11 +592,6 @@ async function saveOrder(): Promise<void> {
   }
 }
 
-async function openPicker(): Promise<void> {
-  if (!canManageCollections.value) return;
-  pickerOpen.value = true;
-  await searchImages();
-}
 </script>
 
 <template>
@@ -737,20 +697,25 @@ async function openPicker(): Promise<void> {
       data-gallery-collection-workspace
     >
       <div class="min-w-0 space-y-5">
-        <header class="flex flex-wrap items-start justify-between gap-4">
-          <div class="min-w-0">
-            <h1
-              class="font-display truncate text-2xl font-semibold tracking-[-0.025em] text-highlighted sm:text-3xl"
-            >
-              {{ collection.name }}
-            </h1>
-            <p class="mt-1 text-sm text-muted">
-              图片与顺序 · {{ collection.itemCount }} 张
-              <span v-if="memberSearch.trim()">
-                · 当前显示 {{ visibleMembers.length }} 张
-              </span>
-            </p>
-          </div>
+        <PageHeader :title="collection.name" :description="`图片与顺序 · ${collection.itemCount} 张`">
+          <template #tools>
+            <CollectionHeaderTools v-model:search="memberSearch" label="专题图片搜索" search-placeholder="搜索专题内图片…" @search="submitMemberSearch">
+<template #view>
+            <CollectionViewToggle
+              v-model="viewMode"
+              :items="[
+                { key: 'list', label: '列表视图', icon: 'i-tabler-list' },
+                {
+                  key: 'grid',
+                  label: '网格视图',
+                  icon: 'i-tabler-layout-grid',
+                },
+              ]"
+            />
+          </template>
+            </CollectionHeaderTools>
+          </template>
+          <template #actions>
           <div v-if="canManageCollections" class="flex flex-wrap gap-2">
             <ActionFeedbackButton
               :status="orderSaveStatus"
@@ -765,11 +730,13 @@ async function openPicker(): Promise<void> {
             />
             <UButton
               icon="i-tabler-plus"
-              label="添加图片"
-              @click="openPicker"
+              label="前往图片列表添加"
+              to="/manage/images?status=published"
             />
           </div>
-        </header>
+
+          </template>
+        </PageHeader>
 
         <UAlert
           v-if="!canReorder"
@@ -780,16 +747,21 @@ async function openPicker(): Promise<void> {
         />
 
         <CollectionPanel
+          external-controls
+          compact-pagination
+          class="gallery-compact-collection"
           v-model:search="memberSearch"
-          :items="visibleMembers"
+          :items="pagedMembers"
           :item-key="memberKey"
           :item-label="memberLabel"
           :messages="collectionMessages"
           state="ready"
           :total="visibleMembers.length"
-          :page="1"
-          :page-size="60"
-          :page-sizes="[60]"
+          :page="memberPage"
+          :page-size="memberPageSize"
+          :page-sizes="[20, 40, 60]"
+          @page-change="memberPage = $event"
+          @page-size-change="memberPageSize = $event"
           :layout="viewMode === 'grid' ? 'grid' : 'rows'"
           :selection-count="selectedMemberCount"
           :page-selected="isMemberPageSelected"
@@ -803,19 +775,10 @@ async function openPicker(): Promise<void> {
           @toggle-item="toggleMember"
           @clear-selection="clearMemberSelection"
         >
-          <template #view>
-            <CollectionViewToggle
-              v-model="viewMode"
-              :items="[
-                { key: 'list', label: '列表视图', icon: 'i-tabler-list' },
-                {
-                  key: 'grid',
-                  label: '网格视图',
-                  icon: 'i-tabler-layout-grid',
-                },
-              ]"
-            />
+          <template #columns>
+            <span class="text-xs text-muted">选择本页</span>
           </template>
+
 
           <template #bulk-actions>
             <UButton
@@ -932,21 +895,21 @@ async function openPicker(): Promise<void> {
                   class="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
                 />
                 <span
-                  class="absolute left-12 top-2 grid size-7 place-items-center rounded-lg bg-default/90 text-xs font-semibold tabular-nums text-toned shadow-sm backdrop-blur"
+                  class="absolute right-2.5 top-2.5 grid size-5 place-items-center rounded-lg bg-default/90 text-xs font-semibold tabular-nums text-toned shadow-sm backdrop-blur"
                 >
                   {{ memberIndex(item.id) + 1 }}
                 </span>
                 <UBadge
                   v-if="form.coverImageId === item.id"
-                  class="absolute right-2 top-2"
+                  class="absolute left-9 top-2.5"
                   label="封面"
                   color="primary"
                   variant="solid"
                   size="xs"
                 />
               </div>
-              <div class="p-4">
-                <div class="flex min-w-0 items-start justify-between gap-3">
+              <div class="p-2.5">
+                <div class="flex min-w-0 items-start justify-between gap-1">
                   <div class="min-w-0">
                     <p class="truncate text-sm font-semibold text-highlighted">
                       {{ item.title }}
@@ -1200,52 +1163,6 @@ async function openPicker(): Promise<void> {
       </template>
     </UModal>
 
-    <UModal
-      v-if="canManageCollections"
-      v-model:open="pickerOpen"
-      title="添加图片"
-      description="搜索已发布且可公开收藏的图片。"
-      :ui="{ content: 'sm:max-w-5xl' }"
-    >
-      <template #body>
-        <form class="mb-5 flex gap-2" @submit.prevent="searchImages">
-          <UInput
-            v-model="imageSearch"
-            class="flex-1"
-            icon="i-tabler-search"
-            placeholder="搜索标题或说明"
-          />
-          <UButton type="submit" label="搜索" :loading="pickerPending" />
-        </form>
-        <div v-if="pickerPending" class="grid gap-3 sm:grid-cols-3">
-          <USkeleton
-            v-for="index in 6"
-            :key="index"
-            class="aspect-[4/3] rounded-lg"
-          />
-        </div>
-        <div v-else-if="pickerItems.length" class="grid gap-3 sm:grid-cols-3">
-          <article
-            v-for="item in pickerItems"
-            :key="item.id"
-            class="gallery-manage-picker-item overflow-hidden rounded-xl border border-default bg-default [&>img]:aspect-[4/3] [&>img]:size-full [&>img]:object-cover"
-          >
-            <img
-              v-bind="galleryImageSources(item.assetId, 'grid', false)"
-              :alt="item.altText || item.title"
-            />
-            <div class="flex items-center justify-between gap-2 p-3">
-              <p class="truncate text-sm font-medium text-highlighted">
-                {{ item.title }}
-              </p>
-              <UButton size="sm" label="添加" @click="addMember(item.id)" />
-            </div>
-          </article>
-        </div>
-        <p v-else class="py-10 text-center text-sm text-muted">
-          没有可添加的图片
-        </p>
-      </template>
-    </UModal>
+
   </div>
 </template>

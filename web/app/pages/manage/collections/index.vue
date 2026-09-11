@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ManagePage } from "@yueli/ui/admin";
-import { CollectionTableToolbar } from "@yueli/ui/collection/pattern";
+import { CollectionHeaderTools, CollectionPaginationBar } from "@yueli/ui/collection/pattern";
 import { ManageEmpty, SkeletonList } from "~/utils/manageComponents";
 import type { GalleryCollection } from "~/types/gallery";
 
@@ -41,6 +41,12 @@ const filteredCollections = computed(() => {
           .includes(query)),
   );
 });
+
+const collectionPage = ref(1);
+const collectionPageSize = ref(20);
+const pagedCollections = computed(() => filteredCollections.value.slice((collectionPage.value - 1) * collectionPageSize.value, collectionPage.value * collectionPageSize.value));
+watch([search, visibility, collectionPageSize], () => { collectionPage.value = 1; });
+watch(() => filteredCollections.value.length, total => { collectionPage.value = Math.min(collectionPage.value, Math.max(1, Math.ceil(total / collectionPageSize.value))); });
 
 function clientSlug(value: string) {
   return value
@@ -102,6 +108,7 @@ async function createCollection() {
 
 <template>
   <ManagePage id="collections" title="专题" icon="i-tabler-folders">
+    <template #tools><CollectionHeaderTools v-model:search="search" label="专题搜索与筛选" search-placeholder="搜索名称、slug 或说明…" :filter-count="visibility === 'all' ? 0 : 1" :controls="[{kind:'select',id:'visibility',label:'可见性',value:visibility,options:[{label:'全部',value:'all'},{label:'公开',value:'public'},{label:'私密',value:'private'}]}]" @filters="values => { visibility = String(values.visibility) as typeof visibility }" /></template>
     <template #actions>
       <UButton
         v-if="canManageCollections"
@@ -123,31 +130,6 @@ async function createCollection() {
       class="overflow-hidden rounded-xl border border-default bg-default"
       aria-label="专题列表"
     >
-      <CollectionTableToolbar
-        v-model:search="search"
-        label="专题列表工具栏"
-        search-placeholder="搜索名称、slug 或说明…"
-        search-action="搜索"
-        filter-label="筛选"
-        :filter-count="visibility === 'all' ? 0 : 1"
-      >
-        <template #filters>
-          <div class="w-64 max-w-[calc(100vw-2rem)]">
-            <UFormField label="可见性">
-              <USelect
-                v-model="visibility"
-                :items="[
-                  { label: '全部', value: 'all' },
-                  { label: '公开', value: 'public' },
-                  { label: '私有', value: 'private' },
-                ]"
-                value-key="value"
-                class="w-full"
-              />
-            </UFormField>
-          </div>
-        </template>
-      </CollectionTableToolbar>
       <div
         class="grid grid-cols-[minmax(0,1fr)_5rem_5rem] items-center gap-3 border-b border-default bg-elevated/50 px-4 py-2 text-xs font-medium text-muted md:grid-cols-[minmax(0,1fr)_6rem_8rem_5rem]"
       >
@@ -157,7 +139,7 @@ async function createCollection() {
         <span class="text-right">操作</span>
       </div>
       <article
-        v-for="item in filteredCollections"
+        v-for="item in pagedCollections"
         :key="item.id"
         class="grid grid-cols-[minmax(0,1fr)_5rem_5rem] items-center gap-3 border-b border-default p-4 last:border-b-0 md:grid-cols-[minmax(0,1fr)_6rem_8rem_5rem]"
       >
@@ -225,6 +207,9 @@ async function createCollection() {
         class="grid min-h-48 place-items-center px-6 py-10 text-center text-sm text-muted"
       >
         没有匹配的专题。
+      </div>
+      <div class="border-t border-default p-3 sm:px-4">
+        <CollectionPaginationBar :page="collectionPage" :page-size="collectionPageSize" :total="filteredCollections.length" :page-sizes="[20, 40, 60]" page-size-control="每页专题数量" label="专题分页" @page-change="collectionPage = $event" @page-size-change="collectionPageSize = $event" />
       </div>
     </section>
     <ManageEmpty

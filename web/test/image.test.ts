@@ -14,7 +14,7 @@ describe("gallery image projection", () => {
         "grid-lg",
       ),
     ).toBe(
-      "/media/31Pj0mXv7cfR5fdZIUvra?format=webp&name=grid-lg&v=1",
+      "/media/31Pj0mXv7cfR5fdZIUvra?format=webp&preset=grid-lg&v=1",
     );
   });
 

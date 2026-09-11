@@ -4,6 +4,7 @@ import type { GallerySubmission } from "../app/types/gallery";
 import {
   submissionPreviewURL,
   submissionReviewAction,
+  submissionStatus,
 } from "../app/utils/submission-review";
 
 function submission(patch: Partial<GallerySubmission> = {}): GallerySubmission {
@@ -47,5 +48,26 @@ describe("submission review action", () => {
     expect(submissionPreviewURL("submission id")).toBe(
       "/admin/submissions/submission%20id/preview",
     );
+  });
+});
+
+
+describe("submission workflow status", () => {
+  it.each([
+    [{ processingState: "queued" }, "处理中"],
+    [{ processingState: "processing" }, "处理中"],
+    [{ processingState: "failed" }, "处理失败"],
+    [{ processingState: "ready", safetyState: "uncertain" }, "等待审核"],
+    [{ processingState: "ready", safetyState: "safe" }, "等待审核"],
+    [{ outcome: "published", reviewState: "approved", safetyState: "uncertain" }, "审核通过"],
+    [{ outcome: "duplicate", reviewState: "approved" }, "审核通过"],
+    [{ outcome: "rejected", reviewState: "rejected", processingState: "failed" }, "审核未通过"],
+    [{ outcome: "withdrawn" }, "已撤回"],
+  ] as const)("maps %j to %s", (patch, expected) => {
+    expect(submissionStatus(submission(patch))).toBe(expected);
+  });
+
+  it.each(["pending", "blocked", "unavailable"])("retains the approval guard for %s", safetyState => {
+    expect(submissionReviewAction(submission({ processingState: "ready", safetyState })).canApprove).toBe(false);
   });
 });

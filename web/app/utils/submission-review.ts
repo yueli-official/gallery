@@ -53,3 +53,22 @@ export function submissionReviewAction(
 export function submissionPreviewURL(submissionId: string): string {
   return `/admin/submissions/${encodeURIComponent(submissionId)}/preview`;
 }
+
+// Public workflow status: terminal decisions take precedence over processing facts.
+export function submissionStatus(item: GallerySubmission): string {
+  if (item.outcome === "withdrawn") return "已撤回";
+  if (item.outcome === "rejected" || item.reviewState === "rejected") return "审核未通过";
+  if (["published", "duplicate"].includes(item.outcome) || item.reviewState === "approved") return "审核通过";
+  if (item.outcome === "failed" || item.processingState === "failed" || item.safetyState === "unavailable") return "处理失败";
+  if (item.processingState !== "ready" || item.safetyState === "pending") return "处理中";
+  if (item.safetyState === "blocked") return "审核未通过";
+  return "等待审核";
+}
+
+export function submissionStatusColor(item: GallerySubmission) {
+  const status = submissionStatus(item);
+  if (status === "审核通过") return "success" as const;
+  if (["处理失败", "审核未通过"].includes(status)) return "error" as const;
+  if (status === "已撤回") return "neutral" as const;
+  return "warning" as const;
+}

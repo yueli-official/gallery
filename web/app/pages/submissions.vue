@@ -48,10 +48,10 @@ const { data, error, pending, refresh } = await useAsyncData(
 const withdrawing = ref("");
 const outcomeItems = [
   { label: "全部结果", value: "all" },
-  { label: "等待处理", value: "pending" },
-  { label: "已展示", value: "published" },
-  { label: "已收录", value: "duplicate" },
-  { label: "未通过", value: "rejected" },
+  { label: "进行中", value: "pending" },
+  { label: "审核通过（已发布）", value: "published" },
+  { label: "审核通过（重复收录）", value: "duplicate" },
+  { label: "审核未通过", value: "rejected" },
   { label: "处理失败", value: "failed" },
   { label: "已撤回", value: "withdrawn" },
 ];
@@ -69,59 +69,20 @@ const reviewItems = [
   { label: "审核通过", value: "approved" },
   { label: "审核未通过", value: "rejected" },
 ];
-const stateLabel: Record<string, string> = {
-  pending: "等待处理",
-  published: "已展示",
-  duplicate: "已收录",
-  rejected: "未通过",
-  withdrawn: "已撤回",
-  failed: "处理失败",
-};
-const processingLabel: Record<string, string> = {
-  queued: "排队中",
-  processing: "处理中",
-  ready: "处理完成",
-  failed: "处理失败",
-};
-const reviewLabel: Record<string, string> = {
-  not_required: "无需人工审核",
-  pending: "等待审核",
-  approved: "审核通过",
-  rejected: "审核未通过",
-};
-const safetyLabel: Record<string, string> = {
-  pending: "等待安全检查",
-  safe: "安全检查通过",
-  uncertain: "需要复核",
-  blocked: "安全检查未通过",
-  unavailable: "安全检查不可用",
-};
-const failureLabel: Record<string, string> = {
-  unsupported_format: "文件格式不受支持",
-  animated_image: "检测到动画图片",
-  processing_failed: "图片处理失败",
-  safety_unavailable: "安全检查暂时不可用",
-};
-const stateColor = (value: string) =>
-  (({
-    published: "success",
-    duplicate: "info",
-    rejected: "error",
-    failed: "error",
-    withdrawn: "neutral",
-  })[value] || "warning") as any;
-
 function submissionSummary(submission: GallerySubmission) {
-  if (submission.failureCode)
-    return failureLabel[submission.failureCode] || submission.failureCode;
-  if (submission.outcome !== "pending")
-    return stateLabel[submission.outcome] || submission.outcome;
-  if (submission.processingState !== "ready")
-    return processingLabel[submission.processingState] || "等待媒体处理";
-  if (submission.safetyState !== "safe")
-    return safetyLabel[submission.safetyState] || "等待安全判断";
-  if (submission.reviewState === "pending") return "等待人工审核";
-  return reviewLabel[submission.reviewState] || "等待发布";
+  if (submission.reviewNote) return submission.reviewNote;
+  if (submission.failureCode) return ({
+    unsupported_format: "文件格式不受支持，请更换图片后重试",
+    animated_image: "暂不支持动画图片，请使用静态图片",
+    derive_failed: "公开图片生成失败，请重新投稿",
+    processing_failed: "图片处理失败，请重新投稿",
+    safety_unavailable: "内容检查暂时不可用，请稍后重试",
+  } as Record<string, string>)[submission.failureCode] || "图片处理失败，请重新投稿";
+  if (submission.outcome === "duplicate") return "重复内容已收录到现有图片";
+  if (submission.outcome === "published") return "已发布到图片目录";
+  if (submissionStatus(submission) === "处理中") return "正在读取图片并生成预览，完成后进入等待审核";
+  if (submissionStatus(submission) === "等待审核") return "媒体处理完成，等待管理员审核";
+  return "";
 }
 
 function setQuery(
@@ -264,30 +225,15 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
               {{ submission.title }}
             </h2>
             <UBadge
-              :color="stateColor(submission.outcome)"
+              :color="submissionStatusColor(submission)"
               variant="soft"
-              :label="stateLabel[submission.outcome] || submission.outcome"
+              :label="submissionStatus(submission)"
             />
           </div>
-          <p class="mt-2 flex items-center gap-1.5 text-xs text-muted">
+          <p v-if="submissionSummary(submission)" class="mt-2 flex items-center gap-1.5 text-xs text-muted">
             <UIcon name="i-tabler-progress-check" class="size-4 shrink-0" />
             {{ submissionSummary(submission) }}
           </p>
-          <div
-            v-if="submission.failureCode || submission.reviewNote"
-            class="mt-3 rounded-lg bg-elevated px-3 py-2 text-sm leading-6 text-toned"
-          >
-            <p v-if="submission.failureCode">
-              <span class="font-medium text-error">失败原因：</span
-              >{{
-                failureLabel[submission.failureCode] || submission.failureCode
-              }}
-            </p>
-            <p v-if="submission.reviewNote">
-              <span class="font-medium">审核说明：</span
-              >{{ submission.reviewNote }}
-            </p>
-          </div>
           <p v-if="submission.createdAt" class="mt-3 text-xs text-dimmed">
             提交于 {{ new Date(submission.createdAt).toLocaleString("zh-CN") }}
           </p>

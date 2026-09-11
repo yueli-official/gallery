@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { CollectionHeaderTools } from "@yueli/ui/collection/pattern";
+
 import { ManagePage, TabbedSurface } from "@yueli/ui/admin";
 import {
   createCollectionRouteQueryCodec,
@@ -14,6 +16,7 @@ import { createVueRouterCollectionQuerySync } from "@yueli/ui/collection/vue-rou
 import {
   CollectionPanel,
   CollectionSortHeader,
+  CollectionViewToggle,
 } from "@yueli/ui/collection/pattern";
 import type {
   GalleryAdminSubmissionPage,
@@ -30,6 +33,7 @@ const canReviewSubmissions = computed(() => can("gallery.submission.review"));
 type SubmissionSortBy = "createdAt" | "updatedAt" | "title";
 type SubmissionSortOrder = "asc" | "desc";
 interface SubmissionCollectionQuery {
+  view: "list" | "grid";
   q: string;
   sortBy: SubmissionSortBy;
   sortOrder: SubmissionSortOrder;
@@ -44,15 +48,16 @@ const sortByValues = ["createdAt", "updatedAt", "title"] as const;
 const sortOrderValues = ["asc", "desc"] as const;
 const pageSizes = [20, 40, 60] as const;
 const defaultQuery: SubmissionCollectionQuery = {
+  view: "list",
   q: "",
   sortBy: "createdAt",
   sortOrder: "asc",
   page: 1,
   size: 20,
-  processingState: "",
-  reviewState: "",
+  processingState: "ready",
+  reviewState: "pending",
   safetyState: "",
-  outcome: "",
+  outcome: "pending",
 };
 async function loadSubmissions(
   nextQuery: Readonly<SubmissionCollectionQuery>,
@@ -73,10 +78,10 @@ async function loadSubmissions(
           sortOrder: nextQuery.sortOrder,
           page: nextQuery.page,
           size: nextQuery.size,
-          processingState: nextQuery.processingState || undefined,
-          reviewState: nextQuery.reviewState || undefined,
+          processingState: nextQuery.processingState === "all" ? undefined : nextQuery.processingState || undefined,
+          reviewState: nextQuery.reviewState === "all" ? undefined : nextQuery.reviewState || undefined,
           safetyState: nextQuery.safetyState || undefined,
-          outcome: nextQuery.outcome || undefined,
+          outcome: nextQuery.outcome === "all" ? undefined : nextQuery.outcome || undefined,
         },
       },
     );
@@ -101,6 +106,7 @@ async function loadSubmissions(
 const querySync = createVueRouterCollectionQuerySync({
   router,
   codec: createCollectionRouteQueryCodec({
+    view: { kind: "enum", values: ["list", "grid"] as const, default: defaultQuery.view },
     q: { kind: "string", default: defaultQuery.q, maxLength: 200 },
     sortBy: {
       kind: "enum",
@@ -118,10 +124,10 @@ const querySync = createVueRouterCollectionQuerySync({
       values: pageSizes,
       default: defaultQuery.size,
     },
-    processingState: { kind: "string", default: "", maxLength: 100 },
-    reviewState: { kind: "string", default: "", maxLength: 100 },
+    processingState: { kind: "string", default: defaultQuery.processingState, maxLength: 100 },
+    reviewState: { kind: "string", default: defaultQuery.reviewState, maxLength: 100 },
     safetyState: { kind: "string", default: "", maxLength: 100 },
-    outcome: { kind: "string", default: "", maxLength: 100 },
+    outcome: { kind: "string", default: defaultQuery.outcome, maxLength: 100 },
   }),
 });
 const {
@@ -135,7 +141,7 @@ const {
   isSelectable: (item: GallerySubmission) =>
     submissionReviewAction(item).canApprove,
   querySync,
-  dataQueryKey: (query) => JSON.stringify(query),
+  dataQueryKey: ({ view: _view, ...query }) => JSON.stringify(query),
   load: loadSubmissions,
 });
 const collectionQuery = computed(() => submissionCollection.value.query);
@@ -149,6 +155,10 @@ function updateQuery(
     ...(resetPage ? { page: 1 } : {}),
   });
 }
+const viewMode = computed({
+  get: () => collectionQuery.value.view,
+  set: (value: "list" | "grid") => updateQuery({ view: value }, false),
+});
 const page = computed({
   get: () => collectionQuery.value.page,
   set: (value: number) => updateQuery({ page: value }, false),
@@ -193,29 +203,18 @@ const reviewItems = [
   { label: "全部审核状态", value: "all" },
   { label: "无需审核", value: "not_required" },
   { label: "等待审核", value: "pending" },
-  { label: "已批准", value: "approved" },
-  { label: "已拒绝", value: "rejected" },
-];
-const safetyItems = [
-  { label: "全部安全状态", value: "all" },
-  { label: "等待检查", value: "pending" },
-  { label: "安全", value: "safe" },
-  { label: "不确定", value: "uncertain" },
-  { label: "已阻止", value: "blocked" },
-  { label: "不可用", value: "unavailable" },
+  { label: "审核通过", value: "approved" },
+  { label: "审核未通过", value: "rejected" },
 ];
 const outcomeItems = [
   { label: "全部结果", value: "all" },
   { label: "进行中", value: "pending" },
   { label: "已发布", value: "published" },
   { label: "重复内容", value: "duplicate" },
-  { label: "已拒绝", value: "rejected" },
+  { label: "审核未通过", value: "rejected" },
   { label: "已撤回", value: "withdrawn" },
   { label: "失败", value: "failed" },
 ];
-const safetyLabel = Object.fromEntries(
-  safetyItems.slice(1).map((item) => [item.value, item.label]),
-);
 const outcomeLabel = Object.fromEntries(
   outcomeItems.slice(1).map((item) => [item.value, item.label]),
 );
@@ -226,78 +225,32 @@ const filterCount = computed(
       reviewState.value,
       safetyState.value,
       outcome.value,
-    ].filter(Boolean).length,
+    ].filter(value => Boolean(value) && value !== "all").length,
 );
+type SubmissionPreset = "review" | "failed" | "rejected" | "approved" | "all";
+const presetQueries = {
+  review: { processingState: "ready", reviewState: "pending", safetyState: "", outcome: "pending" },
+  failed: { processingState: "failed", reviewState: "all", safetyState: "", outcome: "all" },
+  rejected: { processingState: "all", reviewState: "rejected", safetyState: "", outcome: "all" },
+  approved: { processingState: "all", reviewState: "approved", safetyState: "", outcome: "all" },
+  all: { processingState: "all", reviewState: "all", safetyState: "", outcome: "all" },
+} satisfies Record<SubmissionPreset, Partial<SubmissionCollectionQuery>>;
 const activePreset = computed(() => {
-  if (
-    reviewState.value === "pending" &&
-    outcome.value === "pending" &&
-    !processingState.value &&
-    !safetyState.value
-  )
-    return "review";
-  if (
-    processingState.value === "failed" &&
-    !reviewState.value &&
-    !safetyState.value &&
-    !outcome.value
-  )
-    return "failed";
-  if (
-    safetyState.value === "uncertain" &&
-    outcome.value === "pending" &&
-    !processingState.value &&
-    !reviewState.value
-  )
-    return "uncertain";
-  if (!filterCount.value) return "all";
-  return "custom";
+  return (Object.keys(presetQueries) as SubmissionPreset[]).find(key =>
+    Object.entries(presetQueries[key]).every(([field, value]) => collectionQuery.value[field as keyof SubmissionCollectionQuery] === value),
+  ) || "custom";
 });
 const presetModel = computed({
   get: () => activePreset.value,
-  set: (value: string) => {
-    if (["review", "failed", "uncertain", "all"].includes(value))
-      preset(value as "review" | "failed" | "uncertain" | "all");
-  },
+  set: (value: string) => { if (value in presetQueries) preset(value as SubmissionPreset); },
 });
 const presetItems = [
-  {
-    value: "review",
-    label: "待审核",
-    icon: "i-tabler-inbox",
-    ui: {
-      trigger: "gap-1 px-1.5 text-xs sm:gap-1.5 sm:px-3 sm:text-sm",
-      leadingIcon: "size-4 sm:size-5",
-    },
-  },
-  {
-    value: "failed",
-    label: "处理失败",
-    icon: "i-tabler-alert-triangle",
-    ui: {
-      trigger: "gap-1 px-1.5 text-xs sm:gap-1.5 sm:px-3 sm:text-sm",
-      leadingIcon: "size-4 sm:size-5",
-    },
-  },
-  {
-    value: "uncertain",
-    label: "安全不确定",
-    icon: "i-tabler-shield-check",
-    ui: {
-      trigger: "gap-1 px-1.5 text-xs sm:gap-1.5 sm:px-3 sm:text-sm",
-      leadingIcon: "size-4 sm:size-5",
-    },
-  },
-  {
-    value: "all",
-    label: "全部投稿",
-    icon: "i-tabler-photo",
-    ui: {
-      trigger: "gap-1 px-1.5 text-xs sm:gap-1.5 sm:px-3 sm:text-sm",
-      leadingIcon: "size-4 sm:size-5",
-    },
-  },
-];
+  { value: "review", label: "等待审核", icon: "i-tabler-inbox" },
+  { value: "failed", label: "处理失败", icon: "i-tabler-alert-triangle" },
+  { value: "rejected", label: "审核未通过", icon: "i-tabler-x" },
+  { value: "approved", label: "审核通过", icon: "i-tabler-check" },
+  { value: "all", label: "全部投稿", icon: "i-tabler-photo" },
+].map(item => ({ ...item, ui: { trigger: "shrink-0 gap-1 px-2 text-xs sm:px-3 sm:text-sm", leadingIcon: "size-4" } }));
 
 const selectedIds = computed<readonly string[]>(() =>
   submissionCollection.value.selection.mode === "keys"
@@ -341,43 +294,16 @@ function clearFilters() {
   qDraft.value = "";
   updateQuery({
     q: "",
-    processingState: "",
-    reviewState: "",
+    processingState: "all",
+    reviewState: "all",
     safetyState: "",
-    outcome: "",
+    outcome: "all",
     sortBy: "createdAt",
     sortOrder: "asc",
   });
 }
-function preset(kind: "review" | "failed" | "uncertain" | "all") {
-  if (kind === "review")
-    updateQuery({
-      processingState: "",
-      reviewState: "pending",
-      safetyState: "",
-      outcome: "pending",
-    });
-  else if (kind === "failed")
-    updateQuery({
-      processingState: "failed",
-      reviewState: "",
-      safetyState: "",
-      outcome: "",
-    });
-  else if (kind === "uncertain")
-    updateQuery({
-      processingState: "",
-      reviewState: "",
-      safetyState: "uncertain",
-      outcome: "pending",
-    });
-  else
-    updateQuery({
-      processingState: "",
-      reviewState: "",
-      safetyState: "",
-      outcome: "",
-    });
+function preset(kind: SubmissionPreset) {
+  updateQuery(presetQueries[kind]);
 }
 function openReject(item: GallerySubmission) {
   rejecting.value = item;
@@ -486,14 +412,6 @@ const controls = computed<CollectionControl[]>(() => [
   },
   {
     kind: "select",
-    id: "safetyState",
-    label: "安全状态",
-    value: safetyState.value || "all",
-    options: safetyItems,
-    class: "w-32",
-  },
-  {
-    kind: "select",
     id: "outcome",
     label: "处理结果",
     value: outcome.value || "all",
@@ -503,10 +421,9 @@ const controls = computed<CollectionControl[]>(() => [
 ]);
 function changeControl(id: string, value: CollectionControlValue) {
   if (typeof value !== "string") return;
-  const normalized = value === "all" ? "" : value;
+  const normalized = value;
   if (id === "processingState") updateQuery({ processingState: normalized });
   if (id === "reviewState") updateQuery({ reviewState: normalized });
-  if (id === "safetyState") updateQuery({ safetyState: normalized });
   if (id === "outcome") updateQuery({ outcome: normalized });
 }
 
@@ -533,7 +450,7 @@ const messages: CollectionPanelMessages = {
   selectAllResults: "选择全部结果",
   clearSelection: "取消选择",
   emptyTitle: "当前筛选没有投稿",
-  emptyDescription: "切换处理、安全或结果状态可以查看历史记录。",
+  emptyDescription: "切换投稿状态可以查看处理进度和审核结果。",
   errorTitle: "投稿队列加载失败",
   retry: "重新加载",
   showing: (first, last, count) => `显示 ${first}–${last}，共 ${count} 条`,
@@ -555,16 +472,12 @@ const submissionKey = (item: GallerySubmission) => item.id;
 const submissionLabel = (item: GallerySubmission) => item.title;
 
 function decisionSummary(item: GallerySubmission) {
+  if (item.reviewNote) return item.reviewNote;
   if (item.failureCode === "derive_failed") return "公开图片生成失败";
-  if (item.failureCode || item.processingState === "failed")
-    return "图片处理失败";
-  if (item.safetyState === "blocked") return "安全判断已阻止";
-  if (item.safetyState === "uncertain") return "需要复核安全判断";
-  if (submissionReviewAction(item).canApprove)
-    return "检查完成，等待审核";
+  if (item.failureCode || item.processingState === "failed") return "图片处理失败，请重新投稿";
+  if (item.outcome === "duplicate") return "重复内容已收录到现有图片";
   if (item.outcome === "published") return "已发布到图片目录";
-  if (item.outcome === "duplicate") return "重复内容已合并到现有图片";
-  return outcomeLabel[item.outcome] || "等待处理";
+  return submissionReviewAction(item).canApprove ? "请查看图片后通过或拒绝" : submissionReviewAction(item).reason;
 }
 
 const dateTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
@@ -582,13 +495,29 @@ function formatDateTime(value?: string) {
 
 <template>
   <ManagePage id="submissions" title="投稿审核" icon="i-tabler-photo-check">
+    <template #tools>
+      <CollectionHeaderTools v-model:search="qDraft"
+        label="搜索与筛选"
+        :search-placeholder="messages.searchPlaceholder"
+        :controls="controls.filter(c => c.kind !== 'direction' && !/sort|direction/i.test(c.id))"
+        :sort-controls="controls.filter(c => c.kind === 'direction' || /sort|direction/i.test(c.id))"
+        :filter-count="filterCount"
+        @search="search"
+        @control-change="changeControl"><template #view>
+          <CollectionViewToggle v-model="viewMode" :items="[
+            {key: 'list', label: '列表视图', icon: 'i-tabler-list'},
+            {key: 'grid', label: '网格视图', icon: 'i-tabler-layout-grid'},
+          ]" />
+        </template></CollectionHeaderTools>
+    </template>
     <TabbedSurface
       v-model="presetModel"
       :items="presetItems"
       navigation-label="投稿审核队列"
       data-manage-surface="submissions"
     >
-      <CollectionPanel
+      <CollectionPanel external-controls
+        compact-pagination
         v-model:search="qDraft"
         :items="submissionCollection.items"
         :item-key="submissionKey"
@@ -609,7 +538,8 @@ function formatDateTime(value?: string) {
         :is-item-selectable="(item) => submissionReviewAction(item).canApprove"
         label="投稿审核队列"
         :selectable="canReviewSubmissions && panelState === 'ready'"
-        class="rounded-none border-0 shadow-none"
+        class="gallery-compact-collection rounded-none border-0 shadow-none"
+        :layout="viewMode === 'grid' ? 'grid' : 'rows'"
         @search="search"
         @control-change="changeControl"
         @clear-filters="clearFilters"
@@ -620,8 +550,14 @@ function formatDateTime(value?: string) {
         @page-change="page = $event"
         @page-size-change="size = $event"
       >
+
         <template #columns>
-          <div
+          <GalleryGridToolbar v-if="viewMode === 'grid'"
+            :sort-by="sortBy" :sort-order="sortOrder"
+            :items="[{label: '提交时间', value: 'createdAt'}, {label: '更新时间', value: 'updatedAt'}, {label: '标题', value: 'title'}]"
+            @update:sort-by="updateQuery({sortBy: $event})"
+            @update:sort-order="updateQuery({sortOrder: $event})" />
+          <div v-else
             class="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 md:grid-cols-[minmax(0,1fr)_9rem_7rem]"
           >
             <CollectionSortHeader
@@ -650,31 +586,28 @@ function formatDateTime(value?: string) {
             @click="bulkApprove"
         /></template>
         <template #item="{ item }">
-          <article class="space-y-3">
+          <article :class="viewMode === 'grid' ? '-m-4 overflow-hidden rounded-lg' : 'space-y-3'" data-gallery-submission-item>
             <div
-              class="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 md:grid-cols-[minmax(0,1fr)_9rem_7rem]"
+              :class="viewMode === 'grid' ? 'space-y-2' : 'grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-3 md:grid-cols-[minmax(0,1fr)_9rem_7rem]'"
             >
-              <div class="flex min-w-0 items-center gap-3">
+              <div :class="viewMode === 'grid' ? 'min-w-0' : 'flex min-w-0 items-center gap-3'">
                 <div
-                  class="relative hidden aspect-[4/3] w-20 shrink-0 overflow-hidden rounded-lg bg-elevated sm:block"
+                  :class="viewMode === 'grid' ? 'relative aspect-[4/3] overflow-hidden bg-elevated' : 'relative hidden aspect-[4/3] w-20 shrink-0 overflow-hidden rounded-lg bg-elevated sm:block'"
                 >
                   <GallerySubmissionPreview
                     :submission-id="item.id"
                     :alt="item.altText"
                   />
                 </div>
-                <div class="min-w-0">
-                  <div class="flex min-w-0 items-center gap-2">
+                <div :class="viewMode === 'grid' ? 'min-w-0 px-2.5 pt-2.5' : 'min-w-0'">
+                  <div class="flex min-w-0 flex-wrap items-center gap-1">
                     <h2 class="truncate text-sm font-medium text-highlighted">
                       {{ item.title }}
                     </h2>
                     <UBadge
-                      v-if="item.safetyState !== 'safe'"
-                      :color="
-                        item.safetyState === 'blocked' ? 'error' : 'warning'
-                      "
+                      :color="submissionStatusColor(item)"
                       variant="soft"
-                      :label="safetyLabel[item.safetyState]"
+                      :label="submissionStatus(item)"
                     />
                   </div>
                   <p class="mt-1 truncate text-xs text-muted">
@@ -699,12 +632,12 @@ function formatDateTime(value?: string) {
                 </div>
               </div>
               <time
-                class="hidden text-xs text-muted md:block"
+                :class="viewMode === 'grid' ? 'block px-2.5 text-xs text-muted' : 'hidden text-xs text-muted md:block'"
                 :datetime="item.createdAt"
               >
                 {{ formatDateTime(item.createdAt) }}
               </time>
-              <div class="flex justify-end gap-1">
+              <div :class="viewMode === 'grid' ? 'flex justify-end gap-1 px-2.5 pb-2.5' : 'flex justify-end gap-1'">
                 <UTooltip v-if="item.imageId" text="查看公开图片">
                   <UButton
                     :to="`/images/${item.imageId}`"

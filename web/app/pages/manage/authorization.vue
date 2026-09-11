@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ManagePage, TabbedSurface } from "@yueli/ui/admin";
+import { ManagePage, TabbedSurface, AuthorizationUser, AuthorizationApplication, AuthorizationGrantBadge } from "@yueli/ui/admin";
+
+import { assetMediaUrl } from "@yueli/asset-nuxt/media";
 
 interface RoleView {
   key: string;
@@ -10,6 +12,7 @@ interface RoleView {
   assignmentSources: string[];
 }
 interface ApplicationView {
+  createdAt: string;
   id: string;
   subject: string;
   role: string;
@@ -56,6 +59,19 @@ const { data, pending, error, refresh } = await useAsyncData(
 );
 const state = computed(() => data.value);
 const draft = computed(() => state.value?.policy.state === "draft");
+const subjects = computed(() => [...(state.value?.applications.map(item => item.subject) || []), ...(state.value?.grants.map(item => item.subject) || [])]);
+const directory = usePublicUserDirectory(subjects);
+const accountOrigin = String(useRuntimeConfig().public.accountUrl).replace(/\/$/, "");
+function userInfo(subject: string) {
+  const user = directory.users.value[subject];
+  return {
+    subject, name: user?.displayName, handle: user?.handle,
+    avatarUrl: user?.avatar ? assetMediaUrl(user.avatar, "thumbnail") : undefined,
+    profileUrl: `${accountOrigin}/u/${encodeURIComponent(subject)}`,
+    loading: directory.pending.value,
+  };
+}
+
 type AuthorizationTab = "applications" | "permissions" | "users";
 const authorizationTabs: readonly AuthorizationTab[] = [
   "applications",
@@ -98,18 +114,6 @@ function roleName(roleKey: string) {
   return (
     state.value?.roles.find((role) => role.key === roleKey)?.displayName ||
     roleKey
-  );
-}
-
-function grantSourceLabel(source: string) {
-  return (
-    {
-      application: "申请批准",
-      invitation: "邀请",
-      direct: "直接授予",
-      automatic: "自动授权",
-      bootstrap: "初始化",
-    }[source] || source
   );
 }
 
@@ -313,6 +317,9 @@ function revokeGrant(grant: GrantView) {
       navigation-label="权限管理"
       data-manage-surface="authorization"
     >
+      <UAlert v-if="directory.error.value" title="用户资料加载失败" description="请重试加载用户昵称与头像。" color="error" class="m-4">
+        <template #actions><UButton label="重试" color="neutral" variant="outline" @click="directory.refresh()" /></template>
+      </UAlert>
       <section
         v-if="activeTab === 'applications'"
         aria-labelledby="authorization-applications-title"
@@ -333,42 +340,16 @@ function revokeGrant(grant: GrantView) {
           />
         </div>
         <div v-if="state.applications.length" class="divide-y divide-default">
-          <article
+          <AuthorizationApplication
             v-for="application in state.applications"
             :key="application.id"
-            class="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5"
-          >
-            <div class="min-w-0">
-              <div class="flex flex-wrap items-center gap-2">
-                <p class="truncate text-sm font-medium text-highlighted">
-                  {{ application.subject }}
-                </p>
-                <UBadge
-                  :label="roleName(application.role)"
-                  color="neutral"
-                  variant="outline"
-                  size="sm"
-                />
-              </div>
-              <p class="mt-1 text-sm text-muted">
-                {{ application.reason || "未填写申请理由" }}
-              </p>
-            </div>
-            <div class="flex gap-2">
-              <UButton
-                label="拒绝"
-                color="neutral"
-                variant="outline"
-                :disabled="busy"
-                @click="review(application, 'reject')"
-              />
-              <UButton
-                label="批准"
-                :disabled="busy"
-                @click="review(application, 'approve')"
-              />
-            </div>
-          </article>
+            :user="userInfo(application.subject)"
+            :role="roleName(application.role)"
+            :reason="application.reason"
+            :created-at="application.createdAt"
+            :busy="busy"
+            @review="review(application, $event)"
+          />
         </div>
         <ManageEmpty
           v-else
@@ -536,12 +517,8 @@ function revokeGrant(grant: GrantView) {
             class="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5"
           >
             <div class="min-w-0">
-              <p class="truncate text-sm font-medium text-highlighted">
-                {{ grant.subject }}
-              </p>
-              <p class="mt-1 text-xs text-muted">
-                {{ roleName(grant.role) }} · {{ grantSourceLabel(grant.source) }}
-              </p>
+              <AuthorizationUser v-bind="userInfo(grant.subject)" />
+              <AuthorizationGrantBadge class="mt-1" :role="roleName(grant.role)" :source="grant.source" />
             </div>
             <UButton
               label="撤销"

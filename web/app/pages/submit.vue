@@ -393,10 +393,10 @@ onBeforeUnmount(() =>
                     {
                       ready: '待上传',
                       uploading: '上传中',
-                      submitting: '创建记录',
-                      completed: '已完成',
+                      submitting: '提交中',
+                      completed: '已上传，等待处理',
                       duplicate: '已投稿',
-                      failed: '失败',
+                      failed: '上传未完成',
                     } as const
                   )[item.status]
                 "

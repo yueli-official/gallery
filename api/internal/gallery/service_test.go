@@ -1266,3 +1266,65 @@ func assertCode(t *testing.T, err error, want string) {
 		t.Fatalf("expected %s, got %v", want, err)
 	}
 }
+
+func TestImagePublicationGuardsAndPreparesDelivery(t *testing.T) {
+	now := time.Now().UTC()
+	for _, test := range []struct {
+		name, processing, review, safety, state string
+		stale                                   bool
+	}{
+		{"ready", "ready", "approved", "safe", "draft", false},
+		{"hidden", "ready", "approved", "safe", "hidden", false},
+		{"processing", "processing", "approved", "safe", "draft", false},
+		{"unreviewed", "ready", "pending", "safe", "draft", false},
+		{"blocked", "ready", "approved", "blocked", "draft", false},
+		{"uncertain", "ready", "approved", "uncertain", "draft", false},
+		{"deleted", "ready", "approved", "safe", "deleted", false},
+		{"stale", "ready", "approved", "safe", "draft", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			store := validSubmissionStore()
+			store.adminImages = []model.AdminImage{{ImageCard: model.ImageCard{ID: testCategoryID, AssetID: testFacetID}, UpdatedAt: &now, ProcessingState: test.processing, ReviewState: test.review, SafetyState: test.safety, PublicationState: test.state}}
+			assets := &submissionProcessingAssetPort{}
+			service := New(store)
+			service.SetAssetReferencePort(assets)
+			expected := now
+			if test.stale {
+				expected = now.Add(-time.Second)
+			}
+			_, err := service.UpdateAdminImage(context.Background(), PublicID(testCategoryID), model.AdminImageUpdateInput{ExpectedUpdatedAt: expected.Format(time.RFC3339Nano), Title: "Publish", AltText: "Publish", PublicationState: "published", Operator: "administrator"})
+			allowed := test.name == "ready" || test.name == "hidden"
+			if allowed {
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !store.adminImageUpdateSeen.PublicationReady || assets.publishedAssetID != testFacetID {
+					t.Fatal("publication must prepare actual delivery")
+				}
+			} else {
+				if err == nil || assets.publishedAssetID != "" || store.adminImageUpdateSeen.PublicationState != "" {
+					t.Fatal("ineligible/stale publication reached mutation")
+				}
+			}
+		})
+	}
+}
+
+func TestBulkPublishKeepsPerItemFailuresAndUsesPublicationGuards(t *testing.T) {
+	store := validSubmissionStore()
+	now := time.Now().UTC()
+	store.adminImages = []model.AdminImage{{ImageCard: model.ImageCard{ID: testCategoryID, AssetID: testFacetID, Title: "Bulk publish", AltText: "Bulk publish"}, UpdatedAt: &now, ProcessingState: "ready", ReviewState: "approved", SafetyState: "safe", PublicationState: "hidden", PublicRenditionReady: true}}
+	service := New(store)
+	results := service.BulkImages(context.Background(), "admin", model.BulkImageActionInput{Action: "publish", ImageIDs: []string{PublicID(testCategoryID), "invalid-id", PublicID(testCategoryID)}})
+	if len(results) != 2 || !results[0].Success || results[1].Success || results[1].Cause == nil {
+		t.Fatalf("batch results: %#v", results)
+	}
+	if store.adminImageUpdateSeen.Title != "Bulk publish" || store.adminImageUpdateSeen.PublicationState != "published" {
+		t.Fatal("bulk publish must reuse metadata and lifecycle update")
+	}
+	store.adminImages[0].ReviewState = "pending"
+	results = service.BulkImages(context.Background(), "admin", model.BulkImageActionInput{Action: "publish", ImageIDs: []string{PublicID(testCategoryID)}})
+	if len(results) != 1 || results[0].Success || results[0].Cause == nil {
+		t.Fatal("batch bypassed review")
+	}
+}

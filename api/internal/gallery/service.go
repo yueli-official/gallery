@@ -1678,6 +1678,43 @@ func (s *Service) UpdateAdminImage(ctx context.Context, rawID string, input mode
 			}
 		}
 	}
+	input.PublicationReady = false
+	if input.PublicationState != "" {
+		if !oneOf(input.PublicationState, "published", "hidden") {
+			return nil, galleryerr.Validation("publicationState", "choose published or hidden")
+		}
+		if strings.TrimSpace(input.Operator) == "" {
+			return nil, galleryerr.Forbidden()
+		}
+		current, err := s.store.AdminImage(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if current == nil {
+			return nil, galleryerr.NotFound("image", rawID)
+		}
+		expected, _ := time.Parse(time.RFC3339Nano, input.ExpectedUpdatedAt)
+		if current.UpdatedAt == nil || !current.UpdatedAt.Equal(expected) {
+			return nil, galleryerr.Conflict("image_version")
+		}
+		if current.PublicationState == "deleted" {
+			return nil, galleryerr.InvalidState("image", "deleted")
+		}
+		if input.PublicationState == "published" {
+			if current.ProcessingState != "ready" || !oneOf(current.ReviewState, "approved", "not_required") || current.SafetyState != "safe" {
+				return nil, galleryerr.InvalidState("image", "not_publishable")
+			}
+			if !current.PublicRenditionReady {
+				if s.assets == nil {
+					return nil, galleryerr.InvalidState("image", "public_rendition_unavailable")
+				}
+				if err := s.assets.PublishImage(ctx, current.AssetID, current.ID, input.Title); err != nil {
+					return nil, err
+				}
+				input.PublicationReady = true
+			}
+		}
+	}
 	value, err := s.store.UpdateAdminImage(ctx, id, input)
 	if value != nil {
 		normalizeAdminImage(value)
@@ -1760,6 +1797,31 @@ func (s *Service) BulkImages(ctx context.Context, operator string, input model.B
 		seen[publicID] = struct{}{}
 		result := model.BulkImageActionResult{ImageID: publicID}
 		switch {
+		case input.Action == "publish":
+			id, err := DatabaseID(publicID)
+			if err != nil {
+				result.Cause = galleryerr.NotFound("image", publicID)
+				break
+			}
+			current, err := s.store.AdminImage(ctx, id)
+			if err != nil {
+				result.Cause = err
+				break
+			}
+			if current == nil {
+				result.Cause = galleryerr.NotFound("image", publicID)
+				break
+			}
+			if current.UpdatedAt == nil {
+				result.Cause = galleryerr.Conflict("image_version")
+				break
+			}
+			_, result.Cause = s.UpdateAdminImage(ctx, publicID, model.AdminImageUpdateInput{
+				ExpectedUpdatedAt: current.UpdatedAt.Format(time.RFC3339Nano), Title: current.Title,
+				Description: current.Description, AltText: current.AltText, SourceURL: current.SourceURL,
+				PublicationState: "published", Operator: operator,
+			})
+			result.Success = result.Cause == nil
 		case input.Action == "hide" && input.Reason == "":
 			result.Cause = galleryerr.Validation("reason", "required")
 		case input.Action == "hide":

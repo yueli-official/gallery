@@ -411,11 +411,8 @@ function moderationItem(comment: GalleryAdminComment): CommentModerationItem {
     approve: canModerate.value && comment.status === "pending",
     approving: busy.value === comment.id,
     actions: rowActions(comment),
-    ...(comment.status === "approved"
-      ? {}
-      : { status: statusMeta[comment.status] }),
+    status: statusMeta[comment.status],
     source: {
-      thumbnailUrl: comment.imageAssetId ? galleryRendition(comment.imageAssetId, "thumbnail") : undefined,
       label: comment.imageTitle || "图片已删除",
       ...(comment.imageId ? { to: `/images/${comment.imageId}` } : {}),
       icon: "i-tabler-photo",
@@ -481,7 +478,7 @@ const moderationActions: CommentModerationCollectionActions = {
       <CommentModerationToolbar :model="moderationModel" :actions="moderationActions" />
     </template>
     <CommentModerationCollection
-      layout="compact"
+      layout="columns"
       external-controls
       :model="moderationModel"
       :actions="moderationActions"

@@ -2433,6 +2433,10 @@
             "format": "string",
             "type": "string"
           },
+          "publicationState": {
+            "format": "string",
+            "type": "string"
+          },
           "sourceUrl": {
             "format": "string",
             "type": "string"
@@ -5969,6 +5973,10 @@
                     "type": "string"
                   },
                   "expectedUpdatedAt": {
+                    "format": "string",
+                    "type": "string"
+                  },
+                  "publicationState": {
                     "format": "string",
                     "type": "string"
                   },
