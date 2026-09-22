@@ -15,8 +15,8 @@ func TestDefinitionCompiles(t *testing.T) {
 	if catalog.Consumer() != "gallery" {
 		t.Fatalf("consumer = %q", catalog.Consumer())
 	}
-	if catalog.Version() != 3 {
-		t.Fatalf("version = %d, want 3", catalog.Version())
+	if catalog.Version() != 4 {
+		t.Fatalf("version = %d, want 4", catalog.Version())
 	}
 }
 

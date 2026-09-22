@@ -2,6 +2,22 @@
   "schemaVersion": "http.yueli.dev/operation-errors/v1",
   "namespace": "gallery",
   "operations": {
+    "GET /api/v1/internal/personal-token/permissions": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "gallery.authorization_unavailable",
+      "gallery.forbidden",
+      "common.unauthorized"
+    ],
+    "POST /api/v1/personal-token/media-authorization": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "gallery.authorization_unavailable",
+      "gallery.forbidden",
+      "common.unauthorized"
+    ],
     "GET /api/v1/authorization/manage/console": [
       "common.internal",
       "common.rate_limited",

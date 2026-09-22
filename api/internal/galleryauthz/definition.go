@@ -16,6 +16,12 @@ const (
 	RoleContentOperator authorization.RoleKey = "content_operator"
 
 	CapabilityPublicRead                   authorization.CapabilityKey = "gallery.public.read"
+	CapabilitySubmissionCreate             authorization.CapabilityKey = "gallery.submission.create"
+	CapabilitySubmissionReadOwn            authorization.CapabilityKey = "gallery.submission.read_own"
+	CapabilitySubmissionWithdraw           authorization.CapabilityKey = "gallery.submission.withdraw"
+	CapabilityFavoriteRead                 authorization.CapabilityKey = "gallery.favorite.read"
+	CapabilityFavoriteManage               authorization.CapabilityKey = "gallery.favorite.manage"
+	CapabilityCommentCreate                authorization.CapabilityKey = "gallery.comment.create"
 	CapabilityDashboardRead                authorization.CapabilityKey = "gallery.dashboard.read"
 	CapabilityImageRead                    authorization.CapabilityKey = "gallery.image.read"
 	CapabilityImageUpdate                  authorization.CapabilityKey = "gallery.image.update"
@@ -76,13 +82,19 @@ func Definition() authorization.Definition {
 
 	return authorization.Definition{
 		Consumer: "gallery",
-		Version:  3,
+		Version:  4,
 		Capabilities: []authorization.CapabilityDefinition{
 			{
 				Key: CapabilityPublicRead, Version: 1,
 				Binding:       authorization.BindingAccessLayerEligible,
 				AllowedScopes: []authorization.ScopeType{ScopeSite},
 			},
+			accessCapability(CapabilitySubmissionCreate),
+			accessCapability(CapabilitySubmissionReadOwn),
+			accessCapability(CapabilitySubmissionWithdraw),
+			accessCapability(CapabilityFavoriteRead),
+			accessCapability(CapabilityFavoriteManage),
+			accessCapability(CapabilityCommentCreate),
 			normalCapability(CapabilityDashboardRead),
 			normalCapability(CapabilityImageRead),
 			normalCapability(CapabilityImageUpdate),
@@ -118,6 +130,12 @@ func Definition() authorization.Definition {
 					authorization.CapabilityApplicationReadOwn,
 					authorization.CapabilityApplicationWithdraw,
 					authorization.CapabilityInvitationAccept,
+					CapabilitySubmissionCreate,
+					CapabilitySubmissionReadOwn,
+					CapabilitySubmissionWithdraw,
+					CapabilityFavoriteRead,
+					CapabilityFavoriteManage,
+					CapabilityCommentCreate,
 				},
 			},
 		},
@@ -142,6 +160,13 @@ func Definition() authorization.Definition {
 			Key: AutomaticRegistrationContentOperatorKey, Trigger: TriggerUserRegistered,
 			Predicate: PredicateRegistrationContentOperator, Role: RoleContentOperator, Enabled: false,
 		}},
+	}
+}
+
+func accessCapability(key authorization.CapabilityKey) authorization.CapabilityDefinition {
+	return authorization.CapabilityDefinition{
+		Key: key, Version: 1, Binding: authorization.BindingAccessLayerEligible,
+		AllowedScopes: []authorization.ScopeType{ScopeSite},
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/gogf/gf/v2/os/gctx"
 	foundationabuse "github.com/yueli-official/foundation/go/abuse"
 	"github.com/yueli-official/foundation/go/abuse/turnstile"
+	foundationauth "github.com/yueli-official/foundation/go/auth"
 	"github.com/yueli-official/foundation/go/authorization"
 	authorizationpostgres "github.com/yueli-official/foundation/go/authorization/postgres"
 	"github.com/yueli-official/foundation/go/work"
@@ -236,8 +237,25 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	personalToken := appconfig.LoadPersonalToken(ctx)
+	var personalVerifier *foundationauth.PersonalTokenVerifier
+	if personalToken.SiteID != "" {
+		if personalToken.VerifyURL == "" {
+			panic("gallery.personalToken.verifyUrl is required when Gallery PAT is enabled")
+		}
+		personalVerifier, err = foundationauth.NewPersonalTokenVerifier(
+			personalToken.VerifyURL,
+			personalToken.SiteID,
+			nil,
+			foundationauth.PersonalTransportOptions{AllowHTTP: personalToken.AllowHTTP},
+		)
+		if err != nil {
+			panic(err)
+		}
+	}
 	server.Configure(httpServer, server.Deps{
-		Gallery: service, Verifier: verifier, Authorization: authorizationService, Comments: comments,
+		Gallery: service, Verifier: verifier, PersonalVerifier: personalVerifier,
+		PersonalSite: personalToken.SiteID, Authorization: authorizationService, Comments: comments,
 	})
 	g.Log().Info(ctx, "gallery service starting")
 	httpServer.Run()

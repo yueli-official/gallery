@@ -2,11 +2,12 @@
 
 ## Focus
 
+- [Gallery 开发者令牌](work/2026-09-22-developer-tokens/index.md)
 - [Gallery 基础升级与站点复验](work/2026-09-05-http-result/index.md)
 
 ## Open Work
 
-
+- [Gallery 开发者令牌](work/2026-09-22-developer-tokens/index.md)：细粒度 PAT、投稿媒体上传与本地真实组合验收已完成，待查收。
 
 
 - [Gallery 基础升级与站点复验](work/2026-09-05-http-result/index.md)：从 2026-09-08 起仅本地验收。

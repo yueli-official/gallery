@@ -82,6 +82,8 @@ go run ./cmd/workspace dev down gallery --root .
 配置、运行 migration/seed，并按 Identity → Account → Asset → Gallery API → Gallery Web 启动。
 Gallery API 默认监听 `8091`，Web 默认监听 `3007`；同一局域网设备可通过开发机 IP 访问。
 
+脚本接入、权限范围与 PAT 媒体上传流程见[开发者令牌指南](./docs/developer-tokens.md)。
+
 Gallery 开发数据已由 `api/cmd/devseed` 自持，并在一个事务中幂等对账站点分类、128 张图片、48 条投稿、
 20 个处理单和 4 个专题。它只写 `GALLERY_DATABASE_URL` 指向的 Gallery 数据库；248 个实际图片对象及
 Asset 记录由 Asset 仓的 `fixtureSet: gallery` 准备任务创建。任何产品 seed 都不得跨库写 Asset 表。

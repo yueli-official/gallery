@@ -23,6 +23,12 @@ type AssetClient struct {
 	Scope        string
 }
 
+type PersonalToken struct {
+	SiteID    string
+	VerifyURL string
+	AllowHTTP bool
+}
+
 func LoadJWKS(ctx context.Context) JWKS {
 	return JWKS{
 		URL:               g.Cfg().MustGet(ctx, "gallery.jwks.url", "http://localhost:8081/oauth2/jwks.json").String(),
@@ -74,5 +80,13 @@ func LoadAssetClient(ctx context.Context) AssetClient {
 		ClientID:     g.Cfg().MustGet(ctx, "gallery.asset.clientId").String(),
 		ClientSecret: g.Cfg().MustGet(ctx, "gallery.asset.clientSecret").String(),
 		Scope:        g.Cfg().MustGet(ctx, "gallery.asset.scope", "asset:sign").String(),
+	}
+}
+
+func LoadPersonalToken(ctx context.Context) PersonalToken {
+	return PersonalToken{
+		SiteID:    strings.TrimSpace(g.Cfg().MustGet(ctx, "gallery.personalToken.siteId", "").String()),
+		VerifyURL: strings.TrimSpace(g.Cfg().MustGet(ctx, "gallery.personalToken.verifyUrl", "").String()),
+		AllowHTTP: g.Cfg().MustGet(ctx, "gallery.personalToken.allowHttp", false).Bool(),
 	}
 }

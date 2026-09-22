@@ -41,6 +41,12 @@ func (service *Service) Subject(ctx context.Context) authorization.SubjectRef {
 	if !ok {
 		return authorization.SubjectRef{Kind: authorization.SubjectAnonymous}
 	}
+	if principal.SubjectKind == foundationauth.SubjectUser && principal.Subject != "" {
+		return authorization.SubjectRef{Kind: authorization.SubjectUser, ID: principal.Subject}
+	}
+	if principal.SubjectKind == foundationauth.SubjectClient && principal.ClientID != "" {
+		return authorization.SubjectRef{Kind: authorization.SubjectService, ID: principal.ClientID}
+	}
 	subjectKind, _ := principal.Claim("subject_kind")
 	if subjectKind == "user" && principal.Subject != "" {
 		return authorization.SubjectRef{Kind: authorization.SubjectUser, ID: principal.Subject}
@@ -76,12 +82,21 @@ func (service *Service) Decide(
 	if service == nil || service.runtime == nil {
 		return authorization.Decision{}, unavailable("runtime")
 	}
+	if principal, ok := foundationauth.FromContext(ctx); ok && principal.IsPersonalToken() &&
+		!foundationauth.AllowsPersonalCapability(ctx, string(capability)) {
+		return authorization.Decision{Allowed: false}, nil
+	}
 	if err := service.ReconcileSubject(ctx); err != nil {
 		return authorization.Decision{}, err
 	}
 	return service.runtime.Decide(ctx, authorization.DecisionRequest{
 		Subject: service.Subject(ctx), Capability: capability, ScopeID: RootScopeID,
 	})
+}
+
+func (service *Service) CheckCapability(ctx context.Context, capability authorization.CapabilityKey) (bool, error) {
+	decision, err := service.Decide(ctx, capability)
+	return decision.Allowed, err
 }
 
 func (service *Service) EffectiveAccess(ctx context.Context) (authorization.EffectiveAccess, error) {

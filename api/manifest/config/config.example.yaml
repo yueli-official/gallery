@@ -16,6 +16,10 @@ database:
 
 gallery:
   siteSlug: "gallery-main"
+  personalToken:
+    siteId: ""
+    verifyUrl: ""
+    allowHttp: false
   assetNamespace: "gallery"
   authorization:
     bootstrapAdministratorSubs:

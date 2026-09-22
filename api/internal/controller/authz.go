@@ -38,8 +38,11 @@ func optionalSubject(ctx context.Context) (model.Subject, bool) {
 	if !ok || principal == nil || strings.TrimSpace(principal.Subject) == "" {
 		return model.Subject{}, false
 	}
-	kindClaim, _ := principal.Claim("subject_kind")
-	kind := valueString(kindClaim)
+	kind := string(principal.SubjectKind)
+	if kind == "" {
+		kindClaim, _ := principal.Claim("subject_kind")
+		kind = valueString(kindClaim)
+	}
 	if kind != "user" && kind != "guest" {
 		return model.Subject{}, false
 	}

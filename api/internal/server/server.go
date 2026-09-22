@@ -4,6 +4,7 @@ import (
 	"github.com/gogf/gf/v2/net/ghttp"
 
 	foundationauth "github.com/yueli-official/foundation/go/auth"
+	goframeauth "github.com/yueli-official/foundation/go/goframe/auth"
 	"github.com/yueli-official/gallery/api/internal/controller"
 	galleryservice "github.com/yueli-official/gallery/api/internal/gallery"
 	"github.com/yueli-official/gallery/api/internal/galleryauthz"
@@ -12,11 +13,13 @@ import (
 )
 
 type Deps struct {
-	Gallery       *galleryservice.Service
-	Verifier      *foundationauth.Verifier
-	Authorization *galleryauthz.Service
-	Comments      *gallerycomments.Module
-	ReadyChecks   map[string]runtime.ReadinessCheck
+	Gallery          *galleryservice.Service
+	Verifier         *foundationauth.Verifier
+	PersonalVerifier *foundationauth.PersonalTokenVerifier
+	PersonalSite     string
+	Authorization    *galleryauthz.Service
+	Comments         *gallerycomments.Module
+	ReadyChecks      map[string]runtime.ReadinessCheck
 }
 
 func Configure(s *ghttp.Server, deps Deps) {
@@ -32,22 +35,28 @@ func Configure(s *ghttp.Server, deps Deps) {
 		group.GET("/readyz", runtime.ReadinessHandler(checks))
 	})
 	if deps.Gallery != nil {
+		var verifier goframeauth.TokenVerifier
+		if deps.Verifier != nil {
+			verifier = foundationauth.CompositeVerifier{JWT: deps.Verifier, Personal: deps.PersonalVerifier}
+		}
 		s.Group("/", func(group *ghttp.RouterGroup) {
-			group.Middleware(
-				apiMiddleware,
-				runtime.OptionalAuth(deps.Verifier),
-				controller.AuthorizationMiddleware(deps.Authorization),
-			)
+			middlewares := []ghttp.HandlerFunc{apiMiddleware}
+			if verifier != nil {
+				middlewares = append(middlewares, runtime.OptionalAuth(verifier), controller.PersonalTokenRoutes)
+			}
+			middlewares = append(middlewares, controller.AuthorizationMiddleware(deps.Authorization))
+			group.Middleware(middlewares...)
 			group.Bind(controller.NewPublic(deps.Gallery))
 			if deps.Comments != nil {
 				group.Bind(controller.NewPublicComments(deps.Comments))
 			}
 		})
 		s.Group("/", func(group *ghttp.RouterGroup) {
-			if deps.Verifier != nil {
+			if verifier != nil {
 				group.Middleware(
 					apiMiddleware,
-					runtime.RequiredAuth(deps.Verifier),
+					runtime.RequiredAuth(verifier),
+					controller.PersonalTokenRoutes,
 					controller.AuthorizationMiddleware(deps.Authorization),
 				)
 			} else {
@@ -59,6 +68,7 @@ func Configure(s *ghttp.Server, deps Deps) {
 			group.Bind(controller.NewAdmin(deps.Gallery))
 			group.Bind(controller.NewMe())
 			group.Bind(controller.NewAuthorization())
+			group.Bind(controller.NewPersonalPermissions(deps.PersonalSite, deps.Authorization))
 			if deps.Comments != nil {
 				group.Bind(controller.NewComments(deps.Comments))
 			}
