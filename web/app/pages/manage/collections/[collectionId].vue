@@ -698,23 +698,6 @@ async function saveOrder(): Promise<void> {
     >
       <div class="min-w-0 space-y-5">
         <PageHeader :title="collection.name" :description="`图片与顺序 · ${collection.itemCount} 张`">
-          <template #tools>
-            <CollectionHeaderTools v-model:search="memberSearch" label="专题图片搜索" search-placeholder="搜索专题内图片…" @search="submitMemberSearch">
-<template #view>
-            <CollectionViewToggle
-              v-model="viewMode"
-              :items="[
-                { key: 'list', label: '列表视图', icon: 'i-tabler-list' },
-                {
-                  key: 'grid',
-                  label: '网格视图',
-                  icon: 'i-tabler-layout-grid',
-                },
-              ]"
-            />
-          </template>
-            </CollectionHeaderTools>
-          </template>
           <template #actions>
           <div v-if="canManageCollections" class="flex flex-wrap gap-2">
             <ActionFeedbackButton
@@ -747,7 +730,7 @@ async function saveOrder(): Promise<void> {
         />
 
         <CollectionPanel
-          external-controls
+
           compact-pagination
           class="gallery-compact-collection"
           v-model:search="memberSearch"
@@ -775,7 +758,20 @@ async function saveOrder(): Promise<void> {
           @toggle-item="toggleMember"
           @clear-selection="clearMemberSelection"
         >
-          <template #columns>
+          <template #view>
+            <CollectionViewToggle
+              v-model="viewMode"
+              :items="[
+                { key: 'list', label: '列表视图', icon: 'i-tabler-list' },
+                {
+                  key: 'grid',
+                  label: '网格视图',
+                  icon: 'i-tabler-layout-grid',
+                },
+              ]"
+            />
+          </template>
+        <template #columns>
             <span class="text-xs text-muted">选择本页</span>
           </template>
 

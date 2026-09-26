@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { CollectionHeaderTools } from "@yueli/ui/collection/pattern";
 
 import { ManagePage, TabbedSurface } from "@yueli/ui/admin";
 import {
@@ -495,28 +494,13 @@ function formatDateTime(value?: string) {
 
 <template>
   <ManagePage id="submissions" title="投稿审核" icon="i-tabler-photo-check">
-    <template #tools>
-      <CollectionHeaderTools v-model:search="qDraft"
-        label="搜索与筛选"
-        :search-placeholder="messages.searchPlaceholder"
-        :controls="controls.filter(c => c.kind !== 'direction' && !/sort|direction/i.test(c.id))"
-        :sort-controls="controls.filter(c => c.kind === 'direction' || /sort|direction/i.test(c.id))"
-        :filter-count="filterCount"
-        @search="search"
-        @control-change="changeControl"><template #view>
-          <CollectionViewToggle v-model="viewMode" :items="[
-            {key: 'list', label: '列表视图', icon: 'i-tabler-list'},
-            {key: 'grid', label: '网格视图', icon: 'i-tabler-layout-grid'},
-          ]" />
-        </template></CollectionHeaderTools>
-    </template>
     <TabbedSurface
       v-model="presetModel"
       :items="presetItems"
       navigation-label="投稿审核队列"
       data-manage-surface="submissions"
     >
-      <CollectionPanel external-controls
+      <CollectionPanel
         compact-pagination
         v-model:search="qDraft"
         :items="submissionCollection.items"
@@ -551,6 +535,12 @@ function formatDateTime(value?: string) {
         @page-size-change="size = $event"
       >
 
+        <template #view>
+          <CollectionViewToggle v-model="viewMode" :items="[
+            {key: 'list', label: '列表视图', icon: 'i-tabler-list'},
+            {key: 'grid', label: '网格视图', icon: 'i-tabler-layout-grid'},
+          ]" />
+        </template>
         <template #columns>
           <GalleryGridToolbar v-if="viewMode === 'grid'"
             :sort-by="sortBy" :sort-order="sortOrder"

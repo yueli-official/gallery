@@ -214,6 +214,7 @@ const searchGroups = computed<readonly AdminSearchGroup[]>(() => {
 
 <template>
   <YAdminConsoleLayout
+    :class="{ 'yueli-admin-branded': !immersive }"
     :navigation="navigation"
     :search-groups="searchGroups"
     :messages="messages"
@@ -229,11 +230,11 @@ const searchGroups = computed<readonly AdminSearchGroup[]>(() => {
     data-gallery-manage-shell
     class="max-sm:[&_a]:min-h-11 max-sm:[&_summary]:min-h-11 max-sm:[&_button]:min-h-11 max-sm:[&_a[aria-label]]:min-w-11 max-sm:[&_button[aria-label]]:min-w-11 max-sm:[&_button[role='checkbox']]:relative max-sm:[&_button[role='checkbox']]:min-h-4 max-sm:[&_button[role='checkbox']]:min-w-4 max-sm:[&_button[role='checkbox']]:after:absolute max-sm:[&_button[role='checkbox']]:after:-inset-3.5 max-sm:[&_button[role='checkbox']]:after:content-[''] max-sm:[&_button[role='switch']]:relative max-sm:[&_button[role='switch']]:min-h-5 max-sm:[&_button[role='switch']]:after:absolute max-sm:[&_button[role='switch']]:after:-inset-3.5 max-sm:[&_button[role='switch']]:after:content-['']"
   >
-    <template #account="{ collapsed }">
+    <template #topbar-right>
       <ConsumerManageAccountControl
         home-to=""
         show-appearance
-        :trigger-mode="collapsed ? 'collapsed' : 'sidebar'"
+        trigger-mode="inline"
       />
     </template>
     <slot />

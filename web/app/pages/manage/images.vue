@@ -770,13 +770,7 @@ function applyImageSort() {
   >
     <template #actions>
       <UButton to="/submit" icon="i-tabler-upload" label="投稿图片" class="gallery-image-submit" />
-      <CollectionTableToolbar v-model:search="searchInput" presentation="header" label="图片搜索与筛选" :search-placeholder="messages.searchPlaceholder" filter-label="筛选" :filter-count="activeFilterCount" class="gallery-image-header-tools" @search="submitSearch">
-        <template #utilities>
-          <UButton icon="i-tabler-adjustments-horizontal" :label="activeFilterCount ? `筛选 · ${activeFilterCount}` : '筛选'" color="neutral" variant="outline" size="sm" @click="openImageFilters" />
-          <UButton icon="i-tabler-sort-descending" label="排序" color="neutral" variant="outline" size="sm" @click="openImageSort" />
-          <CollectionViewToggle v-model="viewMode" appearance="surface" :items="[{key: 'list', label: '列表视图', icon: 'i-tabler-list'}, {key: 'grid', label: '网格视图', icon: 'i-tabler-layout-grid'}]" />
-        </template>
-      </CollectionTableToolbar>
+
     </template>
 
     <CollectionPanel
@@ -813,6 +807,15 @@ function applyImageSort() {
       @page-change="page = $event"
       @page-size-change="size = $event"
     >
+      <template #navigation>
+<CollectionTableToolbar v-model:search="searchInput" label="图片搜索与筛选" :search-placeholder="messages.searchPlaceholder" filter-label="筛选" :filter-count="activeFilterCount" class="gallery-image-header-tools" @search="submitSearch">
+        <template #utilities>
+          <UButton icon="i-tabler-adjustments-horizontal" :label="activeFilterCount ? `筛选 · ${activeFilterCount}` : '筛选'" color="neutral" variant="outline" size="sm" @click="openImageFilters" />
+          <UButton icon="i-tabler-sort-descending" label="排序" color="neutral" variant="outline" size="sm" @click="openImageSort" />
+          <CollectionViewToggle v-model="viewMode" appearance="surface" :items="[{key: 'list', label: '列表视图', icon: 'i-tabler-list'}, {key: 'grid', label: '网格视图', icon: 'i-tabler-layout-grid'}]" />
+        </template>
+      </CollectionTableToolbar>
+</template>
       <template #columns>
         <div v-if="viewMode === 'grid'" class="flex items-center justify-between gap-2 text-xs text-muted"><span>选择本页</span><span>{{ imageCollection.total }} 张图片</span></div>
         <div

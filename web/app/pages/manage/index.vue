@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import DashboardTrendChart from "~/components/DashboardTrendChart.vue";
-import { ManagePage } from "@yueli/ui/admin";
+import { ManagePage, AdminOverview, AdminMetricCard } from "@yueli/ui/admin";
 import type { GalleryAdminOverview } from "~/types/gallery";
 
 definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
@@ -107,6 +107,13 @@ const metricCards = computed(() => [
     icon="i-tabler-dashboard"
     data-gallery-dashboard-analytics
   >
+    <template v-if="can('gallery.dashboard.read') && !error" #tools>
+      <AdminOverview>
+        <template #artwork><ManageOverviewArtwork /></template>
+        <div v-if="!hydrated || (pending && !overview.series.length)" data-admin-metrics><USkeleton v-for="n in 4" :key="n" class="h-24 rounded-xl" /></div>
+        <div v-else data-admin-metrics><AdminMetricCard v-for="card in metricCards" :key="card.label" :label="card.label" :value="card.value" :icon="card.icon" :detail="card.detail" :to="card.to" data-gallery-dashboard-metric /></div>
+      </AdminOverview>
+    </template>
 
     <UAlert
       v-if="!can('gallery.dashboard.read')"
@@ -135,37 +142,6 @@ const metricCards = computed(() => [
     </UAlert>
 
     <template v-else-if="can('gallery.dashboard.read')">
-      <div
-        v-if="!hydrated || (pending && !overview.series.length)"
-        class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
-      >
-        <USkeleton v-for="item in 4" :key="item" class="h-28 rounded-xl" />
-      </div>
-      <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <NuxtLink
-          v-for="card in metricCards"
-          :key="card.label"
-          :to="card.to"
-          class="relative grid min-w-0 grid-cols-[2.625rem_minmax(0,1fr)] gap-3 overflow-hidden rounded-xl bg-default p-4 shadow-sm transition-colors hover:bg-elevated"
-          data-gallery-dashboard-metric
-        >
-          <span
-            class="grid size-10 place-items-center rounded-xl bg-primary/10 text-primary"
-          >
-            <UIcon :name="card.icon" class="size-5" />
-          </span>
-          <div class="min-w-0">
-            <p class="text-xs text-muted">{{ card.label }}</p>
-            <p
-              class="mt-0.5 text-2xl font-bold leading-tight tabular-nums tracking-[-0.03em] text-highlighted"
-            >
-              {{ card.value }}
-            </p>
-            <p class="mt-0.5 truncate text-xs text-dimmed">{{ card.detail }}</p>
-          </div>
-        </NuxtLink>
-      </div>
-
       <div
         class="grid items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]"
       >

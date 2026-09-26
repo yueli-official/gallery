@@ -474,12 +474,8 @@ const moderationActions: CommentModerationCollectionActions = {
 
 <template>
   <ManagePage id="comments" title="评论" icon="i-tabler-messages">
-    <template #actions>
-      <CommentModerationToolbar :model="moderationModel" :actions="moderationActions" />
-    </template>
     <CommentModerationCollection
       layout="columns"
-      external-controls
       :model="moderationModel"
       :actions="moderationActions"
       :format-date="formatDate"
