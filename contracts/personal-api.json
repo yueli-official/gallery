@@ -1,0 +1,670 @@
+{
+  "mediaProfiles": [
+    {
+      "namespace": "gallery",
+      "profile": "gallery-submission",
+      "scopeAnyOf": [
+        [
+          "media.upload"
+        ]
+      ]
+    }
+  ],
+  "permissions": [
+    {
+      "capability": "gallery.submission.create",
+      "description": "只上传 Gallery 投稿原图；还需选择创建投稿权限。",
+      "key": "media.upload",
+      "label": "上传投稿图片"
+    },
+    {
+      "capability": "gallery.submission.create",
+      "description": "以当前账号提交已经上传的图片，仍受分类、反滥用和处理规则限制。",
+      "key": "gallery.submission.create",
+      "label": "创建投稿"
+    },
+    {
+      "capability": "gallery.submission.read_own",
+      "description": "列出当前账号拥有的投稿和处理状态。",
+      "key": "gallery.submission.read_own",
+      "label": "读取自己的投稿"
+    },
+    {
+      "capability": "gallery.submission.withdraw",
+      "description": "撤回当前账号拥有的投稿，并沿用现有状态限制。",
+      "key": "gallery.submission.withdraw",
+      "label": "撤回自己的投稿"
+    },
+    {
+      "capability": "gallery.favorite.read",
+      "description": "读取当前账号的私有收藏。",
+      "key": "gallery.favorite.read",
+      "label": "读取自己的收藏"
+    },
+    {
+      "capability": "gallery.favorite.manage",
+      "description": "向当前账号收藏中添加或移除图片。",
+      "key": "gallery.favorite.manage",
+      "label": "管理自己的收藏"
+    },
+    {
+      "capability": "gallery.comment.create",
+      "description": "以当前账号在公开图片下发表评论或回复。",
+      "key": "gallery.comment.create",
+      "label": "发表评论"
+    },
+    {
+      "capability": "gallery.dashboard.read",
+      "description": "读取 Gallery 运营概览；仍需当前账号拥有对应权限。",
+      "key": "gallery.dashboard.read",
+      "label": "查看运营概览"
+    },
+    {
+      "capability": "gallery.image.read",
+      "description": "查询后台图片和详情；仍需当前账号拥有对应权限。",
+      "key": "gallery.image.read",
+      "label": "查看图片后台"
+    },
+    {
+      "capability": "gallery.image.update",
+      "description": "编辑图片元数据与分类；发布等动作仍需额外当前权限。",
+      "key": "gallery.image.update",
+      "label": "编辑图片"
+    },
+    {
+      "capability": "gallery.image.hide",
+      "description": "下架、删除或批量隐藏图片；仍需当前账号拥有对应权限。",
+      "key": "gallery.image.hide",
+      "label": "下架或删除图片"
+    },
+    {
+      "capability": "gallery.submission.read",
+      "description": "读取全站投稿与预览；仍需当前账号拥有对应权限。",
+      "key": "gallery.submission.read",
+      "label": "查看投稿审核队列"
+    },
+    {
+      "capability": "gallery.submission.review",
+      "description": "批准或拒绝投稿；仍需当前账号拥有对应权限。",
+      "key": "gallery.submission.review",
+      "label": "审核投稿"
+    },
+    {
+      "capability": "gallery.collection.read",
+      "description": "读取私有和公开专题；仍需当前账号拥有对应权限。",
+      "key": "gallery.collection.read",
+      "label": "查看专题集合"
+    },
+    {
+      "capability": "gallery.collection.manage",
+      "description": "创建、编辑和编排专题；仍需当前账号拥有对应权限。",
+      "key": "gallery.collection.manage",
+      "label": "管理专题集合"
+    },
+    {
+      "capability": "gallery.classification.read",
+      "description": "读取完整分类与标签目录；仍需当前账号拥有对应权限。",
+      "key": "gallery.classification.read",
+      "label": "查看分类体系"
+    },
+    {
+      "capability": "gallery.classification.proposal_review",
+      "description": "处理投稿产生的标签提案；仍需当前账号拥有对应权限。",
+      "key": "gallery.classification.proposal_review",
+      "label": "审核标签提案"
+    },
+    {
+      "capability": "gallery.classification.govern",
+      "description": "创建、修改和执行分类治理计划；仍需当前 Gallery 管理员权限。",
+      "key": "gallery.classification.govern",
+      "label": "治理分类体系"
+    },
+    {
+      "capability": "gallery.case.read",
+      "description": "读取纠错和举报处理单；仍需当前账号拥有对应权限。",
+      "key": "gallery.case.read",
+      "label": "查看处理单"
+    },
+    {
+      "capability": "gallery.case.resolve",
+      "description": "推进、解决或驳回纠错和举报处理单；仍需当前 Gallery 管理员权限。",
+      "key": "gallery.case.resolve",
+      "label": "处置处理单"
+    },
+    {
+      "capability": "gallery.discovery.read",
+      "description": "读取后台站点与发现设置；仍需当前账号拥有对应权限。",
+      "key": "gallery.discovery.read",
+      "label": "查看发现策略"
+    },
+    {
+      "capability": "gallery.discovery.manage",
+      "description": "修改站点公开信息与发现策略；仍需当前 Gallery 管理员权限。",
+      "key": "gallery.discovery.manage",
+      "label": "管理发现与站点设置"
+    },
+    {
+      "capability": "gallery.comment.read",
+      "description": "读取评论审核队列；仍需当前账号拥有对应权限。",
+      "key": "gallery.comment.read",
+      "label": "查看评论后台"
+    },
+    {
+      "capability": "gallery.comment.moderate",
+      "description": "修改评论审核状态；仍需当前账号拥有对应权限。",
+      "key": "gallery.comment.moderate",
+      "label": "审核评论"
+    },
+    {
+      "capability": "gallery.comment.delete",
+      "description": "删除评论及其回复；仍需当前账号拥有对应权限。",
+      "key": "gallery.comment.delete",
+      "label": "删除评论"
+    }
+  ],
+  "product": {
+    "guide": "../developer-tokens.md",
+    "id": "gallery",
+    "name": "Gallery",
+    "openapi": "../../contracts/openapi/gallery.json"
+  },
+  "routes": [
+    {
+      "authentication": "public-or-pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/discovery",
+      "scopeAnyOf": [
+        []
+      ]
+    },
+    {
+      "authentication": "public-or-pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/site",
+      "scopeAnyOf": [
+        []
+      ]
+    },
+    {
+      "authentication": "public-or-pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/submission-options",
+      "scopeAnyOf": [
+        []
+      ]
+    },
+    {
+      "authentication": "public-or-pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/images",
+      "scopeAnyOf": [
+        []
+      ]
+    },
+    {
+      "authentication": "public-or-pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/images/{imageId}",
+      "scopeAnyOf": [
+        []
+      ]
+    },
+    {
+      "authentication": "public-or-pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/images/{imageId}/related",
+      "scopeAnyOf": [
+        []
+      ]
+    },
+    {
+      "authentication": "public-or-pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/images/{imageId}/comments",
+      "scopeAnyOf": [
+        []
+      ]
+    },
+    {
+      "authentication": "public-or-pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/collections",
+      "scopeAnyOf": [
+        []
+      ]
+    },
+    {
+      "authentication": "public-or-pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/collections/{slug}",
+      "scopeAnyOf": [
+        []
+      ]
+    },
+    {
+      "authentication": "public-or-pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/rankings",
+      "scopeAnyOf": [
+        []
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/gallery/submissions",
+      "scopeAnyOf": [
+        [
+          "gallery.submission.create"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/me/submissions",
+      "scopeAnyOf": [
+        [
+          "gallery.submission.read_own"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/gallery/me/submissions/{submissionId}/withdraw",
+      "scopeAnyOf": [
+        [
+          "gallery.submission.withdraw"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/me/favorites",
+      "scopeAnyOf": [
+        [
+          "gallery.favorite.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "PUT",
+      "path": "/api/v1/gallery/me/favorites/{imageId}",
+      "scopeAnyOf": [
+        [
+          "gallery.favorite.manage"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "DELETE",
+      "path": "/api/v1/gallery/me/favorites/{imageId}",
+      "scopeAnyOf": [
+        [
+          "gallery.favorite.manage"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/gallery/images/{imageId}/comments",
+      "scopeAnyOf": [
+        [
+          "gallery.comment.create"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/personal-token/media-authorization",
+      "scopeAnyOf": [
+        [
+          "media.upload"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/admin/overview",
+      "scopeAnyOf": [
+        [
+          "gallery.dashboard.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/admin/site-settings",
+      "scopeAnyOf": [
+        [
+          "gallery.discovery.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "PATCH",
+      "path": "/api/v1/gallery/admin/site-settings",
+      "scopeAnyOf": [
+        [
+          "gallery.discovery.manage"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/admin/classification",
+      "scopeAnyOf": [
+        [
+          "gallery.classification.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/gallery/admin/classification/identities",
+      "scopeAnyOf": [
+        [
+          "gallery.classification.govern"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "PATCH",
+      "path": "/api/v1/gallery/admin/classification/identities/{identityId}",
+      "scopeAnyOf": [
+        [
+          "gallery.classification.govern"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/admin/classification/tags",
+      "scopeAnyOf": [
+        [
+          "gallery.classification.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/admin/classification/tag-proposals",
+      "scopeAnyOf": [
+        [
+          "gallery.classification.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/gallery/admin/classification/tag-proposals/{proposalId}/review",
+      "scopeAnyOf": [
+        [
+          "gallery.classification.proposal_review"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/gallery/admin/classification/governance/preview",
+      "scopeAnyOf": [
+        [
+          "gallery.classification.govern"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/gallery/admin/classification/governance/execute",
+      "scopeAnyOf": [
+        [
+          "gallery.classification.govern"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/admin/submissions",
+      "scopeAnyOf": [
+        [
+          "gallery.submission.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/admin/submissions/{submissionId}/preview",
+      "scopeAnyOf": [
+        [
+          "gallery.submission.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/gallery/admin/submissions/{submissionId}/review",
+      "scopeAnyOf": [
+        [
+          "gallery.submission.review"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/gallery/admin/submissions/bulk-review",
+      "scopeAnyOf": [
+        [
+          "gallery.submission.review"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/admin/images",
+      "scopeAnyOf": [
+        [
+          "gallery.image.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/admin/images/{imageId}",
+      "scopeAnyOf": [
+        [
+          "gallery.image.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "PATCH",
+      "path": "/api/v1/gallery/admin/images/{imageId}",
+      "scopeAnyOf": [
+        [
+          "gallery.image.update"
+        ],
+        [
+          "gallery.image.hide"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "DELETE",
+      "path": "/api/v1/gallery/admin/images/{imageId}",
+      "scopeAnyOf": [
+        [
+          "gallery.image.hide"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/gallery/admin/images/{imageId}/hide",
+      "scopeAnyOf": [
+        [
+          "gallery.image.hide"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/gallery/admin/images/bulk-hide",
+      "scopeAnyOf": [
+        [
+          "gallery.image.hide"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/gallery/admin/images/bulk",
+      "scopeAnyOf": [
+        [
+          "gallery.image.update"
+        ],
+        [
+          "gallery.image.hide"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/admin/cases",
+      "scopeAnyOf": [
+        [
+          "gallery.case.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/gallery/admin/cases/{caseId}/resolve",
+      "scopeAnyOf": [
+        [
+          "gallery.case.resolve"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/admin/collections",
+      "scopeAnyOf": [
+        [
+          "gallery.collection.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/admin/collections/{collectionId}",
+      "scopeAnyOf": [
+        [
+          "gallery.collection.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/gallery/admin/collections",
+      "scopeAnyOf": [
+        [
+          "gallery.collection.manage"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "PATCH",
+      "path": "/api/v1/gallery/admin/collections/{collectionId}",
+      "scopeAnyOf": [
+        [
+          "gallery.collection.manage"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "POST",
+      "path": "/api/v1/gallery/admin/collections/{collectionId}/members",
+      "scopeAnyOf": [
+        [
+          "gallery.collection.manage"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "PUT",
+      "path": "/api/v1/gallery/admin/collections/{collectionId}/order",
+      "scopeAnyOf": [
+        [
+          "gallery.collection.manage"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "GET",
+      "path": "/api/v1/gallery/admin/comments",
+      "scopeAnyOf": [
+        [
+          "gallery.comment.read"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "PATCH",
+      "path": "/api/v1/gallery/admin/comments/{commentId}",
+      "scopeAnyOf": [
+        [
+          "gallery.comment.moderate"
+        ]
+      ]
+    },
+    {
+      "authentication": "pat",
+      "method": "DELETE",
+      "path": "/api/v1/gallery/admin/comments/{commentId}",
+      "scopeAnyOf": [
+        [
+          "gallery.comment.delete"
+        ]
+      ]
+    }
+  ],
+  "schemaVersion": 1
+}

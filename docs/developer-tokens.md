@@ -1,5 +1,7 @@
 # 开发者令牌 API
 
+当前源码允许 PAT 调用的完整范围见 [开发者 API 目录](developer-api/index.md)、[机器能力目录](developer-api/developer-api.json) 和 [PAT OpenAPI](developer-api/developer-openapi.json)。
+
 Gallery 复用 Identity 账户中心的个人访问令牌（PAT）。令牌只通过 `Authorization: Bearer pat_…` 使用，不换取浏览器 Cookie；每次请求都检查“令牌勾选权限 ∩ 当前账号在 Gallery 的实时权限”。撤销令牌或撤销运营角色后，下次请求立即失效。
 
 ## 权限

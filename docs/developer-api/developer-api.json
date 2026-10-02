@@ -1,0 +1,835 @@
+{
+  "authorization": {
+    "scopeSemantics": "OR across branches; AND within each branch; current account/resource authorization also required",
+    "siteHeader": "X-Yueli-Token-Site",
+    "tokenHeader": "Authorization: Bearer <PAT>"
+  },
+  "deployment": {
+    "status": "unknown"
+  },
+  "liveVerification": {
+    "status": "unknown"
+  },
+  "mediaProfiles": [
+    {
+      "namespace": "gallery",
+      "profile": "gallery-submission",
+      "scopeAnyOf": [
+        [
+          "media.upload"
+        ]
+      ]
+    }
+  ],
+  "operations": [
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_gallery_admin_cases",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1cases/get",
+      "path": "/api/v1/gallery/admin/cases",
+      "scopeAnyOf": [
+        [
+          "gallery.case.read"
+        ]
+      ],
+      "summary": "List and filter Gallery moderation and correction cases"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_gallery_admin_cases_caseId_resolve",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1cases~1{caseId}~1resolve/post",
+      "path": "/api/v1/gallery/admin/cases/{caseId}/resolve",
+      "scopeAnyOf": [
+        [
+          "gallery.case.resolve"
+        ]
+      ],
+      "summary": "Move a Gallery case to reviewing, resolved or dismissed"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_gallery_admin_classification",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1classification/get",
+      "path": "/api/v1/gallery/admin/classification",
+      "scopeAnyOf": [
+        [
+          "gallery.classification.read"
+        ]
+      ],
+      "summary": "Get the authoritative classification catalog including inactive identities"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_gallery_admin_classification_governance_execute",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1classification~1governance~1execute/post",
+      "path": "/api/v1/gallery/admin/classification/governance/execute",
+      "scopeAnyOf": [
+        [
+          "gallery.classification.govern"
+        ]
+      ],
+      "summary": "Execute a freshly previewed classification governance plan"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_gallery_admin_classification_governance_preview",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1classification~1governance~1preview/post",
+      "path": "/api/v1/gallery/admin/classification/governance/preview",
+      "scopeAnyOf": [
+        [
+          "gallery.classification.govern"
+        ]
+      ],
+      "summary": "Preview an immutable classification governance plan"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_gallery_admin_classification_identities",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1classification~1identities/post",
+      "path": "/api/v1/gallery/admin/classification/identities",
+      "scopeAnyOf": [
+        [
+          "gallery.classification.govern"
+        ]
+      ],
+      "summary": "Create a classification category, facet, facet value or tag"
+    },
+    {
+      "authentication": "pat",
+      "id": "patch_api_v1_gallery_admin_classification_identities_identityId",
+      "method": "PATCH",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1classification~1identities~1{identityId}/patch",
+      "path": "/api/v1/gallery/admin/classification/identities/{identityId}",
+      "scopeAnyOf": [
+        [
+          "gallery.classification.govern"
+        ]
+      ],
+      "summary": "Update the name and slug of a classification identity"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_gallery_admin_classification_tag_proposals",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1classification~1tag-proposals/get",
+      "path": "/api/v1/gallery/admin/classification/tag-proposals",
+      "scopeAnyOf": [
+        [
+          "gallery.classification.read"
+        ]
+      ],
+      "summary": "List tag proposals awaiting or completing governance"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_gallery_admin_classification_tag_proposals_proposalId_review",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1classification~1tag-proposals~1{proposalId}~1review/post",
+      "path": "/api/v1/gallery/admin/classification/tag-proposals/{proposalId}/review",
+      "scopeAnyOf": [
+        [
+          "gallery.classification.proposal_review"
+        ]
+      ],
+      "summary": "Resolve, create, alias or reject a tag proposal"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_gallery_admin_classification_tags",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1classification~1tags/get",
+      "path": "/api/v1/gallery/admin/classification/tags",
+      "scopeAnyOf": [
+        [
+          "gallery.classification.read"
+        ]
+      ],
+      "summary": "List classification tags with a stable keyset cursor"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_gallery_admin_collections",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1collections/get",
+      "path": "/api/v1/gallery/admin/collections",
+      "scopeAnyOf": [
+        [
+          "gallery.collection.read"
+        ]
+      ],
+      "summary": "List private and public editorial collections"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_gallery_admin_collections",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1collections/post",
+      "path": "/api/v1/gallery/admin/collections",
+      "scopeAnyOf": [
+        [
+          "gallery.collection.manage"
+        ]
+      ],
+      "summary": "Create an editorial image collection"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_gallery_admin_collections_collectionId",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1collections~1{collectionId}/get",
+      "path": "/api/v1/gallery/admin/collections/{collectionId}",
+      "scopeAnyOf": [
+        [
+          "gallery.collection.read"
+        ]
+      ],
+      "summary": "Get one editorial collection with ordered members"
+    },
+    {
+      "authentication": "pat",
+      "id": "patch_api_v1_gallery_admin_collections_collectionId",
+      "method": "PATCH",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1collections~1{collectionId}/patch",
+      "path": "/api/v1/gallery/admin/collections/{collectionId}",
+      "scopeAnyOf": [
+        [
+          "gallery.collection.manage"
+        ]
+      ],
+      "summary": "Update editorial metadata, SEO, cover and visibility"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_gallery_admin_collections_collectionId_members",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1collections~1{collectionId}~1members/post",
+      "path": "/api/v1/gallery/admin/collections/{collectionId}/members",
+      "scopeAnyOf": [
+        [
+          "gallery.collection.manage"
+        ]
+      ],
+      "summary": "Atomically add and remove editorial collection images"
+    },
+    {
+      "authentication": "pat",
+      "id": "put_api_v1_gallery_admin_collections_collectionId_order",
+      "method": "PUT",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1collections~1{collectionId}~1order/put",
+      "path": "/api/v1/gallery/admin/collections/{collectionId}/order",
+      "scopeAnyOf": [
+        [
+          "gallery.collection.manage"
+        ]
+      ],
+      "summary": "Replace the manual order for all editorial collection members"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_gallery_admin_comments",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1comments/get",
+      "path": "/api/v1/gallery/admin/comments",
+      "scopeAnyOf": [
+        [
+          "gallery.comment.read"
+        ]
+      ],
+      "summary": "List image comments for moderation"
+    },
+    {
+      "authentication": "pat",
+      "id": "delete_api_v1_gallery_admin_comments_commentId",
+      "method": "DELETE",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1comments~1{commentId}/delete",
+      "path": "/api/v1/gallery/admin/comments/{commentId}",
+      "scopeAnyOf": [
+        [
+          "gallery.comment.delete"
+        ]
+      ],
+      "summary": "Delete an image comment and its replies"
+    },
+    {
+      "authentication": "pat",
+      "id": "patch_api_v1_gallery_admin_comments_commentId",
+      "method": "PATCH",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1comments~1{commentId}/patch",
+      "path": "/api/v1/gallery/admin/comments/{commentId}",
+      "scopeAnyOf": [
+        [
+          "gallery.comment.moderate"
+        ]
+      ],
+      "summary": "Moderate an image comment"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_gallery_admin_images",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1images/get",
+      "path": "/api/v1/gallery/admin/images",
+      "scopeAnyOf": [
+        [
+          "gallery.image.read"
+        ]
+      ],
+      "summary": "List all Gallery images for lifecycle operations"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_gallery_admin_images_bulk",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1images~1bulk/post",
+      "path": "/api/v1/gallery/admin/images/bulk",
+      "scopeAnyOf": [
+        [
+          "gallery.image.hide"
+        ],
+        [
+          "gallery.image.update"
+        ]
+      ],
+      "summary": "Apply a lifecycle or classification action to multiple images with per-item outcomes"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_gallery_admin_images_bulk_hide",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1images~1bulk-hide/post",
+      "path": "/api/v1/gallery/admin/images/bulk-hide",
+      "scopeAnyOf": [
+        [
+          "gallery.image.hide"
+        ]
+      ],
+      "summary": "Hide multiple published images with per-item outcomes"
+    },
+    {
+      "authentication": "pat",
+      "id": "delete_api_v1_gallery_admin_images_imageId",
+      "method": "DELETE",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1images~1{imageId}/delete",
+      "path": "/api/v1/gallery/admin/images/{imageId}",
+      "scopeAnyOf": [
+        [
+          "gallery.image.hide"
+        ]
+      ],
+      "summary": "Mark a Gallery image as deleted with optimistic concurrency"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_gallery_admin_images_imageId",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1images~1{imageId}/get",
+      "path": "/api/v1/gallery/admin/images/{imageId}",
+      "scopeAnyOf": [
+        [
+          "gallery.image.read"
+        ]
+      ],
+      "summary": "Get a reviewed Gallery image with editable classification"
+    },
+    {
+      "authentication": "pat",
+      "id": "patch_api_v1_gallery_admin_images_imageId",
+      "method": "PATCH",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1images~1{imageId}/patch",
+      "path": "/api/v1/gallery/admin/images/{imageId}",
+      "scopeAnyOf": [
+        [
+          "gallery.image.hide"
+        ],
+        [
+          "gallery.image.update"
+        ]
+      ],
+      "summary": "Optimistically update Gallery image metadata"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_gallery_admin_images_imageId_hide",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1images~1{imageId}~1hide/post",
+      "path": "/api/v1/gallery/admin/images/{imageId}/hide",
+      "scopeAnyOf": [
+        [
+          "gallery.image.hide"
+        ]
+      ],
+      "summary": "Hide a published image"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_gallery_admin_overview",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1overview/get",
+      "path": "/api/v1/gallery/admin/overview",
+      "scopeAnyOf": [
+        [
+          "gallery.dashboard.read"
+        ]
+      ],
+      "summary": "Get actionable Gallery operations counts"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_gallery_admin_site_settings",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1site-settings/get",
+      "path": "/api/v1/gallery/admin/site-settings",
+      "scopeAnyOf": [
+        [
+          "gallery.discovery.read"
+        ]
+      ],
+      "summary": "Get editable Gallery site and homepage settings"
+    },
+    {
+      "authentication": "pat",
+      "id": "patch_api_v1_gallery_admin_site_settings",
+      "method": "PATCH",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1site-settings/patch",
+      "path": "/api/v1/gallery/admin/site-settings",
+      "scopeAnyOf": [
+        [
+          "gallery.discovery.manage"
+        ]
+      ],
+      "summary": "Update Gallery site and homepage settings"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_gallery_admin_submissions",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1submissions/get",
+      "path": "/api/v1/gallery/admin/submissions",
+      "scopeAnyOf": [
+        [
+          "gallery.submission.read"
+        ]
+      ],
+      "summary": "List Gallery submissions across processing, review, safety and outcome states"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_gallery_admin_submissions_bulk_review",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1submissions~1bulk-review/post",
+      "path": "/api/v1/gallery/admin/submissions/bulk-review",
+      "scopeAnyOf": [
+        [
+          "gallery.submission.review"
+        ]
+      ],
+      "summary": "Approve or reject multiple ready submissions with per-item outcomes"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_gallery_admin_submissions_submissionId_preview",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1submissions~1{submissionId}~1preview/get",
+      "path": "/api/v1/gallery/admin/submissions/{submissionId}/preview",
+      "scopeAnyOf": [
+        [
+          "gallery.submission.read"
+        ]
+      ],
+      "summary": "Get a short-lived signed submission thumbnail URL"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_gallery_admin_submissions_submissionId_review",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1admin~1submissions~1{submissionId}~1review/post",
+      "path": "/api/v1/gallery/admin/submissions/{submissionId}/review",
+      "scopeAnyOf": [
+        [
+          "gallery.submission.review"
+        ]
+      ],
+      "summary": "Approve or reject a ready submission"
+    },
+    {
+      "authentication": "public-or-pat",
+      "id": "get_api_v1_gallery_collections",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1collections/get",
+      "path": "/api/v1/gallery/collections",
+      "scopeAnyOf": [
+        []
+      ],
+      "summary": "List public editorial collections"
+    },
+    {
+      "authentication": "public-or-pat",
+      "id": "get_api_v1_gallery_collections_slug",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1collections~1{slug}/get",
+      "path": "/api/v1/gallery/collections/{slug}",
+      "scopeAnyOf": [
+        []
+      ],
+      "summary": "Get a public editorial collection"
+    },
+    {
+      "authentication": "public-or-pat",
+      "id": "get_api_v1_gallery_discovery",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1discovery/get",
+      "path": "/api/v1/gallery/discovery",
+      "scopeAnyOf": [
+        []
+      ],
+      "summary": "Get a stable seeded random image batch"
+    },
+    {
+      "authentication": "public-or-pat",
+      "id": "get_api_v1_gallery_images",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1images/get",
+      "path": "/api/v1/gallery/images",
+      "scopeAnyOf": [
+        []
+      ],
+      "summary": "List eligible public images with page-based filtering"
+    },
+    {
+      "authentication": "public-or-pat",
+      "id": "get_api_v1_gallery_images_imageId",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1images~1{imageId}/get",
+      "path": "/api/v1/gallery/images/{imageId}",
+      "scopeAnyOf": [
+        []
+      ],
+      "summary": "Get one eligible public image"
+    },
+    {
+      "authentication": "public-or-pat",
+      "id": "get_api_v1_gallery_images_imageId_comments",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1images~1{imageId}~1comments/get",
+      "path": "/api/v1/gallery/images/{imageId}/comments",
+      "scopeAnyOf": [
+        []
+      ],
+      "summary": "List approved comments for a public image"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_gallery_images_imageId_comments",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1images~1{imageId}~1comments/post",
+      "path": "/api/v1/gallery/images/{imageId}/comments",
+      "scopeAnyOf": [
+        [
+          "gallery.comment.create"
+        ]
+      ],
+      "summary": "Comment on a public image"
+    },
+    {
+      "authentication": "public-or-pat",
+      "id": "get_api_v1_gallery_images_imageId_related",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1images~1{imageId}~1related/get",
+      "path": "/api/v1/gallery/images/{imageId}/related",
+      "scopeAnyOf": [
+        []
+      ],
+      "summary": "List explainable related public images"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_gallery_me_favorites",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1me~1favorites/get",
+      "path": "/api/v1/gallery/me/favorites",
+      "scopeAnyOf": [
+        [
+          "gallery.favorite.read"
+        ]
+      ],
+      "summary": "Get the current user's private singleton favorites collection"
+    },
+    {
+      "authentication": "pat",
+      "id": "delete_api_v1_gallery_me_favorites_imageId",
+      "method": "DELETE",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1me~1favorites~1{imageId}/delete",
+      "path": "/api/v1/gallery/me/favorites/{imageId}",
+      "scopeAnyOf": [
+        [
+          "gallery.favorite.manage"
+        ]
+      ],
+      "summary": "Idempotently remove an image from favorites"
+    },
+    {
+      "authentication": "pat",
+      "id": "put_api_v1_gallery_me_favorites_imageId",
+      "method": "PUT",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1me~1favorites~1{imageId}/put",
+      "path": "/api/v1/gallery/me/favorites/{imageId}",
+      "scopeAnyOf": [
+        [
+          "gallery.favorite.manage"
+        ]
+      ],
+      "summary": "Idempotently add an image to favorites"
+    },
+    {
+      "authentication": "pat",
+      "id": "get_api_v1_gallery_me_submissions",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1me~1submissions/get",
+      "path": "/api/v1/gallery/me/submissions",
+      "scopeAnyOf": [
+        [
+          "gallery.submission.read_own"
+        ]
+      ],
+      "summary": "List submissions owned by the current user or guest"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_gallery_me_submissions_submissionId_withdraw",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1me~1submissions~1{submissionId}~1withdraw/post",
+      "path": "/api/v1/gallery/me/submissions/{submissionId}/withdraw",
+      "scopeAnyOf": [
+        [
+          "gallery.submission.withdraw"
+        ]
+      ],
+      "summary": "Withdraw an owned submission and hide its published image"
+    },
+    {
+      "authentication": "public-or-pat",
+      "id": "get_api_v1_gallery_rankings",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1rankings/get",
+      "path": "/api/v1/gallery/rankings",
+      "scopeAnyOf": [
+        []
+      ],
+      "summary": "Get a cached or aggregated public image ranking"
+    },
+    {
+      "authentication": "public-or-pat",
+      "id": "get_api_v1_gallery_site",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1site/get",
+      "path": "/api/v1/gallery/site",
+      "scopeAnyOf": [
+        []
+      ],
+      "summary": "Get public Gallery site and homepage settings"
+    },
+    {
+      "authentication": "public-or-pat",
+      "id": "get_api_v1_gallery_submission_options",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1submission-options/get",
+      "path": "/api/v1/gallery/submission-options",
+      "scopeAnyOf": [
+        []
+      ],
+      "summary": "Get active classification choices for a submission"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_gallery_submissions",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1submissions/post",
+      "path": "/api/v1/gallery/submissions",
+      "scopeAnyOf": [
+        [
+          "gallery.submission.create"
+        ]
+      ],
+      "summary": "Submit one uploaded image"
+    },
+    {
+      "authentication": "pat",
+      "id": "post_api_v1_personal_token_media_authorization",
+      "method": "POST",
+      "openapiPointer": "#/paths/~1api~1v1~1personal-token~1media-authorization/post",
+      "path": "/api/v1/personal-token/media-authorization",
+      "scopeAnyOf": [
+        [
+          "media.upload"
+        ]
+      ],
+      "summary": "Authorize constrained Gallery submission upload for the current personal token"
+    }
+  ],
+  "permissions": [
+    {
+      "capability": "gallery.case.read",
+      "description": "读取纠错和举报处理单；仍需当前账号拥有对应权限。",
+      "key": "gallery.case.read",
+      "label": "查看处理单"
+    },
+    {
+      "capability": "gallery.case.resolve",
+      "description": "推进、解决或驳回纠错和举报处理单；仍需当前 Gallery 管理员权限。",
+      "key": "gallery.case.resolve",
+      "label": "处置处理单"
+    },
+    {
+      "capability": "gallery.classification.govern",
+      "description": "创建、修改和执行分类治理计划；仍需当前 Gallery 管理员权限。",
+      "key": "gallery.classification.govern",
+      "label": "治理分类体系"
+    },
+    {
+      "capability": "gallery.classification.proposal_review",
+      "description": "处理投稿产生的标签提案；仍需当前账号拥有对应权限。",
+      "key": "gallery.classification.proposal_review",
+      "label": "审核标签提案"
+    },
+    {
+      "capability": "gallery.classification.read",
+      "description": "读取完整分类与标签目录；仍需当前账号拥有对应权限。",
+      "key": "gallery.classification.read",
+      "label": "查看分类体系"
+    },
+    {
+      "capability": "gallery.collection.manage",
+      "description": "创建、编辑和编排专题；仍需当前账号拥有对应权限。",
+      "key": "gallery.collection.manage",
+      "label": "管理专题集合"
+    },
+    {
+      "capability": "gallery.collection.read",
+      "description": "读取私有和公开专题；仍需当前账号拥有对应权限。",
+      "key": "gallery.collection.read",
+      "label": "查看专题集合"
+    },
+    {
+      "capability": "gallery.comment.create",
+      "description": "以当前账号在公开图片下发表评论或回复。",
+      "key": "gallery.comment.create",
+      "label": "发表评论"
+    },
+    {
+      "capability": "gallery.comment.delete",
+      "description": "删除评论及其回复；仍需当前账号拥有对应权限。",
+      "key": "gallery.comment.delete",
+      "label": "删除评论"
+    },
+    {
+      "capability": "gallery.comment.moderate",
+      "description": "修改评论审核状态；仍需当前账号拥有对应权限。",
+      "key": "gallery.comment.moderate",
+      "label": "审核评论"
+    },
+    {
+      "capability": "gallery.comment.read",
+      "description": "读取评论审核队列；仍需当前账号拥有对应权限。",
+      "key": "gallery.comment.read",
+      "label": "查看评论后台"
+    },
+    {
+      "capability": "gallery.dashboard.read",
+      "description": "读取 Gallery 运营概览；仍需当前账号拥有对应权限。",
+      "key": "gallery.dashboard.read",
+      "label": "查看运营概览"
+    },
+    {
+      "capability": "gallery.discovery.manage",
+      "description": "修改站点公开信息与发现策略；仍需当前 Gallery 管理员权限。",
+      "key": "gallery.discovery.manage",
+      "label": "管理发现与站点设置"
+    },
+    {
+      "capability": "gallery.discovery.read",
+      "description": "读取后台站点与发现设置；仍需当前账号拥有对应权限。",
+      "key": "gallery.discovery.read",
+      "label": "查看发现策略"
+    },
+    {
+      "capability": "gallery.favorite.manage",
+      "description": "向当前账号收藏中添加或移除图片。",
+      "key": "gallery.favorite.manage",
+      "label": "管理自己的收藏"
+    },
+    {
+      "capability": "gallery.favorite.read",
+      "description": "读取当前账号的私有收藏。",
+      "key": "gallery.favorite.read",
+      "label": "读取自己的收藏"
+    },
+    {
+      "capability": "gallery.image.hide",
+      "description": "下架、删除或批量隐藏图片；仍需当前账号拥有对应权限。",
+      "key": "gallery.image.hide",
+      "label": "下架或删除图片"
+    },
+    {
+      "capability": "gallery.image.read",
+      "description": "查询后台图片和详情；仍需当前账号拥有对应权限。",
+      "key": "gallery.image.read",
+      "label": "查看图片后台"
+    },
+    {
+      "capability": "gallery.image.update",
+      "description": "编辑图片元数据与分类；发布等动作仍需额外当前权限。",
+      "key": "gallery.image.update",
+      "label": "编辑图片"
+    },
+    {
+      "capability": "gallery.submission.create",
+      "description": "以当前账号提交已经上传的图片，仍受分类、反滥用和处理规则限制。",
+      "key": "gallery.submission.create",
+      "label": "创建投稿"
+    },
+    {
+      "capability": "gallery.submission.read",
+      "description": "读取全站投稿与预览；仍需当前账号拥有对应权限。",
+      "key": "gallery.submission.read",
+      "label": "查看投稿审核队列"
+    },
+    {
+      "capability": "gallery.submission.read_own",
+      "description": "列出当前账号拥有的投稿和处理状态。",
+      "key": "gallery.submission.read_own",
+      "label": "读取自己的投稿"
+    },
+    {
+      "capability": "gallery.submission.review",
+      "description": "批准或拒绝投稿；仍需当前账号拥有对应权限。",
+      "key": "gallery.submission.review",
+      "label": "审核投稿"
+    },
+    {
+      "capability": "gallery.submission.withdraw",
+      "description": "撤回当前账号拥有的投稿，并沿用现有状态限制。",
+      "key": "gallery.submission.withdraw",
+      "label": "撤回自己的投稿"
+    },
+    {
+      "capability": "gallery.submission.create",
+      "description": "只上传 Gallery 投稿原图；还需选择创建投稿权限。",
+      "key": "media.upload",
+      "label": "上传投稿图片"
+    }
+  ],
+  "product": {
+    "guide": "../developer-tokens.md",
+    "id": "gallery",
+    "name": "Gallery",
+    "openapi": "../../contracts/openapi/gallery.json"
+  },
+  "schemaVersion": 1,
+  "sourceDigest": "32c4f2b2df7f44d1dcbf476603b226f6eb331146a9c4612cbdd80e2a4185213f"
+}

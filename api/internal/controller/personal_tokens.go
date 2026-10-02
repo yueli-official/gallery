@@ -18,6 +18,16 @@ type personalPermission struct {
 	Capability authorization.CapabilityKey
 }
 
+type personalMediaProfile struct {
+	profile    string
+	permission string
+	capability authorization.CapabilityKey
+}
+
+var personalMediaProfiles = []personalMediaProfile{
+	{profile: "gallery-submission", permission: "media.upload", capability: galleryauthz.CapabilitySubmissionCreate},
+}
+
 var personalPermissions = []personalPermission{
 	{foundationauth.PersonalPermission{Key: "media.upload", Label: "上传投稿图片", Description: "只上传 Gallery 投稿原图；还需选择创建投稿权限。"}, galleryauthz.CapabilitySubmissionCreate},
 	{foundationauth.PersonalPermission{Key: string(galleryauthz.CapabilitySubmissionCreate), Label: "创建投稿", Description: "以当前账号提交已经上传的图片，仍受分类、反滥用和处理规则限制。"}, galleryauthz.CapabilitySubmissionCreate},
@@ -79,17 +89,18 @@ func (controller *PersonalPermissions) GetPersonalPermissions(ctx context.Contex
 
 func (controller *PersonalPermissions) AuthorizePersonalMedia(ctx context.Context, _ *v1.PersonalMediaAuthorizationReq) (*v1.PersonalMediaAuthorizationRes, error) {
 	principal, _ := foundationauth.FromContext(ctx)
-	if principal == nil || !principal.IsPersonalToken() || !principal.HasScope("media.upload") || controller.site == "" || controller.service == nil {
+	profile := personalMediaProfiles[0]
+	if principal == nil || !principal.IsPersonalToken() || !principal.HasScope(profile.permission) || controller.site == "" || controller.service == nil {
 		return nil, galleryerr.Forbidden()
 	}
-	allowed, err := controller.service.CheckCapability(ctx, galleryauthz.CapabilitySubmissionCreate)
+	allowed, err := controller.service.CheckCapability(ctx, profile.capability)
 	if err != nil {
 		return nil, mapAuthorizationError(err)
 	}
 	if !allowed {
 		return nil, galleryerr.Forbidden()
 	}
-	scope, err := foundationauth.PersonalScope(controller.site, "asset.profile.gallery-submission.upload")
+	scope, err := foundationauth.PersonalScope(controller.site, "asset.profile."+profile.profile+".upload")
 	if err != nil {
 		return nil, galleryerr.Forbidden()
 	}
@@ -150,6 +161,19 @@ var personalRoutes = []personalRoute{
 	{"DELETE", "/api/v1/gallery/admin/comments/{commentId}", []authorization.CapabilityKey{galleryauthz.CapabilityCommentDelete}},
 }
 
+var personalPublicReadPaths = []string{
+	"/api/v1/gallery/discovery",
+	"/api/v1/gallery/site",
+	"/api/v1/gallery/submission-options",
+	"/api/v1/gallery/images",
+	"/api/v1/gallery/images/{imageId}",
+	"/api/v1/gallery/images/{imageId}/related",
+	"/api/v1/gallery/images/{imageId}/comments",
+	"/api/v1/gallery/collections",
+	"/api/v1/gallery/collections/{slug}",
+	"/api/v1/gallery/rankings",
+}
+
 func PersonalTokenRoutes(request *ghttp.Request) {
 	principal, _ := foundationauth.FromContext(request.Context())
 	if principal != nil && principal.IsPersonalToken() && !allowsPersonalRoute(request.Context(), request.Method, request.URL.Path) {
@@ -199,12 +223,7 @@ func matchesPersonalPath(pattern, path string) bool {
 }
 
 func isPublicGalleryRead(path string) bool {
-	for _, pattern := range []string{
-		"/api/v1/gallery/discovery", "/api/v1/gallery/site", "/api/v1/gallery/submission-options",
-		"/api/v1/gallery/images", "/api/v1/gallery/images/{imageId}", "/api/v1/gallery/images/{imageId}/related",
-		"/api/v1/gallery/images/{imageId}/comments", "/api/v1/gallery/collections",
-		"/api/v1/gallery/collections/{slug}", "/api/v1/gallery/rankings",
-	} {
+	for _, pattern := range personalPublicReadPaths {
 		if matchesPersonalPath(pattern, path) {
 			return true
 		}
