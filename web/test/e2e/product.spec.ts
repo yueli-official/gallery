@@ -96,7 +96,8 @@ if (suite === "all" || suite === "journeys") {
       const lastFirstPageHref = await firstPageTiles.last().getAttribute("href");
       expect(lastFirstPageHref).toBeTruthy();
 
-      await page.getByRole("button", { name: "2", exact: true }).click();
+      await page.getByRole("group", { name: "图片分页", exact: true })
+        .getByRole("button", { name: "Page 2", exact: true }).click();
       await expect(page).toHaveURL(/page=2/u);
       await expect(page.locator("a.gallery-tile-link")).toHaveCount(24);
       const firstSecondPageHref = await page

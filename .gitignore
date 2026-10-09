@@ -16,3 +16,4 @@ web/*.log
 .impeccable/qa/
 
 /flightdeck/
+/web/.task/

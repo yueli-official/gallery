@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { CollectionPagination } from "@yueli/ui/collection/pattern";
 import type {
   GalleryDiscovery,
   GalleryImagePage,
@@ -80,15 +81,6 @@ const draftFilterCount = computed(
     selectedFacets.value.length +
     (selectedTag.value ? 1 : 0),
 );
-const pageNumbers = computed(() => {
-  const total = galleryPageCount(pageData.value) || 0;
-  if (!total) return [];
-  const start = Math.max(1, Math.min(page.value - 2, total - 4));
-  return Array.from(
-    { length: Math.min(5, total) },
-    (_, index) => start + index,
-  );
-});
 const sortItems = [
   { label: "最新", value: "newest" },
   { label: "最早", value: "oldest" },
@@ -476,30 +468,11 @@ useSeoMeta({
           class="mt-10 flex items-center justify-center gap-1"
           aria-label="图片分页"
         >
-          <UButton
-            color="neutral"
-            variant="ghost"
-            icon="i-tabler-chevron-left"
-            aria-label="上一页"
-            :disabled="page <= 1"
-            @click="setPage(page - 1)"
-          />
-          <UButton
-            v-for="number in pageNumbers"
-            :key="number"
-            color="neutral"
-            :variant="number === page ? 'solid' : 'ghost'"
-            :label="String(number)"
-            :aria-current="number === page ? 'page' : undefined"
-            @click="setPage(number)"
-          />
-          <UButton
-            color="neutral"
-            variant="ghost"
-            icon="i-tabler-chevron-right"
-            aria-label="下一页"
-            :disabled="page >= galleryPageCount(pageData)"
-            @click="setPage(page + 1)"
+          <CollectionPagination
+            :model-value="page"
+            :total-pages="galleryPageCount(pageData)"
+            aria-label="图片分页"
+            @update:model-value="setPage"
           />
         </nav>
       </section>
