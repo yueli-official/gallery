@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { compactCollectionClasses, imageManagePageClasses } from "~/utils/compact-collection-layout";
 import type { FailureFeedback } from "@yueli/http-runtime";
 const editFailure = ref<FailureFeedback | null>(null);
 import { galleryAdminMutationErrorMessage } from "~/utils/galleryAdminErrors";
@@ -763,20 +764,21 @@ function applyImageSort() {
 
 <template>
   <ManagePage
+    :class="imageManagePageClasses"
     id="images"
     title="图片"
     icon="i-tabler-photo"
     :data-manage-images-state="panelState"
   >
     <template #actions>
-      <UButton to="/submit" icon="i-tabler-upload" label="投稿图片" class="gallery-image-submit" />
+      <UButton to="/submit" icon="i-tabler-upload" label="投稿图片" class="gallery-image-submit h-9 min-h-9 max-xl:col-start-2 max-xl:row-start-1 max-xl:justify-self-end xl:order-2" />
 
     </template>
 
     <CollectionPanel
       external-controls
       compact-pagination
-      class="gallery-compact-collection"
+      :class="compactCollectionClasses"
       v-model:search="searchInput"
       :items="items"
       :item-key="imageKey"
@@ -808,7 +810,7 @@ function applyImageSort() {
       @page-size-change="size = $event"
     >
       <template #navigation>
-<CollectionTableToolbar v-model:search="searchInput" label="图片搜索与筛选" :search-placeholder="messages.searchPlaceholder" filter-label="筛选" :filter-count="activeFilterCount" class="gallery-image-header-tools" @search="submitSearch">
+<CollectionTableToolbar v-model:search="searchInput" label="图片搜索与筛选" :search-placeholder="messages.searchPlaceholder" filter-label="筛选" :filter-count="activeFilterCount" class="gallery-image-header-tools w-full min-w-0 [&_[data-collection-table-default]]:gap-2 [&_[data-collection-table-controls]]:flex-[0_1_auto] [&_button:not([data-collection-view-option])]:h-9 [&_button:not([data-collection-view-option])]:min-h-9 max-xl:col-span-full max-xl:row-start-2 xl:order-1 xl:w-[36rem] xl:max-w-full" @search="submitSearch">
         <template #utilities>
           <UButton icon="i-tabler-adjustments-horizontal" :label="activeFilterCount ? `筛选 · ${activeFilterCount}` : '筛选'" color="neutral" variant="outline" size="sm" @click="openImageFilters" />
           <UButton icon="i-tabler-sort-descending" label="排序" color="neutral" variant="outline" size="sm" @click="openImageSort" />
@@ -1386,23 +1388,3 @@ function applyImageSort() {
     </UModal>
   </ManagePage>
 </template>
-
-<style scoped>
-:deep([data-manage-page-actions]) { width: 100%; min-width: 0; }
-.gallery-image-header-tools { width: 100%; min-width: 0; }
-.gallery-image-header-tools :deep([data-collection-table-default]) { gap: 0.5rem; }
-.gallery-image-header-tools :deep([data-collection-table-controls]) { flex: 0 1 auto; }
-.gallery-image-header-tools :deep(button:not([data-collection-view-option])), .gallery-image-submit { height: 2.25rem; min-height: 2.25rem; }
-@media (max-width: 1279px) {
-  :deep([data-manage-page-header]) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
-  :deep([data-manage-page-actions]) { display: contents; }
-  .gallery-image-submit { grid-column: 2; grid-row: 1; justify-self: end; }
-  .gallery-image-header-tools { grid-column: 1 / -1; grid-row: 2; }
-}
-@media (min-width: 1280px) {
-  .gallery-image-submit { order: 2; }
-  .gallery-image-header-tools { order: 1; }
-  :deep([data-manage-page-actions]) { width: auto; max-width: calc(100% - 8rem); }
-  .gallery-image-header-tools { width: 36rem; max-width: 100%; }
-}
-</style>

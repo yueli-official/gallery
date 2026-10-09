@@ -473,7 +473,7 @@ const moderationActions: CommentModerationCollectionActions = {
 </script>
 
 <template>
-  <ManagePage id="comments" title="评论" icon="i-tabler-messages">
+  <ManagePage id="comments" title="评论" icon="i-tabler-messages" class="[&_[data-manage-page-actions]]:w-full [&_[data-manage-page-actions]]:min-w-0 md:[&_[data-manage-page-actions]]:w-auto md:[&_[data-manage-page-actions]]:max-w-full">
     <CommentModerationCollection
       layout="columns"
       :model="moderationModel"
@@ -526,16 +526,3 @@ const moderationActions: CommentModerationCollectionActions = {
     </UModal>
   </ManagePage>
 </template>
-
-<style scoped>
-:deep([data-manage-page-actions]) {
-  width: 100%;
-  min-width: 0;
-}
-@media (min-width: 768px) {
-  :deep([data-manage-page-actions]) {
-    width: auto;
-    max-width: 100%;
-  }
-}
-</style>

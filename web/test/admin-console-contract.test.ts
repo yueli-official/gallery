@@ -57,9 +57,9 @@ describe("Gallery management console contract", () => {
     expect(submissions).toContain("CollectionSortHeader");
     expect(submissions).toContain("sortBy");
     expect(submissions).toContain("sortOrder");
-    expect(cases).toContain("CollectionTableToolbar");
+    expect(cases).toContain("CollectionHeaderTools");
     expect(cases).toContain("CollectionSortHeader");
-    expect(collections).toContain("CollectionTableToolbar");
+    expect(collections).toContain("CollectionHeaderTools");
   });
 
   it("uses the shared collection and inspector patterns for topic editing", () => {
@@ -94,7 +94,8 @@ describe("Gallery management console contract", () => {
   });
 
   it("keeps image and submission states concise and actionable", () => {
-    expect(images).toContain('label: "待生成"');
+    expect(images).toContain("publicationLabel(image.publicationState)");
+    expect(images).toContain("公开版本尚未就绪");
     expect(images).toContain("imageStatusBadge(image)");
     expect(images).not.toContain('label: "公开版本未就绪"');
     expect(submissions).toContain('label="批量通过"');

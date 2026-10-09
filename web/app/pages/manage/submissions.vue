@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { compactCollectionClasses } from "~/utils/compact-collection-layout";
 
 import { ManagePage, TabbedSurface } from "@yueli/ui/admin";
 import {
@@ -522,7 +523,8 @@ function formatDateTime(value?: string) {
         :is-item-selectable="(item) => submissionReviewAction(item).canApprove"
         label="投稿审核队列"
         :selectable="canReviewSubmissions && panelState === 'ready'"
-        class="gallery-compact-collection rounded-none border-0 shadow-none"
+        class="rounded-none border-0 shadow-none"
+        :class="compactCollectionClasses"
         :layout="viewMode === 'grid' ? 'grid' : 'rows'"
         @search="search"
         @control-change="changeControl"

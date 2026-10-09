@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { compactCollectionClasses } from "~/utils/compact-collection-layout";
 import { AdminRowActions, EditorInspector, PageHeader } from "@yueli/ui/admin";
 import {
   CollectionHeaderTools,
@@ -732,7 +733,7 @@ async function saveOrder(): Promise<void> {
         <CollectionPanel
 
           compact-pagination
-          class="gallery-compact-collection"
+          :class="compactCollectionClasses"
           v-model:search="memberSearch"
           :items="pagedMembers"
           :item-key="memberKey"
