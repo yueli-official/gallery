@@ -18,7 +18,7 @@ import { useVueCollectionWorkflow } from "@yueli/ui/collection/vue";
 import { createVueRouterCollectionQuerySync } from "@yueli/ui/collection/vue-router";
 import {
   CollectionPanel,
-  CollectionTableToolbar,
+  CollectionHeaderTools,
   CollectionSortHeader,
   CollectionViewToggle,
 } from "@yueli/ui/collection/pattern";
@@ -734,31 +734,17 @@ function publicationLabel(value: GalleryAdminImage["publicationState"]) {
   }[value];
 }
 
-const imageFiltersOpen = ref(false);
-const imageSortOpen = ref(false);
-const filterDraft = reactive<Record<string, string>>({ status: ALL, category: ALL, facet: ALL });
-const sortDraft = reactive<{ sortBy: ImageSortBy; sortOrder: ImageSortOrder }>({ sortBy: "createdAt", sortOrder: "desc" });
 const imageSortChoices = [
-  { label: "创建时间", value: "createdAt" },
-  { label: "更新时间", value: "updatedAt" },
-  { label: "标题", value: "title" },
-  { label: "浏览量", value: "views" },
+  { label: "创建时间", value: "createdAt" }, { label: "更新时间", value: "updatedAt" },
+  { label: "标题", value: "title" }, { label: "浏览量", value: "views" },
 ];
-function openImageFilters() {
-  Object.assign(filterDraft, { status: status.value || ALL, category: category.value, facet: facet.value });
-  imageFiltersOpen.value = true;
+function applyHeaderFilters(values: Record<string, CollectionControlValue>) {
+  const nextStatus = values.status === ALL ? "" : String(values.status);
+  if (!statuses.includes(nextStatus as ImageStatus)) return;
+  updateCollectionQuery({ status: nextStatus as ImageStatus, category: String(values.category), facet: String(values.facet) });
 }
-function applyImageFilters() {
-  updateCollectionQuery({ status: (filterDraft.status === ALL ? "" : filterDraft.status) as ImageStatus, category: filterDraft.category, facet: filterDraft.facet });
-  imageFiltersOpen.value = false;
-}
-function openImageSort() {
-  Object.assign(sortDraft, { sortBy: sortBy.value, sortOrder: sortOrder.value });
-  imageSortOpen.value = true;
-}
-function applyImageSort() {
-  updateCollectionQuery({ sortBy: sortDraft.sortBy, sortOrder: sortDraft.sortOrder });
-  imageSortOpen.value = false;
+function applyHeaderSort(by: string, order: ImageSortOrder) {
+  if (imageSortChoices.some(item => item.value === by)) updateCollectionQuery({ sortBy: by as ImageSortBy, sortOrder: order });
 }
 </script>
 
@@ -777,6 +763,7 @@ function applyImageSort() {
 
     <CollectionPanel
       external-controls
+      selection-replaces-navigation
       compact-pagination
       :class="compactCollectionClasses"
       v-model:search="searchInput"
@@ -810,13 +797,13 @@ function applyImageSort() {
       @page-size-change="size = $event"
     >
       <template #navigation>
-<CollectionTableToolbar v-model:search="searchInput" label="图片搜索与筛选" :search-placeholder="messages.searchPlaceholder" filter-label="筛选" :filter-count="activeFilterCount" class="gallery-image-header-tools w-full min-w-0 [&_[data-collection-table-default]]:gap-2 [&_[data-collection-table-controls]]:flex-[0_1_auto] [&_button:not([data-collection-view-option])]:h-9 [&_button:not([data-collection-view-option])]:min-h-9 max-xl:col-span-full max-xl:row-start-2 xl:order-1 xl:w-[36rem] xl:max-w-full" @search="submitSearch">
-        <template #utilities>
-          <UButton icon="i-tabler-adjustments-horizontal" :label="activeFilterCount ? `筛选 · ${activeFilterCount}` : '筛选'" color="neutral" variant="outline" size="sm" @click="openImageFilters" />
-          <UButton icon="i-tabler-sort-descending" label="排序" color="neutral" variant="outline" size="sm" @click="openImageSort" />
-          <CollectionViewToggle v-model="viewMode" appearance="surface" :items="[{key: 'list', label: '列表视图', icon: 'i-tabler-list'}, {key: 'grid', label: '网格视图', icon: 'i-tabler-layout-grid'}]" />
-        </template>
-      </CollectionTableToolbar>
+        <div data-admin-collection-tools>
+          <CollectionHeaderTools v-model:search="searchInput" label="图片搜索与筛选"
+            :search-placeholder="messages.searchPlaceholder" :controls="controls" :filter-count="activeFilterCount"
+            :sort-by="sortBy" :sort-order="sortOrder" :sort-options="imageSortChoices"
+            v-model:view="viewMode" :view-items="[{key:'list',label:'列表视图',icon:'i-tabler-list'},{key:'grid',label:'网格视图',icon:'i-tabler-layout-grid'}]"
+            @search="submitSearch" @filters="applyHeaderFilters" @sort="applyHeaderSort" />
+        </div>
 </template>
       <template #columns>
         <div v-if="viewMode === 'grid'" class="flex items-center justify-between gap-2 text-xs text-muted"><span>选择本页</span><span>{{ imageCollection.total }} 张图片</span></div>
@@ -1356,35 +1343,5 @@ function applyImageSort() {
       ></template>
     </UModal>
 
-    <UModal v-model:open="imageFiltersOpen" title="筛选图片" description="选择公开状态、分类和维度。" :ui="{ content: 'max-w-sm' }">
-      <template #body>
-        <div class="grid gap-4">
-          <template v-for="control in controls" :key="control.id">
-            <div v-if="control.kind === 'select'" class="grid gap-1.5">
-              <span class="text-sm font-medium">{{ control.label }}</span>
-              <USelectMenu v-if="control.searchPlaceholder" v-model="filterDraft[control.id]" :items="control.options.slice()" value-key="value" :aria-label="control.label" :search-input="{ placeholder: control.searchPlaceholder }" class="w-full" />
-              <USelect v-else v-model="filterDraft[control.id]" :items="control.options.slice()" value-key="value" :aria-label="control.label" class="w-full" />
-            </div>
-          </template>
-        </div>
-      </template>
-      <template #footer>
-        <div class="flex w-full items-center justify-between gap-2">
-          <UButton label="重置" color="neutral" variant="ghost" @click="void Object.assign(filterDraft, { status: ALL, category: ALL, facet: ALL })" />
-          <div class="flex gap-2"><UButton label="取消" color="neutral" variant="outline" @click="void (imageFiltersOpen = false)" /><UButton label="应用筛选" @click="applyImageFilters" /></div>
-        </div>
-      </template>
-    </UModal>
-    <UModal v-model:open="imageSortOpen" title="图片排序" description="列表与网格共用此排序；也可点击列表表头排序。" :ui="{ content: 'max-w-sm' }">
-      <template #body>
-        <div class="grid gap-5">
-          <URadioGroup v-model="sortDraft.sortBy" :items="imageSortChoices" legend="排序依据" />
-          <URadioGroup v-model="sortDraft.sortOrder" :items="[{label: '升序', value: 'asc'}, {label: '降序', value: 'desc'}]" legend="排列方向" orientation="horizontal" />
-        </div>
-      </template>
-      <template #footer>
-        <div class="flex w-full justify-end gap-2"><UButton label="取消" color="neutral" variant="outline" @click="void (imageSortOpen = false)" /><UButton label="应用排序" @click="applyImageSort" /></div>
-      </template>
-    </UModal>
   </ManagePage>
 </template>

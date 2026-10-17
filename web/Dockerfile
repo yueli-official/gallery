@@ -3,6 +3,7 @@ FROM node:24.18.0-bookworm-slim AS build
 RUN corepack enable && corepack prepare pnpm@10.28.2 --activate
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
+COPY vendor ./vendor
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
 COPY . .

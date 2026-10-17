@@ -476,11 +476,16 @@ const moderationActions: CommentModerationCollectionActions = {
   <ManagePage id="comments" title="评论" icon="i-tabler-messages" class="[&_[data-manage-page-actions]]:w-full [&_[data-manage-page-actions]]:min-w-0 md:[&_[data-manage-page-actions]]:w-auto md:[&_[data-manage-page-actions]]:max-w-full">
     <CommentModerationCollection
       layout="columns"
+      external-controls
       :model="moderationModel"
       :actions="moderationActions"
       :format-date="formatDate"
     >
-
+      <template #navigation>
+        <div data-admin-collection-tools>
+          <CommentModerationToolbar :model="moderationModel" :actions="moderationActions" />
+        </div>
+      </template>
       <template #bulk-actions>
         <USelect
           v-model="batchAction"
