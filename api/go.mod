@@ -2,6 +2,8 @@ module github.com/yueli-official/gallery/api
 
 go 1.25.13
 
+toolchain go1.26.10
+
 require (
 	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/gogf/gf/contrib/drivers/pgsql/v2 v2.10.2
