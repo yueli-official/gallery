@@ -460,7 +460,8 @@
       "gallery.conflict",
       "gallery.invalid_state",
       "gallery.upstream_failed",
-      "common.unauthorized"
+      "common.unauthorized",
+      "gallery.image_presentation_in_use"
     ],
     "GET /api/v1/gallery/me/favorites": [
       "common.internal",
@@ -678,7 +679,8 @@
       "gallery.conflict",
       "gallery.invalid_state",
       "gallery.upstream_failed",
-      "common.unauthorized"
+      "common.unauthorized",
+      "gallery.image_presentation_in_use"
     ],
     "GET /api/v1/gallery/admin/images": [
       "common.internal",
@@ -712,7 +714,8 @@
       "gallery.conflict",
       "gallery.invalid_state",
       "gallery.upstream_failed",
-      "common.unauthorized"
+      "common.unauthorized",
+      "gallery.image_presentation_in_use"
     ],
     "DELETE /api/v1/gallery/admin/images/{imageId}": [
       "common.internal",
@@ -726,7 +729,8 @@
       "gallery.conflict",
       "gallery.invalid_state",
       "gallery.upstream_failed",
-      "common.unauthorized"
+      "common.unauthorized",
+      "gallery.image_presentation_in_use"
     ],
     "POST /api/v1/gallery/admin/images/bulk-hide": [
       "common.internal",
@@ -738,7 +742,8 @@
       "gallery.conflict",
       "gallery.invalid_state",
       "gallery.upstream_failed",
-      "common.unauthorized"
+      "common.unauthorized",
+      "gallery.image_presentation_in_use"
     ],
     "POST /api/v1/gallery/admin/images/bulk": [
       "common.internal",
@@ -750,7 +755,8 @@
       "gallery.conflict",
       "gallery.invalid_state",
       "gallery.upstream_failed",
-      "common.unauthorized"
+      "common.unauthorized",
+      "gallery.image_presentation_in_use"
     ],
     "GET /api/v1/gallery/admin/cases": [
       "common.internal",
@@ -847,6 +853,42 @@
       "gallery.conflict",
       "gallery.invalid_state",
       "gallery.upstream_failed",
+      "common.unauthorized"
+    ],
+    "GET /api/v1/gallery/me/saved-filters": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "gallery.not_initialized",
+      "gallery.authorization_unavailable",
+      "gallery.forbidden",
+      "common.unauthorized"
+    ],
+    "POST /api/v1/gallery/me/saved-filters": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "gallery.not_initialized",
+      "gallery.authorization_unavailable",
+      "gallery.forbidden",
+      "common.unauthorized"
+    ],
+    "DELETE /api/v1/gallery/me/saved-filters/{filterId}": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "gallery.not_initialized",
+      "gallery.authorization_unavailable",
+      "gallery.forbidden",
+      "common.unauthorized"
+    ],
+    "GET /api/v1/gallery/images/{imageId}/download": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "gallery.not_initialized",
+      "gallery.authorization_unavailable",
+      "gallery.forbidden",
       "common.unauthorized"
     ]
   }

@@ -17,6 +17,7 @@ type GetDiscoveryRes struct {
 	Categories []model.ClassificationNode  `json:"categories"`
 	Facets     []model.ClassificationFacet `json:"facets"`
 	Tags       []model.TagCandidate        `json:"tags"`
+	Spotlight  []model.SpotlightCharacter  `json:"spotlight"`
 }
 
 type GetSiteSettingsReq struct {
@@ -35,14 +36,17 @@ type GetSubmissionOptionsRes struct {
 }
 
 type ListImagesReq struct {
-	g.Meta     `path:"/api/v1/gallery/images" method:"GET" tags:"Gallery images" summary:"List eligible public images with page-based filtering"`
-	Search     string `p:"q"`
-	Sort       string `p:"sort" d:"newest"`
-	Page       int    `p:"page" d:"1"`
-	Size       int    `p:"size" d:"24"`
-	Categories string `p:"categories"`
-	Facets     string `p:"facets"`
-	Tag        string `p:"tag"`
+	Orientation string `p:"orientation"`
+	MinLongEdge int    `p:"minLongEdge"`
+	MatchAll    bool   `p:"matchAll"`
+	g.Meta      `path:"/api/v1/gallery/images" method:"GET" tags:"Gallery images" summary:"List eligible public images with page-based filtering"`
+	Search      string `p:"q"`
+	Sort        string `p:"sort" d:"newest"`
+	Page        int    `p:"page" d:"1"`
+	Size        int    `p:"size" d:"24"`
+	Categories  string `p:"categories"`
+	Facets      string `p:"facets"`
+	Tag         string `p:"tag"`
 }
 type ListImagesRes struct{ model.ImagePage }
 

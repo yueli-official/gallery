@@ -6,6 +6,7 @@ import { SettingSection } from "@yueli/ui/settings/pattern";
 import { useSettingsLeaveGuard } from "@yueli/ui/settings/vue-router";
 import { onMounted, onScopeDispose } from "vue";
 import { SkeletonList } from "~/utils/manageComponents";
+import { createGalleryAppearance } from "~/types/presentation";
 import { createGalleryNotifier } from "~/utils/feedback";
 import type {
   GalleryHomeSection,
@@ -26,8 +27,9 @@ const canManageSettings = computed(() => can("gallery.discovery.manage"));
 const saving = ref(false);
 const saved = ref(false);
 const saveError = ref("");
-type SettingsSection = "site" | "home" | "discovery";
+type SettingsSection = "site" | "home" | "discovery" | "appearance";
 const settingsSections = [
+  { value: "appearance", label: "外观", icon: "i-tabler-palette" },
   {
     value: "site",
     label: "站点",
@@ -62,6 +64,7 @@ const sectionNames: Record<GalleryHomeSectionKey, string> = {
 };
 
 const form = reactive<GallerySite>({
+  appearance: createGalleryAppearance(),
   name: "",
   title: "",
   description: "",
@@ -74,6 +77,7 @@ const form = reactive<GallerySite>({
 
 function snapshotForm(): GallerySite {
   return {
+    appearance: JSON.parse(JSON.stringify(form.appearance)),
     name: form.name,
     title: form.title,
     description: form.description,
@@ -87,6 +91,7 @@ function snapshotForm(): GallerySite {
 
 function restoreForm(site: GallerySite): void {
   Object.assign(form, {
+    appearance: JSON.parse(JSON.stringify(site.appearance)),
     name: site.name,
     title: site.title,
     description: site.description,
@@ -185,6 +190,7 @@ async function saveSettings(): Promise<void> {
       {
         method: "PATCH",
         body: {
+          appearance: form.appearance,
           name: form.name,
           title: form.title,
           description: form.description,
@@ -201,6 +207,7 @@ async function saveSettings(): Promise<void> {
     );
     settingsData.value = result;
     restoreForm(result.site);
+    useGallerySiteSettings().value = result.site;
     settingsWorkflow.capture();
     saved.value = true;
   } catch (reason) {
@@ -223,7 +230,7 @@ async function saveSettings(): Promise<void> {
       <UButton
         v-if="canManageSettings"
         icon="i-tabler-device-floppy"
-        label="保存设置"
+        :label="saved ? '已保存' : '保存设置'"
         :loading="saving"
         @click="saveSettings"
       />
@@ -258,6 +265,7 @@ async function saveSettings(): Promise<void> {
         navigation-label="站点设置"
         data-manage-surface="site-settings"
       >
+        <fieldset v-if="activeSection === 'appearance'" :disabled="!canManageSettings" class="min-w-0 p-4 sm:p-5"><ManageAppearanceEditor v-model="form.appearance" :disabled="!canManageSettings" /></fieldset>
         <fieldset
           v-if="activeSection === 'site'"
           :disabled="!canManageSettings"
@@ -381,9 +389,11 @@ async function saveSettings(): Promise<void> {
               </section>
             </div>
           </SettingSection>
+
+          <ManageHomePresentation />
         </fieldset>
 
-        <div v-else class="min-w-0 p-4 sm:p-5">
+        <div v-else-if="activeSection === 'discovery'" class="min-w-0 p-4 sm:p-5">
           <fieldset
             :disabled="!canManageSettings"
             class="min-w-0"

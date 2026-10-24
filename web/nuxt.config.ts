@@ -1,5 +1,6 @@
 import { realpathSync } from "node:fs";
 import { resolve, sep } from "node:path";
+import { galleryPresentationIcons } from "./app/types/presentation";
 
 const siteBrand = process.env.NUXT_PUBLIC_SITE_BRAND || "月离图库";
 const cookieSecure =
@@ -15,10 +16,16 @@ const dependencyRoot =
     : resolve(process.cwd(), "node_modules");
 
 export default defineNuxtConfig({
+  colorMode: {
+    preference: "dark",
+    fallback: "dark",
+  },
+
   extends: ["@yueli/identity-nuxt", "@yueli/asset-nuxt"],
   modules: ["@nuxt/ui", "@yueli/ui", "@yueli/nuxt-runtime"],
   yueliUi: {
     tablerIcons: [
+      ...galleryPresentationIcons.map(name => `i-tabler-${name}`),
       "i-tabler-dots-vertical",
       "i-tabler-arrow-bar-to-down",
       "i-tabler-arrow-bar-to-up",
@@ -99,9 +106,9 @@ export default defineNuxtConfig({
   app: {
     head: {
       link: [
-        { rel: "icon", type: "image/x-icon", href: "/favicon.ico?v=20260929" },
-        { rel: "icon", type: "image/svg+xml", sizes: "any", href: "/favicon.svg?v=20260929" },
-        { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png?v=20260929" },
+        { rel: "icon", type: "image/x-icon", href: "/favicon.ico?v=20261024-brand" },
+        { rel: "icon", type: "image/svg+xml", sizes: "any", href: "/favicon.svg?v=20261024-brand" },
+        { rel: "apple-touch-icon", sizes: "180x180", href: "/apple-touch-icon.png?v=20261024-brand" },
       ],
       htmlAttrs: { lang: "zh-CN" },
       meta: [

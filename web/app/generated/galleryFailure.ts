@@ -10,6 +10,7 @@ export type GalleryFailureCode =
   | "gallery.gateway.timeout"
   | "gallery.gateway.unavailable"
   | "gallery.gone"
+  | "gallery.image_presentation_in_use"
   | "gallery.invalid_state"
   | "gallery.not_authenticated"
   | "gallery.not_found"
@@ -30,6 +31,7 @@ export type GalleryFailure =
   | { readonly code: "gallery.gateway.timeout"; readonly status: 504; readonly params?: never; readonly violations?: never; readonly traceId: string }
   | { readonly code: "gallery.gateway.unavailable"; readonly status: 502; readonly params?: never; readonly violations?: never; readonly traceId: string }
   | { readonly code: "gallery.gone"; readonly status: 410; readonly params: { readonly id?: string; readonly resource?: string; }; readonly violations?: never; readonly traceId: string }
+  | { readonly code: "gallery.image_presentation_in_use"; readonly status: 409; readonly params?: never; readonly violations?: never; readonly traceId: string }
   | { readonly code: "gallery.invalid_state"; readonly status: 409; readonly params: { readonly resource?: string; readonly state?: string; }; readonly violations?: never; readonly traceId: string }
   | { readonly code: "gallery.not_authenticated"; readonly status: 401; readonly params?: never; readonly violations?: never; readonly traceId: string }
   | { readonly code: "gallery.not_found"; readonly status: 404; readonly params: { readonly id?: string; readonly resource?: string; }; readonly violations?: never; readonly traceId: string }
@@ -50,6 +52,7 @@ export const galleryFailurePresentation = {
   "gallery.gateway.timeout": { messageKey: "errors.gallery.gateway.timeout" },
   "gallery.gateway.unavailable": { messageKey: "errors.gallery.gateway.unavailable" },
   "gallery.gone": { messageKey: "errors.gallery.gone" },
+  "gallery.image_presentation_in_use": { messageKey: "errors.gallery.image_presentation_in_use" },
   "gallery.invalid_state": { messageKey: "errors.gallery.invalid_state" },
   "gallery.not_authenticated": { messageKey: "errors.gallery.not_authenticated" },
   "gallery.not_found": { messageKey: "errors.gallery.not_found" },

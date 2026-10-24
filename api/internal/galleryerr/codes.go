@@ -105,3 +105,5 @@ func AbuseUnavailable() error {
 func AbuseAttemptReplayed() error {
 	return mapped(CodeAbuseReplay, nil)
 }
+
+func ImagePresentationInUse() error { return mapped(CodeImagePresentationInUse, nil) }

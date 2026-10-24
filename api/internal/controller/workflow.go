@@ -178,6 +178,28 @@ func (c *Admin) UpdateAdminSiteSettings(ctx context.Context, req *v1.UpdateAdmin
 	return &v1.UpdateAdminSiteSettingsRes{Site: *value}, nil
 }
 
+func (c *Admin) GetAdminHomePresentation(ctx context.Context, _ *v1.GetAdminHomePresentationReq) (*v1.GetAdminHomePresentationRes, error) {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityDiscoveryRead); err != nil {
+		return nil, err
+	}
+	value, err := c.service.HomePresentation(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.GetAdminHomePresentationRes{Presentation: *value}, nil
+}
+
+func (c *Admin) UpdateAdminHomePresentation(ctx context.Context, req *v1.UpdateAdminHomePresentationReq) (*v1.UpdateAdminHomePresentationRes, error) {
+	if _, err := requireCapability(ctx, galleryauthz.CapabilityDiscoveryManage); err != nil {
+		return nil, err
+	}
+	value, err := c.service.UpdateHomePresentation(ctx, req.HomePresentationUpdateInput)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.UpdateAdminHomePresentationRes{Presentation: *value}, nil
+}
+
 func (c *Admin) GetClassificationCatalog(ctx context.Context, _ *v1.GetClassificationCatalogReq) (*v1.GetClassificationCatalogRes, error) {
 	if _, err := requireCapability(ctx, galleryauthz.CapabilityClassificationRead); err != nil {
 		return nil, err

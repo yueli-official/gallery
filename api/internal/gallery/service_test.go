@@ -189,6 +189,17 @@ type fakeStore struct {
 	adminOverviewDays        int
 }
 
+func (f *fakeStore) SavedFilters(context.Context, string) ([]model.SavedFilter, error) {
+	return []model.SavedFilter{}, nil
+}
+func (f *fakeStore) SaveFilter(_ context.Context, _ string, input model.SavedFilterInput) (*model.SavedFilter, error) {
+	return &model.SavedFilter{ID: testCategoryID, Name: input.Name, Query: input.Query}, nil
+}
+func (f *fakeStore) DeleteSavedFilter(context.Context, string, string) error { return nil }
+func (port *submissionProcessingAssetPort) SignOriginal(context.Context, string) (*model.ImageDownload, error) {
+	return &model.ImageDownload{}, nil
+}
+
 func (f *fakeStore) SiteSettings(context.Context) (*model.SiteSettings, error) {
 	return f.settings, nil
 }
@@ -542,6 +553,7 @@ func TestSubmissionOptionsKeepActiveClassificationOnEmptyGallery(t *testing.T) {
 		t.Fatalf("categories = %#v", options.Categories)
 	}
 	if !reflect.DeepEqual(options.Facets, []model.ClassificationFacet{{
+		MinValues: 1, MaxValues: 2,
 		ID: PublicID(testFacetID), Slug: "scene", Name: "场景",
 		Values: []model.ClassificationNode{{ID: PublicID(testValueID), Slug: "landscape", Name: "风景"}},
 	}}) {

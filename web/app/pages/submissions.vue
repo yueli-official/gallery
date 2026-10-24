@@ -130,19 +130,16 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
 </script>
 
 <template>
-  <GalleryPublicPage class="max-w-6xl">
-    <GalleryPageHeader
+  <GalleryPublicPage class="submissions-page">
+    <GalleryArchiveHero
+      kicker="月离图库 / SUBMISSIONS"
       title="我的投稿"
       description="跟踪每张图片的处理、审核与最终结果，失败原因会保留在对应记录中。"
     >
       <template #actions>
-        <UButton
-          to="/submit"
-          icon="i-tabler-library-plus"
-          label="批量投稿"
-        />
+        <UButton to="/submit" icon="i-tabler-library-plus" label="批量投稿" />
       </template>
-    </GalleryPageHeader>
+    </GalleryArchiveHero>
 
     <UAlert
       v-if="!loggedIn"
@@ -159,7 +156,7 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
     </UAlert>
 
     <section
-      class="mb-6 rounded-xl border border-default bg-default/75 p-4"
+      class="submissions-filter mb-6"
       aria-label="筛选投稿记录"
     >
       <div class="grid gap-3 sm:grid-cols-3">
@@ -212,7 +209,7 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
     ></UAlert>
     <div
       v-else-if="data.items.length"
-      class="overflow-hidden rounded-2xl border border-default bg-default/70 px-5 shadow-sm"
+      class="submissions-list"
     >
       <article
         v-for="submission in data.items"
@@ -311,3 +308,22 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
     </nav>
   </GalleryPublicPage>
 </template>
+<style scoped>
+.submissions-page .submissions-filter {
+  padding: 0 0 1rem;
+  border: 0;
+  border-bottom: 1px solid var(--gallery-line);
+  background: transparent;
+}
+
+.submissions-page .submissions-list {
+  border: 0;
+  border-top: 1px solid var(--gallery-line);
+  background: transparent;
+}
+
+.submissions-page .submissions-list article {
+  border-bottom-color: var(--gallery-line);
+}
+
+</style>

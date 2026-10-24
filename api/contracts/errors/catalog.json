@@ -54,6 +54,18 @@
       "messageKey": "errors.gallery.forbidden"
     },
     {
+      "code": "gallery.gateway.timeout",
+      "goName": "GatewayTimeout",
+      "status": 504,
+      "messageKey": "errors.gallery.gateway.timeout"
+    },
+    {
+      "code": "gallery.gateway.unavailable",
+      "goName": "GatewayUnavailable",
+      "status": 502,
+      "messageKey": "errors.gallery.gateway.unavailable"
+    },
+    {
       "code": "gallery.gone",
       "status": 410,
       "goName": "Gone",
@@ -70,6 +82,12 @@
       }
     },
     {
+      "code": "gallery.image_presentation_in_use",
+      "status": 409,
+      "goName": "ImagePresentationInUse",
+      "messageKey": "errors.gallery.image_presentation_in_use"
+    },
+    {
       "code": "gallery.invalid_state",
       "status": 409,
       "goName": "InvalidState",
@@ -84,6 +102,12 @@
           "maxLength": 64
         }
       }
+    },
+    {
+      "code": "gallery.not_authenticated",
+      "goName": "Unauthorized",
+      "status": 401,
+      "messageKey": "errors.gallery.not_authenticated"
     },
     {
       "code": "gallery.not_found",
@@ -120,28 +144,10 @@
       "messageKey": "errors.gallery.rate_limited"
     },
     {
-      "code": "gallery.upstream_failed",
-      "status": 502,
-      "goName": "UpstreamFailed",
-      "messageKey": "errors.gallery.upstream_failed",
-      "params": {
-        "upstreamCode": {
-          "type": "string",
-          "maxLength": 128
-        }
-      }
-    },
-    {
-      "code": "gallery.gateway.unavailable",
-      "goName": "GatewayUnavailable",
-      "status": 502,
-      "messageKey": "errors.gallery.gateway.unavailable"
-    },
-    {
-      "code": "gallery.gateway.timeout",
-      "goName": "GatewayTimeout",
-      "status": 504,
-      "messageKey": "errors.gallery.gateway.timeout"
+      "code": "gallery.request.body_too_large",
+      "goName": "BodyTooLarge",
+      "status": 413,
+      "messageKey": "errors.gallery.request.body_too_large"
     },
     {
       "code": "gallery.request.invalid",
@@ -156,16 +162,16 @@
       "messageKey": "errors.gallery.request.method_not_allowed"
     },
     {
-      "code": "gallery.request.body_too_large",
-      "goName": "BodyTooLarge",
-      "status": 413,
-      "messageKey": "errors.gallery.request.body_too_large"
-    },
-    {
-      "code": "gallery.not_authenticated",
-      "goName": "Unauthorized",
-      "status": 401,
-      "messageKey": "errors.gallery.not_authenticated"
+      "code": "gallery.upstream_failed",
+      "status": 502,
+      "goName": "UpstreamFailed",
+      "messageKey": "errors.gallery.upstream_failed",
+      "params": {
+        "upstreamCode": {
+          "type": "string",
+          "maxLength": 128
+        }
+      }
     }
   ],
   "namespace": "gallery"

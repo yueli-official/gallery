@@ -85,3 +85,24 @@ INSERT INTO gallery_classification_policy_profiles (
 			}'::jsonb
 		)
 		ON CONFLICT (catalog_id, policy_key) DO NOTHING;
+
+
+-- Product-owned, optional dimensions. Values are configured by administrators;
+-- existing images are not assigned fictional work/character relationships.
+INSERT INTO gallery_facets(id,catalog_id,slug,name,status,editorial_position,first_activated_at)
+SELECT v.id::uuid,c.id,v.slug,v.name,'active',v.position,NOW()
+FROM gallery_classification_catalogs c CROSS JOIN (VALUES
+('019c1000-0000-7000-8100-000000000001','work','作品',40),
+('019c1000-0000-7000-8100-000000000002','character','角色',50),
+('019c1000-0000-7000-8100-000000000003','purpose','用途',60)
+) AS v(id,slug,name,position) WHERE c.catalog_key='gallery'
+ON CONFLICT (catalog_id,slug) DO NOTHING;
+UPDATE gallery_classification_policy_profiles p
+SET document=jsonb_set(document,'{facets}',(p.document->'facets') ||
+COALESCE((SELECT jsonb_agg(jsonb_build_object('facetId',f.id::text,'minValues',0,'maxValues',16,'leafOnly',false,'maxDepth',0))
+FROM gallery_facets f WHERE f.catalog_id=p.catalog_id AND f.slug IN ('work','character','purpose')
+AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(p.document->'facets') rule WHERE rule->>'facetId'=f.id::text)),'[]'::jsonb)),
+policy_revision=policy_revision+1
+WHERE p.policy_key='gallery.image.public'
+AND EXISTS(SELECT 1 FROM gallery_facets f WHERE f.catalog_id=p.catalog_id AND f.slug IN ('work','character','purpose')
+AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(p.document->'facets') rule WHERE rule->>'facetId'=f.id::text));

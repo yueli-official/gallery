@@ -241,3 +241,110 @@ ON CONFLICT (image_id, metric_date) DO UPDATE SET
     exposures = EXCLUDED.exposures, qualified_views = EXCLUDED.qualified_views,
     unique_visitors = EXCLUDED.unique_visitors, favorites = EXCLUDED.favorites,
     shares = EXCLUDED.shares, reports = EXCLUDED.reports;;
+
+-- Home spotlight and category covers are Gallery-owned presentation data.
+INSERT INTO gallery_spotlight_characters (
+    id, position, name, series, faction, image_url, thumb_url, accent, wash, enabled
+) VALUES
+    ('019b3000-0000-7000-9000-000000000001', 1, '砂狼白子', 'Blue Archive', '阿拜多斯', '/spotlight/shiroko.webp', '/spotlight/shiroko-thumb.webp', '#7fd8ff', 'radial-gradient(circle at 50% 34%, #17394a 0%, #090d12 68%)', TRUE),
+    ('019b3000-0000-7000-9000-000000000002', 2, '小鸟游星野', 'Blue Archive', '阿拜多斯', '/spotlight/hoshino.webp', '/spotlight/hoshino-thumb.webp', '#ffd277', 'radial-gradient(circle at 50% 34%, #3d2a12 0%, #0d0b08 68%)', TRUE),
+    ('019b3000-0000-7000-9000-000000000003', 3, '陆八魔阿露', 'Blue Archive', '格黑娜', '/spotlight/aru.webp', '/spotlight/aru-thumb.webp', '#ff7e95', 'radial-gradient(circle at 50% 34%, #3a1420 0%, #0e080a 68%)', TRUE),
+    ('019b3000-0000-7000-9000-000000000004', 4, '早濑优香', 'Blue Archive', '千年', '/spotlight/yuuka.webp', '/spotlight/yuuka-thumb.webp', '#8dffd9', 'radial-gradient(circle at 50% 34%, #0e3a2e 0%, #060d0b 68%)', TRUE),
+    ('019b3000-0000-7000-9000-000000000005', 5, '圣园弥香', 'Blue Archive', '崔尼蒂', '/spotlight/mika.webp', '/spotlight/mika-thumb.webp', '#ffb3e6', 'radial-gradient(circle at 50% 34%, #3a1a30 0%, #0e080d 68%)', TRUE)
+ON CONFLICT (id) DO UPDATE SET
+    position = EXCLUDED.position, name = EXCLUDED.name, series = EXCLUDED.series,
+    faction = EXCLUDED.faction, image_url = EXCLUDED.image_url, thumb_url = EXCLUDED.thumb_url,
+    accent = EXCLUDED.accent, wash = EXCLUDED.wash, enabled = EXCLUDED.enabled,
+    updated_at = NOW();
+
+INSERT INTO gallery_category_covers (category_id, image_url, thumb_url, accent)
+VALUES
+    ('019817c8-0000-7000-8300-000000000001', '/spotlight/hoshino.webp', '/spotlight/hoshino-thumb.webp', '#ffd277'),
+    ('019817c8-0000-7000-8300-000000000002', '/spotlight/mika.webp', '/spotlight/mika-thumb.webp', '#ffb3e6'),
+    ('019817c8-0000-7000-8300-000000000003', '/home-editorial-panorama.webp', '/home-editorial-panorama.webp', '#7fd8ff')
+ON CONFLICT (category_id) DO UPDATE SET
+    image_url = EXCLUDED.image_url, thumb_url = EXCLUDED.thumb_url,
+    accent = EXCLUDED.accent, updated_at = NOW();
+
+-- Local composition: if real uploaded assets exist, keep the public gallery on
+-- those images and rebuild the three editorial collections from real works.
+DO $$
+DECLARE
+    has_real BOOLEAN;
+BEGIN
+    SELECT EXISTS (
+        SELECT 1 FROM gallery_images
+        WHERE asset_id::text LIKE '01a167%' AND publication_state = 'published'
+    ) INTO has_real;
+
+    IF NOT has_real THEN
+        RETURN;
+    END IF;
+
+    UPDATE gallery_images
+       SET publication_state = 'hidden', hidden_at = NOW(), updated_at = NOW()
+     WHERE asset_id::text LIKE '019b%' AND publication_state = 'published';
+
+    UPDATE gallery_collections
+       SET name = '阿拜多斯 / 沙漠前线',
+           description = '阿拜多斯对策委员会的日常与战斗。',
+           updated_at = NOW()
+     WHERE id = '019b6000-0000-7000-9000-000000000001';
+    UPDATE gallery_collection_editorial
+       SET slug = 'abydos-frontline',
+           cover_image_id = (SELECT id FROM gallery_images WHERE title LIKE '%砂狼白子%' AND publication_state='published' LIMIT 1),
+           seo_title = '阿拜多斯 / 沙漠前线',
+           seo_description = '阿拜多斯对策委员会的日常与战斗。'
+     WHERE collection_id = '019b6000-0000-7000-9000-000000000001';
+    DELETE FROM gallery_collection_members WHERE collection_id = '019b6000-0000-7000-9000-000000000001';
+    INSERT INTO gallery_collection_members (collection_id, image_id, manual_position, added_at)
+    SELECT '019b6000-0000-7000-9000-000000000001', i.id, v.pos, NOW()
+    FROM (VALUES ('砂狼白子', 0), ('小鸟游星野', 1), ('Ayane · Blue Archive', 2), ('Serika · Blue Archive', 3), ('Nonomi · Blue Archive', 4)) AS v(title, pos)
+    JOIN gallery_images i ON i.title = v.title AND i.publication_state = 'published';
+
+    UPDATE gallery_collections
+       SET name = '格黑娜 / 风纪委员会',
+           description = '格黑娜风纪委员会的秩序与火力。',
+           updated_at = NOW()
+     WHERE id = '019b6000-0000-7000-9000-000000000002';
+    UPDATE gallery_collection_editorial
+       SET slug = 'gehenna-prefect',
+           cover_image_id = (SELECT id FROM gallery_images WHERE title LIKE '%天雨亚子%' AND publication_state='published' LIMIT 1),
+           seo_title = '格黑娜 / 风纪委员会',
+           seo_description = '格黑娜风纪委员会的秩序与火力。'
+     WHERE collection_id = '019b6000-0000-7000-9000-000000000002';
+    DELETE FROM gallery_collection_members WHERE collection_id = '019b6000-0000-7000-9000-000000000002';
+    INSERT INTO gallery_collection_members (collection_id, image_id, manual_position, added_at)
+    SELECT '019b6000-0000-7000-9000-000000000002', i.id, v.pos, NOW()
+    FROM (VALUES
+        ('天雨亚子', 0), ('陆八魔阿露', 1), ('Hina · Blue Archive', 2), ('Iori · Blue Archive', 3),
+        ('Chinatsu · Blue Archive', 4), ('Kayoko · Blue Archive', 5), ('Haruna · Blue Archive', 6),
+        ('Fuuka · Blue Archive', 7), ('Juri · Blue Archive', 8), ('Izumi · Blue Archive', 9), ('Cherino · Blue Archive', 10)
+    ) AS v(title, pos)
+    JOIN gallery_images i ON i.title = v.title AND i.publication_state = 'published';
+
+    UPDATE gallery_collections
+       SET name = '千年 / 游戏开发部',
+           description = '千年游戏开发部的角色、装备与日常。',
+           updated_at = NOW()
+     WHERE id = '019b6000-0000-7000-9000-000000000003';
+    UPDATE gallery_collection_editorial
+       SET slug = 'millennium-game-dev',
+           cover_image_id = (SELECT id FROM gallery_images WHERE title = 'Alice · Blue Archive' AND publication_state='published' LIMIT 1),
+           seo_title = '千年 / 游戏开发部',
+           seo_description = '千年游戏开发部的角色、装备与日常。'
+     WHERE collection_id = '019b6000-0000-7000-9000-000000000003';
+    DELETE FROM gallery_collection_members WHERE collection_id = '019b6000-0000-7000-9000-000000000003';
+    INSERT INTO gallery_collection_members (collection_id, image_id, manual_position, added_at)
+    SELECT '019b6000-0000-7000-9000-000000000003', i.id, v.pos, NOW()
+    FROM (VALUES
+        ('Alice · Blue Archive', 0), ('早濑优香', 1), ('Noa · Blue Archive', 2), ('Momoi · Blue Archive', 3),
+        ('Midori · Blue Archive', 4), ('Neru · Blue Archive', 5), ('Toki · Blue Archive', 6),
+        ('Rio · Blue Archive', 7), ('Maki · Blue Archive', 8), ('Chihiro · Blue Archive', 9),
+        ('Kotama · Blue Archive', 10), ('一之濑明日奈', 11), ('角楯卡琳', 12)
+    ) AS v(title, pos)
+    JOIN gallery_images i ON i.title = v.title AND i.publication_state = 'published';
+
+    DELETE FROM gallery_ranking_entries;
+    DELETE FROM gallery_ranking_snapshots;
+END $$;

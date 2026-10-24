@@ -18,6 +18,7 @@ const (
 	CodeGatewayTimeout           = "gallery.gateway.timeout"
 	CodeGatewayUnavailable       = "gallery.gateway.unavailable"
 	CodeGone                     = "gallery.gone"
+	CodeImagePresentationInUse   = "gallery.image_presentation_in_use"
 	CodeInvalidState             = "gallery.invalid_state"
 	CodeUnauthorized             = "gallery.not_authenticated"
 	CodeNotFound                 = "gallery.not_found"
@@ -39,6 +40,7 @@ var descriptors = map[string]problem.Descriptor{
 	CodeGatewayTimeout:           descriptor(CodeGatewayTimeout, 504),
 	CodeGatewayUnavailable:       descriptor(CodeGatewayUnavailable, 502),
 	CodeGone:                     descriptor(CodeGone, 410),
+	CodeImagePresentationInUse:   descriptor(CodeImagePresentationInUse, 409),
 	CodeInvalidState:             descriptor(CodeInvalidState, 409),
 	CodeUnauthorized:             descriptor(CodeUnauthorized, 401),
 	CodeNotFound:                 descriptor(CodeNotFound, 404),

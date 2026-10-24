@@ -340,6 +340,15 @@ VALUES (?::uuid, ?, ?::uuid, 'canonical', ?)`,
 			}
 			return gerror.Wrap(err, "create gallery classification identity")
 		}
+		if input.Kind == "facet" {
+			if _, err := tx.Exec(`UPDATE gallery_classification_policy_profiles
+			SET document=jsonb_set(document,'{facets}',(document->'facets') || jsonb_build_array(jsonb_build_object(
+			'facetId',?::text,'minValues',0,'maxValues',16,'leafOnly',false,'maxDepth',0))),
+			policy_revision=policy_revision+1
+			WHERE catalog_id=?::uuid AND policy_key='gallery.image.public'`, result.ID, catalogID); err != nil {
+				return err
+			}
+		}
 
 		revisionRecord, err := tx.GetOne(`
 UPDATE gallery_classification_catalogs
@@ -735,6 +744,22 @@ WHERE target_tag_id = ?::uuid
 }
 
 func deleteClassificationIdentity(ctx context.Context, tx gdb.TX, step classification.GovernStep) error {
+	// Presentation is owned by the identity, so deleting a catalog node must also
+	// release its selected gallery image.
+	switch step.IdentityKind {
+	case classification.GovernCategory:
+		if _, err := tx.Exec(`DELETE FROM gallery_classification_presentation WHERE kind='category' AND node_id=?::uuid`, step.SourceID); err != nil {
+			return err
+		}
+	case classification.GovernFacetValue:
+		if _, err := tx.Exec(`DELETE FROM gallery_classification_presentation WHERE kind='facet_value' AND node_id=?::uuid`, step.SourceID); err != nil {
+			return err
+		}
+	case classification.GovernFacet:
+		if _, err := tx.Exec(`DELETE FROM gallery_classification_presentation WHERE kind='facet_value' AND node_id IN (SELECT id FROM gallery_facet_values WHERE facet_id=?::uuid)`, step.SourceID); err != nil {
+			return err
+		}
+	}
 	if step.IdentityKind == classification.GovernTag {
 		if _, err := tx.Ctx(ctx).Exec(`DELETE FROM gallery_tag_lookup_entries WHERE target_tag_id = ?::uuid OR source_tag_id = ?::uuid`, step.SourceID, step.SourceID); err != nil {
 			return gerror.Wrap(err, "delete gallery tag lookup identity")

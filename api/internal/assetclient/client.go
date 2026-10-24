@@ -121,6 +121,32 @@ func (c *HTTP) PrepareSubmission(ctx context.Context, assetID string) (Submissio
 	}, nil
 }
 
+func (c *HTTP) SignOriginal(ctx context.Context, assetID string) (*model.ImageDownload, error) {
+	token, err := c.accessToken(ctx)
+	if err != nil {
+		return nil, galleryerr.UpstreamFailed("asset.token_unavailable")
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/v1/assets/"+url.PathEscape(assetID)+"/sign", nil)
+	if err != nil {
+		return nil, galleryerr.UpstreamFailed("asset.unreachable")
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+	response, err := c.http.Do(request)
+	if err != nil {
+		return nil, galleryerr.UpstreamFailed("asset.unreachable")
+	}
+	defer response.Body.Close()
+	value, err := foundationhttpclient.DecodeJSON[model.ImageDownload](response, foundationhttpclient.Limits{})
+	if err != nil {
+		return nil, galleryerr.UpstreamFailed(remoteCode(err))
+	}
+	parsed, err := url.Parse(value.URL)
+	if err != nil || parsed.Host == "" || parsed.User != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return nil, galleryerr.UpstreamFailed("asset.invalid_media_facts")
+	}
+	return &value, nil
+}
+
 func (c *HTTP) referenceRequest(ctx context.Context, method, endpoint string, body map[string]any) error {
 	token, err := c.accessToken(ctx)
 	if err != nil {

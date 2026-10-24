@@ -1,4 +1,5 @@
 export interface GallerySite {
+  appearance: import("./presentation").GalleryAppearance;
   name: string;
   title: string;
   description: string;
@@ -65,6 +66,32 @@ export interface GalleryRelatedImage extends GalleryImageCard {
   reasons: GalleryRelatedImageReason[];
 }
 
+export interface GallerySpotlightCharacter {
+  id: string;
+  position: number;
+  name: string;
+  series: string;
+  faction: string;
+  imageUrl: string;
+  thumbUrl: string;
+  accent: string;
+  wash: string;
+  enabled?: boolean;
+}
+
+export interface GalleryCategoryCover {
+  categorySlug: string;
+  categoryName: string;
+  imageUrl: string;
+  thumbUrl: string;
+  accent: string;
+}
+
+export interface GalleryHomePresentation {
+  spotlight: GallerySpotlightCharacter[];
+  categories: GalleryCategoryCover[];
+}
+
 export interface GalleryDiscovery {
   site: GallerySite;
   seed: string;
@@ -72,6 +99,7 @@ export interface GalleryDiscovery {
   categories: GalleryClassificationNode[];
   facets: GalleryFacet[];
   tags: GalleryTagCandidate[];
+  spotlight: GallerySpotlightCharacter[];
 }
 
 export interface GallerySubmissionOptions {
@@ -86,6 +114,9 @@ export interface GalleryClassificationNode {
   name: string;
   count: number;
   selected: boolean;
+  coverUrl?: string;
+  coverThumbUrl?: string;
+  coverAccent?: string;
 }
 
 export interface GalleryTagCandidate {
@@ -97,6 +128,8 @@ export interface GalleryTagCandidate {
 }
 
 export interface GalleryFacet {
+  minValues: number;
+  maxValues: number;
   id: string;
   slug: string;
   name: string;

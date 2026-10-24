@@ -39,28 +39,28 @@ function setPage(value: number): void {
   <GalleryPublicPage>
     <header
       v-if="collection"
-      class="gallery-collection-hero mb-[clamp(2rem,4vw,3.5rem)] grid items-center gap-6 md:grid-cols-[minmax(0,.9fr)_minmax(20rem,1.1fr)] md:gap-[clamp(1.5rem,4vw,4rem)]"
+      class="gallery-collection-hero"
     >
-      <div class="gallery-collection-hero-copy py-4">
+      <div class="gallery-collection-hero-copy">
         <NuxtLink
           to="/collections"
-          class="mb-5 inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-highlighted"
+          class="mb-4 inline-flex items-center gap-1.5 text-xs text-muted transition-colors hover:text-highlighted"
         >
           <UIcon name="i-tabler-arrow-left" class="size-4" />
           全部专题
         </NuxtLink>
         <h1
-          class="gallery-page-title font-display text-[1.75rem] font-bold leading-[1.15] tracking-[-0.04em] text-highlighted md:text-[length:var(--gallery-title-page)]"
+          class="gallery-page-title text-xl font-semibold leading-snug tracking-tight text-highlighted"
         >
           {{ collection.name }}
         </h1>
         <p
           v-if="collection.description"
-          class="gallery-page-copy mt-1 max-w-[38rem] text-base leading-[1.7] text-muted"
+          class="gallery-page-copy mt-2 max-w-[38rem] text-sm leading-[1.7] text-muted"
         >
           {{ collection.description }}
         </p>
-        <p class="mt-5 text-sm text-muted">
+        <p class="mt-4 text-xs text-muted">
           {{ collection.itemCount }} 张图片
           <span v-if="collection.updatedAt">
             ，更新于
@@ -69,7 +69,7 @@ function setPage(value: number): void {
         </p>
       </div>
       <div
-        class="gallery-collection-hero-cover row-start-1 grid aspect-[16/10] place-items-center overflow-hidden rounded-[0.9rem] bg-muted md:col-start-2 md:row-auto"
+        class="gallery-collection-hero-cover"
         :style="{ backgroundColor: collection.coverColor || undefined }"
       >
         <img
@@ -78,7 +78,7 @@ function setPage(value: number): void {
           :alt="collection.coverAltText || collection.name"
           :width="collection.coverWidth"
           :height="collection.coverHeight"
-          class="size-full object-cover"
+          class="collection-cover-image"
         />
         <UIcon v-else name="i-tabler-folders" class="size-14 text-primary" />
       </div>
@@ -139,3 +139,11 @@ function setPage(value: number): void {
     </nav>
   </GalleryPublicPage>
 </template>
+
+<style scoped>
+.gallery-collection-hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(16rem,24rem);align-items:center;gap:2rem;margin-bottom:1.5rem;padding:1.25rem;border:1px solid var(--gallery-line);border-radius:.6rem;background:var(--gallery-panel)}
+.gallery-collection-hero-copy{min-width:0}
+.gallery-collection-hero-cover{position:relative;display:grid;place-items:center;aspect-ratio:16/10;max-height:15rem;overflow:hidden;border-radius:.4rem;background:var(--gallery-viewer-canvas)}
+.collection-cover-image{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 40%}
+@media(max-width:700px){.gallery-collection-hero{grid-template-columns:minmax(0,1fr);gap:1rem;padding:1rem}.gallery-collection-hero-cover{grid-row:1;aspect-ratio:16/9;width:100%;max-height:12rem}.gallery-collection-hero-copy h1{font-size:1.2rem}}
+</style>

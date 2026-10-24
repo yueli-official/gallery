@@ -1,71 +1,20 @@
 <script setup lang="ts">
 import type { GalleryImageCard } from "~/types/gallery";
-
-const props = defineProps<{
-  items: GalleryImageCard[];
-  priority?: boolean;
-}>();
-
-function sourcePolicy(assetId: string, index: number) {
-  return galleryImageSources(
-    assetId,
-    "grid",
-    Boolean(props.priority && index < 6),
-  );
-}
-
+const props = withDefaults(defineProps<{ items: GalleryImageCard[]; priority?: boolean; headingLevel?: "h2" | "h3"; ranked?: boolean; numbered?: boolean; view?: "grid" | "masonry" }>(), { view: "masonry" });
 </script>
-
 <template>
-  <div
-    class="gallery-grid grid grid-cols-2 gap-x-3 gap-y-[1.65rem] sm:grid-cols-3 sm:gap-x-4 lg:grid-cols-4 lg:gap-x-[1.1rem] min-[90rem]:grid-cols-5"
-  >
-    <article
-      v-for="(image, index) in items"
-      :key="image.id"
-      class="gallery-tile group relative min-w-0 rounded-[0.9rem] active:translate-y-px"
-    >
-      <NuxtLink
-        :to="`/images/${encodeURIComponent(image.id)}`"
-        class="gallery-tile-link block rounded-[0.9rem] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
-      >
-        <div
-          class="gallery-tile-media relative aspect-[4/3] overflow-hidden rounded-[0.9rem] bg-muted"
-          :style="{ backgroundColor: image.dominantColor || undefined }"
-        >
-          <img
-            v-bind="sourcePolicy(image.assetId, index)"
-            :alt="image.altText || image.title"
-            :width="image.width || undefined"
-            :height="image.height || undefined"
-            class="size-full object-cover transition-[transform,filter] duration-200 ease-out group-hover:scale-[1.018] group-hover:brightness-[0.96] group-hover:saturate-[0.94]"
-          />
-        </div>
-        <div
-          class="gallery-tile-copy flex min-w-0 items-start justify-between gap-3 px-1 pt-3"
-        >
-          <div class="min-w-0">
-            <h2 class="truncate text-sm font-semibold text-highlighted">
-              {{ image.title }}
-            </h2>
-            <p
-              v-if="image.primaryCategory"
-              class="mt-0.5 truncate text-xs text-muted"
-            >
-              {{ image.primaryCategory }}
-            </p>
-          </div>
-          <span
-            class="flex shrink-0 items-center gap-1 text-xs text-muted"
-            :aria-label="`${image.metrics.favorites} 次收藏`"
-          >
-            <UIcon name="i-tabler-heart" class="size-3.5" />{{
-              compactMetric(image.metrics.favorites)
-            }}
-          </span>
-        </div>
+  <div class="gallery-image-grid" :class="{ 'is-grid': view === 'grid' }">
+    <article v-for="(image,index) in items" :key="image.id" class="gallery-image-card group">
+      <NuxtLink :to="`/images/${encodeURIComponent(image.id)}`" class="gallery-image-link">
+        <img v-bind="galleryImageSources(image.assetId, 'masonry', Boolean(priority && index < 6))" :alt="image.altText || image.title" :width="image.width" :height="image.height" />
+        <span v-if="ranked" class="image-rank" :class="{ 'is-podium': index < 3 }">{{ String(index + 1).padStart(2, "0") }}</span>
+        <div class="image-caption"><component :is="props.headingLevel || 'h2'">{{ image.title }}</component><p><span v-if="image.primaryCategory" class="image-category">{{ image.primaryCategory }}</span><span>{{ image.width }} × {{ image.height }}</span></p></div>
       </NuxtLink>
       <GalleryFavoriteButton :image-id="image.id" :title="image.title" />
     </article>
   </div>
 </template>
+<style scoped>
+.gallery-image-grid{columns:15rem;column-gap:.65rem}.gallery-image-card{position:relative;break-inside:avoid;margin-bottom:.65rem;border:1px solid var(--gallery-line);border-radius:.45rem;overflow:hidden;background:var(--gallery-panel)}.gallery-image-link{position:relative;display:block;overflow:hidden}.gallery-image-link img{display:block;width:100%;height:auto;transition:transform .4s}.gallery-image-card:hover img{transform:scale(1.015)}.image-caption{position:absolute;bottom:0;left:0;right:0;padding:2.8rem .65rem .6rem;background:linear-gradient(transparent,rgba(7,12,19,.88));color:#f8f5ed}.image-caption h2,.image-caption h3{font-size:.73rem;font-weight:550;line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.image-caption p{display:flex;align-items:center;justify-content:space-between;gap:.35rem;font-size:.58rem;margin-top:.3rem;color:#d5d9df}.image-category{border:1px solid #ffffff38;padding:.08rem .3rem;border-radius:.2rem;background:#ffffff12}.image-rank{position:absolute;top:.55rem;left:.55rem;display:grid;place-items:center;min-width:1.75rem;height:1.75rem;border:1px solid #ffffff40;border-radius:.3rem;background:#0c1118b3;color:#fff;font:500 .72rem var(--font-mono);backdrop-filter:blur(8px)}.image-rank.is-podium{background:var(--gallery-accent);border-color:var(--gallery-accent);color:var(--gallery-on-accent)}.is-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(15rem,1fr));align-items:start;gap:.65rem;column-count:unset}.is-grid .gallery-image-card{margin-bottom:0}.is-grid img{aspect-ratio:3/4;object-fit:contain;background:var(--gallery-viewer-canvas)}
+@media(max-width:700px){.gallery-image-grid{column-width:auto;column-count:2}.is-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.image-caption{padding:2.4rem .45rem .4rem}.image-caption h2,.image-caption h3{font-size:.66rem}.image-caption p{font-size:.53rem}}
+</style>

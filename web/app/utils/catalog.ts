@@ -3,6 +3,9 @@ export type GalleryCatalogSort =
 export type GalleryCatalogView = "grid" | "masonry";
 
 export interface GalleryCatalogState {
+  matchAll?: boolean;
+  orientation?: string;
+  minLongEdge?: number;
   q: string;
   sort: GalleryCatalogSort;
   page: number;
@@ -13,6 +16,9 @@ export interface GalleryCatalogState {
 }
 
 export interface GalleryCatalogRequest {
+  matchAll?: boolean;
+  orientation?: string;
+  minLongEdge?: number;
   q?: string;
   sort: GalleryCatalogSort;
   page: number;
@@ -55,6 +61,9 @@ export function parseGalleryCatalogState(
   const requestedPage = Number.parseInt(scalar(query.page), 10);
 
   return {
+    ...(scalar(query.matchAll) === "true" ? { matchAll: true } : {}),
+    ...(["landscape", "portrait", "square"].includes(scalar(query.orientation)) ? { orientation: scalar(query.orientation) } : {}),
+    ...(Number.isInteger(Number(scalar(query.minLongEdge))) && Number(scalar(query.minLongEdge)) > 0 ? { minLongEdge: Number(scalar(query.minLongEdge)) } : {}),
     q: scalar(query.q),
     sort: allowedSorts.has(requestedSort) ? requestedSort : "newest",
     page:
@@ -71,6 +80,9 @@ export function galleryCatalogRequest(
   size = 24,
 ): GalleryCatalogRequest {
   return {
+    ...(state.matchAll ? { matchAll: true } : {}),
+    ...(state.orientation ? { orientation: state.orientation } : {}),
+    ...(state.minLongEdge ? { minLongEdge: state.minLongEdge } : {}),
     q: state.q || undefined,
     sort: state.sort,
     page: state.page,
@@ -85,6 +97,9 @@ export function galleryCatalogQuery(
   state: GalleryCatalogState,
 ): Record<string, string | number> {
   const query: Record<string, string | number> = {};
+  if (state.matchAll) query.matchAll = "true";
+  if (state.orientation) query.orientation = state.orientation;
+  if (state.minLongEdge) query.minLongEdge = state.minLongEdge;
   if (state.q) query.q = state.q;
   if (state.sort !== "newest") query.sort = state.sort;
   if (state.page > 1) query.page = state.page;
@@ -99,6 +114,7 @@ export function galleryCatalogFilterCount(state: GalleryCatalogState): number {
   return (
     state.categories.length +
     state.facets.length +
+    (state.orientation ? 1 : 0) + (state.minLongEdge ? 1 : 0) +
     (state.q ? 1 : 0) +
     (state.tag ? 1 : 0)
   );

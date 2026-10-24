@@ -16,6 +16,7 @@ type SiteSettings struct {
 	RandomBatchSize     int                   `json:"randomBatchSize" orm:"random_batch_size"`
 	RandomCandidateSize int                   `json:"randomCandidateSize" orm:"random_candidate_size"`
 	HomeSections        []HomeSectionSettings `json:"homeSections" orm:"-"`
+	Appearance          GalleryAppearance     `json:"appearance" orm:"-"`
 }
 
 type HomeSectionSettings struct {
@@ -28,6 +29,7 @@ type HomeSectionSettings struct {
 }
 
 type SiteSettingsUpdateInput struct {
+	Appearance          *GalleryAppearance    `json:"appearance"`
 	Name                string                `json:"name"`
 	Title               string                `json:"title"`
 	Description         string                `json:"description"`
@@ -87,13 +89,23 @@ type RelatedImage struct {
 }
 
 type ImageQuery struct {
-	Search       string
-	Sort         string
-	Page         int
-	PageSize     int
-	CategoryRefs []string
-	FacetRefs    []string
-	Tag          string
+	Orientation         string
+	MinLongEdge         int
+	MatchAll            bool
+	RequiredFacetGroups []ImageFacetMatchGroup
+	OmitFacetOwner      string
+	Search              string
+	Sort                string
+	Page                int
+	PageSize            int
+	CategoryRefs        []string
+	FacetRefs           []string
+	Tag                 string
+}
+
+type ImageFacetMatchGroup struct {
+	OwnerID  string
+	ValueIDs []string
 }
 
 type ImagePage struct {
@@ -200,6 +212,37 @@ type ClassificationDiagnostic struct {
 	Params    map[string]string `json:"params,omitempty"`
 }
 
+type SpotlightCharacter struct {
+	ID       string `json:"id" orm:"id"`
+	Position int    `json:"position" orm:"position"`
+	Name     string `json:"name" orm:"name"`
+	Series   string `json:"series" orm:"series"`
+	Faction  string `json:"faction" orm:"faction"`
+	ImageURL string `json:"imageUrl" orm:"image_url"`
+	ThumbURL string `json:"thumbUrl" orm:"thumb_url"`
+	Accent   string `json:"accent" orm:"accent"`
+	Wash     string `json:"wash" orm:"wash"`
+	Enabled  bool   `json:"enabled" orm:"enabled"`
+}
+
+type CategoryCover struct {
+	CategorySlug string `json:"categorySlug" orm:"category_slug"`
+	CategoryName string `json:"categoryName" orm:"category_name"`
+	ImageURL     string `json:"imageUrl" orm:"image_url"`
+	ThumbURL     string `json:"thumbUrl" orm:"thumb_url"`
+	Accent       string `json:"accent" orm:"accent"`
+}
+
+type HomePresentation struct {
+	Spotlight  []SpotlightCharacter `json:"spotlight"`
+	Categories []CategoryCover      `json:"categories"`
+}
+
+type HomePresentationUpdateInput struct {
+	Spotlight  []SpotlightCharacter `json:"spotlight"`
+	Categories []CategoryCover      `json:"categories"`
+}
+
 type Discovery struct {
 	Site       SiteSettings          `json:"site"`
 	Seed       string                `json:"seed"`
@@ -207,6 +250,7 @@ type Discovery struct {
 	Categories []ClassificationNode  `json:"categories"`
 	Facets     []ClassificationFacet `json:"facets"`
 	Tags       []TagCandidate        `json:"tags"`
+	Spotlight  []SpotlightCharacter  `json:"spotlight"`
 }
 
 type SubmissionOptions struct {
@@ -215,19 +259,24 @@ type SubmissionOptions struct {
 }
 
 type ClassificationNode struct {
-	ID       string `json:"id"`
-	ParentID string `json:"parentId,omitempty"`
-	Slug     string `json:"slug"`
-	Name     string `json:"name"`
-	Count    int64  `json:"count"`
-	Selected bool   `json:"selected"`
+	ID          string `json:"id"`
+	ParentID    string `json:"parentId,omitempty"`
+	Slug        string `json:"slug"`
+	Name        string `json:"name"`
+	Count       int64  `json:"count"`
+	Selected    bool   `json:"selected"`
+	CoverURL    string `json:"coverUrl,omitempty"`
+	CoverThumb  string `json:"coverThumbUrl,omitempty"`
+	CoverAccent string `json:"coverAccent,omitempty"`
 }
 
 type ClassificationFacet struct {
-	ID     string               `json:"id"`
-	Slug   string               `json:"slug"`
-	Name   string               `json:"name"`
-	Values []ClassificationNode `json:"values"`
+	MinValues int                  `json:"minValues"`
+	MaxValues int                  `json:"maxValues"`
+	ID        string               `json:"id"`
+	Slug      string               `json:"slug"`
+	Name      string               `json:"name"`
+	Values    []ClassificationNode `json:"values"`
 }
 
 type TagCandidate struct {

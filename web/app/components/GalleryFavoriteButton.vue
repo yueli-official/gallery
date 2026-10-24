@@ -24,7 +24,6 @@ async function save(): Promise<void> {
       { method: "PUT", body: { version: 0 } },
     );
     saved.value = true;
-    notifier.add({ title: "已加入我的收藏", color: "success" });
   } catch (reason: any) {
     notifier.add({
       title: "收藏没有保存",
@@ -40,28 +39,20 @@ async function save(): Promise<void> {
 <template>
   <button
     type="button"
-    class="gallery-favorite-button absolute right-[0.55rem] top-[0.55rem] z-2 grid size-[2.35rem] -translate-y-1 place-items-center rounded-[0.7rem] border border-white/70 bg-white/90 text-neutral-900 opacity-0 transition-[opacity,transform] group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100 [@media(hover:none)]:translate-y-0 [@media(hover:none)]:opacity-100"
+    class="gallery-favorite-button"
     :class="{
-      'border-primary bg-primary text-white': saved,
+      'is-saved': saved,
       'cursor-wait opacity-65': pending,
     }"
     :disabled="pending"
     :aria-label="saved ? `已收藏：${title}` : `收藏：${title}`"
     @click="save"
   >
-    <svg
-      viewBox="0 0 24 24"
-      width="18"
-      height="18"
-      aria-hidden="true"
-    >
-      <path
-        d="M6 4.75A1.75 1.75 0 0 1 7.75 3h8.5A1.75 1.75 0 0 1 18 4.75V21l-6-3.6L6 21V4.75Z"
-        :fill="saved ? 'currentColor' : 'none'"
-        stroke="currentColor"
-        stroke-width="1.8"
-        stroke-linejoin="round"
-      />
-    </svg>
+    <UIcon :name="saved ? 'i-tabler-heart-filled' : 'i-tabler-heart'" aria-hidden="true" />
   </button>
 </template>
+
+<style scoped>
+.gallery-favorite-button{position:absolute;right:.45rem;top:.45rem;z-index:2;display:grid;place-items:center;width:1.9rem;height:1.9rem;border:1px solid #ffffff40;background:#10172080;color:#f7f4ed;border-radius:50%;cursor:pointer}.gallery-favorite-button.is-saved{background:var(--gallery-accent);color:var(--gallery-on-accent)}.gallery-favorite-button:disabled{opacity:.65}.gallery-favorite-button:hover:not(.is-saved){border-color:var(--gallery-accent);color:var(--gallery-accent)}
+@media(pointer:coarse){.gallery-favorite-button{width:2.75rem;height:2.75rem}}
+</style>

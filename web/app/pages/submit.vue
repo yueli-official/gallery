@@ -1,640 +1,78 @@
 <script setup lang="ts">
-import { createGalleryNotifier } from "~/utils/feedback";
-import type {
-  GallerySubmission,
-  GallerySubmissionOptions,
-  GalleryUploadedAsset,
-} from "~/types/gallery";
-import {
-  GALLERY_UPLOAD_ACCEPT,
-  GALLERY_UPLOAD_BATCH_LIMIT,
-  GALLERY_UPLOAD_FORMAT_LABEL,
-  galleryUploadAnimationError,
-  galleryUploadFileError,
-} from "~/utils/galleryUpload";
-import {
-  applyGallerySubmissionDefaults,
-  gallerySubmissionMetadataValid,
-} from "~/utils/gallerySubmissionBatch";
+import type { GallerySubmission, GallerySubmissionOptions } from "~/types/gallery";
+import type { GallerySubmissionEditor } from "~/types/submission-editor";
+import { GALLERY_UPLOAD_ACCEPT, GALLERY_UPLOAD_BATCH_LIMIT, GALLERY_UPLOAD_FORMAT_LABEL, galleryUploadAnimationError, galleryUploadFileError } from "~/utils/galleryUpload";
+import { applyGallerySubmissionDefaults } from "~/utils/gallerySubmissionBatch";
 import { gallerySubmissionFailure } from "~/utils/gallerySubmissionFailure";
 import { galleryDraftKey } from "~/utils/clientId";
-
-type QueueStatus =
-  | "ready"
-  | "uploading"
-  | "submitting"
-  | "completed"
-  | "duplicate"
-  | "failed";
-interface QueueItem {
-  id: string;
-  file: File;
-  previewUrl: string;
-  title: string;
-  description: string;
-  sourceUrl: string;
-  primaryCategoryId: string;
-  sceneValueIds: string[];
-  tags: string;
-  customized: boolean;
-  status: QueueStatus;
-  progress: number;
-  error: string;
-  assetId: string;
-  submission?: GallerySubmission;
-}
-
+type QueueStatus = "ready" | "uploading" | "submitting" | "completed" | "duplicate" | "failed";
+interface QueueItem extends GallerySubmissionEditor { id:string; file:File; previewUrl:string; customized:boolean; status:QueueStatus;progress:number;error:string;assetId:string;submission?:GallerySubmission }
 const { loggedIn, login } = useAuth();
 const { call } = useGalleryApi();
 const { upload } = useGalleryAssetUpload();
-const toast = createGalleryNotifier(useToast());
-const { data: submissionOptions } = await useFetch<GallerySubmissionOptions>(
-  "/api/gallery/submission-options",
-);
+const { data: options, error: optionsError, refresh: refreshOptions } = await useFetch<GallerySubmissionOptions>("/api/gallery/submission-options");
 const queue = ref<QueueItem[]>([]);
-const description = ref("");
-const sourceUrl = ref("");
-const primaryCategoryId = ref("");
-const sceneValueIds = ref<string[]>([]);
-const tags = ref("");
-const sharedTitle = ref("");
-const running = ref(false);
-const runningAction = ref<"submit" | "retry" | "">("");
+const defaults = ref<GallerySubmissionEditor>({ title:"",description:"",sourceUrl:"",primaryCategoryId:"",sceneValueIds:[],tags:"",facetValues:{} });
 const editingId = ref("");
-
-const categoryItems = computed(() =>
-  (submissionOptions.value?.categories || []).map((item) => ({
-    label: item.name,
-    value: item.id,
-  })),
-);
-const sceneFacet = computed(() =>
-  submissionOptions.value?.facets.find((item) => item.slug === "scene"),
-);
-const sceneItems = computed(() =>
-  (sceneFacet.value?.values || []).map((item) => ({
-    label: item.name,
-    value: item.id,
-  })),
-);
-const completedCount = computed(
-  () => queue.value.filter((item) => item.status === "completed").length,
-);
-const duplicateCount = computed(
-  () => queue.value.filter((item) => item.status === "duplicate").length,
-);
-const failedCount = computed(
-  () => queue.value.filter((item) => item.status === "failed").length,
-);
-const readyCount = computed(
-  () => queue.value.filter((item) => item.status === "ready").length,
-);
-const validMetadata = computed(() =>
-  queue.value
-    .filter((item) => !isTerminalStatus(item.status))
-    .every(gallerySubmissionMetadataValid),
-);
-useSeoMeta({
-  title: "批量投稿图片",
-  description: "一次提交多张静态图片，每张图片独立处理，失败项目可以单独重试。",
-  robots: "noindex,follow",
-});
-
-async function chooseFiles(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const files = [...(input.files || [])];
-  input.value = "";
-  const capacity = GALLERY_UPLOAD_BATCH_LIMIT - queue.value.length;
-  if (files.length > capacity) {
-    toast.add({
-      title: `每批最多 ${GALLERY_UPLOAD_BATCH_LIMIT} 张`,
-      description: `本次只加入前 ${Math.max(0, capacity)} 张`,
-      color: "warning",
-    });
-  }
-  for (const file of files.slice(0, Math.max(0, capacity))) {
-    const duplicate = queue.value.some(
-      (item) =>
-        item.file.name === file.name &&
-        item.file.size === file.size &&
-        item.file.lastModified === file.lastModified,
-    );
-    if (duplicate) continue;
-    const error =
-      galleryUploadFileError(file) || (await galleryUploadAnimationError(file));
-    if (error) {
-      toast.add({ title: file.name, description: error, color: "error" });
-      continue;
-    }
-    queue.value.push({
-      id: galleryDraftKey(),
-      file,
-      previewUrl: URL.createObjectURL(file),
-      title: sharedTitle.value.trim() || file.name.replace(/\.[^.]+$/, ""),
-      description: description.value,
-      sourceUrl: sourceUrl.value,
-      primaryCategoryId: primaryCategoryId.value,
-      sceneValueIds: [...sceneValueIds.value],
-      tags: tags.value,
-      customized: false,
-      status: "ready",
-      progress: 0,
-      error: "",
-      assetId: "",
-    });
-  }
+const batch = ref(false);
+const running = ref(false);
+const errors = ref<string[]>([]);
+const fileInput = ref<HTMLInputElement>();
+const focused = computed(() => queue.value.find(item => item.id === editingId.value));
+const focusedModel = computed<GallerySubmissionEditor>({ get: () => focused.value!, set: value => {if (focused.value) Object.assign(focused.value,value,{customized:true});} });
+const counts = computed(() => ({ ready:queue.value.filter(item=>item.status==='ready').length,failed:queue.value.filter(item=>item.status==='failed').length,completed:queue.value.filter(item=>item.status==='completed').length }));
+const statusLabels:Record<QueueStatus,string>={ready:"待提交",uploading:"上传中",submitting:"提交中",completed:"已提交",duplicate:"已存在",failed:"失败"};
+function terminal(item:QueueItem){return item.status==='completed'||item.status==='duplicate';}
+function valid(item:QueueItem){return Boolean(item.title.trim() && item.primaryCategoryId) && Boolean(options.value) && options.value!.facets.every(group=>{const n=(group.slug==='scene'?item.sceneValueIds:item.facetValues[group.id]||[]).length;return n>=group.minValues && n<=group.maxValues;});}
+const validMetadata = computed(() => queue.value.filter(item=>!terminal(item)).every(valid));
+async function addFiles(files:File[]) {
+ if(running.value)return;errors.value=[];
+ const capacity=GALLERY_UPLOAD_BATCH_LIMIT-queue.value.length;
+ if(files.length>capacity)errors.value.push(`每批最多 ${GALLERY_UPLOAD_BATCH_LIMIT} 张，本次只加入前 ${Math.max(0,capacity)} 张。`);
+ for(const file of files.slice(0,Math.max(0,capacity))) {
+  if(queue.value.some(item=>item.file.name===file.name&&item.file.size===file.size&&item.file.lastModified===file.lastModified))continue;
+  const failure=galleryUploadFileError(file)||await galleryUploadAnimationError(file);
+  if(failure){errors.value.push(`${file.name}：${failure}`);continue;}
+  const item:QueueItem={...JSON.parse(JSON.stringify(defaults.value)),id:galleryDraftKey(),title:defaults.value.title.trim()||file.name.replace(/\.[^.]+$/,""),file,previewUrl:URL.createObjectURL(file),customized:false,status:"ready",progress:0,error:"",assetId:""};
+  queue.value.push(item);if(!editingId.value)editingId.value=item.id;
+ }
 }
-
-function applyDefaultsToItem(item: QueueItem, preserveTitle = false) {
-  if (isTerminalStatus(item.status)) return;
-  applyGallerySubmissionDefaults(
-    item,
-    {
-      title: sharedTitle.value,
-      description: description.value,
-      sourceUrl: sourceUrl.value,
-      primaryCategoryId: primaryCategoryId.value,
-      sceneValueIds: sceneValueIds.value,
-      tags: tags.value,
-    },
-    preserveTitle,
-  );
-}
-
-function applyDefaults() {
-  queue.value.forEach((item) => applyDefaultsToItem(item));
-}
-
-function isTerminalStatus(status: QueueStatus) {
-  return status === "completed" || status === "duplicate";
-}
-
-function restoreDefaults(item: QueueItem) {
-  applyDefaultsToItem(item);
-}
-
-function markCustomized(item: QueueItem) {
-  if (!isTerminalStatus(item.status)) item.customized = true;
-}
-
-function toggleItemEditor(item: QueueItem) {
-  editingId.value = editingId.value === item.id ? "" : item.id;
-}
-
-function removeItem(id: string) {
-  const index = queue.value.findIndex((item) => item.id === id);
-  if (index < 0) return;
-  URL.revokeObjectURL(queue.value[index]!.previewUrl);
-  queue.value.splice(index, 1);
-}
-
-function submissionBody(item: QueueItem) {
-  const resolvedTitle = item.title.trim();
-  return {
-    assetId: item.assetId,
-    title: resolvedTitle,
-    description: item.description.trim(),
-    sourceUrl: item.sourceUrl.trim(),
-    altText: resolvedTitle,
-    categoryIds: [item.primaryCategoryId],
-    primaryCategoryId: item.primaryCategoryId,
-    tags: item.tags
-      .split(/[,，]/)
-      .map((value) => value.trim())
-      .filter(Boolean),
-    facets: sceneFacet.value
-      ? [{ facetId: sceneFacet.value.id, valueIds: item.sceneValueIds }]
-      : [],
-  };
-}
-
-async function submitItem(item: QueueItem) {
-  item.error = "";
+async function chooseFiles(event:Event){const input=event.target as HTMLInputElement;await addFiles([...(input.files||[])]);input.value="";}
+function drop(event:DragEvent){void addFiles([...(event.dataTransfer?.files||[])]);}
+function removeItem(id:string){const index=queue.value.findIndex(item=>item.id===id);if(index<0||running.value)return;URL.revokeObjectURL(queue.value[index]!.previewUrl);queue.value.splice(index,1);if(editingId.value===id)editingId.value=queue.value[0]?.id||"";}
+function applyDefaults(){for(const item of queue.value){if(terminal(item))continue;applyGallerySubmissionDefaults(item,defaults.value);item.facetValues=JSON.parse(JSON.stringify(defaults.value.facetValues));}batch.value=false;}
+function body(item:QueueItem){const title=item.title.trim();return {assetId:item.assetId,title,description:item.description.trim(),sourceUrl:item.sourceUrl.trim(),altText:title,categoryIds:[item.primaryCategoryId],primaryCategoryId:item.primaryCategoryId,tags:item.tags.split(/[,，]/).map(value=>value.trim()).filter(Boolean),facets:(options.value?.facets||[]).map(group=>({facetId:group.id,valueIds:group.slug==='scene'?item.sceneValueIds:item.facetValues[group.id]||[]})).filter(group=>group.valueIds.length)};}
+async function run(status:'ready'|'failed'){
+ if(running.value||!validMetadata.value)return;running.value=true;
+ try {for(const item of queue.value.filter(item=>item.status===status)){
+  item.error="";
   try {
-    let uploaded: GalleryUploadedAsset | undefined;
-    if (!item.assetId) {
-      item.status = "uploading";
-      item.progress = 1;
-      uploaded = (await upload(item.file, (value) => {
-        item.progress = value;
-      })) as GalleryUploadedAsset;
-      item.assetId = uploaded.id;
-    }
-    item.status = "submitting";
-    const response = await call<{ submission: GallerySubmission }>(
-      "/submissions",
-      {
-        method: "POST",
-        body: submissionBody(item),
-      },
-    );
-    item.submission = response.submission;
-    item.status = "completed";
-    item.progress = 100;
-  } catch (reason: unknown) {
-    const failure = gallerySubmissionFailure(reason);
-    item.status =
-      failure.kind === "already-submitted" ? "duplicate" : "failed";
-    item.error = failure.message;
-    if (item.status === "duplicate") item.progress = 100;
-  }
+   if(!item.assetId){item.status="uploading";item.assetId=(await upload(item.file,value=>item.progress=value)).id;}
+   item.status="submitting";item.submission=(await call<{submission:GallerySubmission}>("/submissions",{method:"POST",body:body(item)})).submission;item.status="completed";item.progress=100;
+  }catch(reason){const failure=gallerySubmissionFailure(reason);item.status=failure.kind==='already-submitted'?"duplicate":"failed";item.error=failure.message;}
+ }}finally{running.value=false;}
 }
-
-async function run(items: QueueItem[], action: "submit" | "retry") {
-  if (running.value || !validMetadata.value || !items.length) return;
-  running.value = true;
-  runningAction.value = action;
-  for (const item of items) await submitItem(item);
-  running.value = false;
-  runningAction.value = "";
-  if (failedCount.value) {
-    toast.add({
-      title: "部分投稿没有完成",
-      description: `${failedCount.value} 张可保留现场后重试`,
-      color: "warning",
-    });
-  }
-}
-
-function submitReady() {
-  return run(
-    queue.value.filter((item) => item.status === "ready"),
-    "submit",
-  );
-}
-function retryFailed() {
-  return run(
-    queue.value.filter((item) => item.status === "failed"),
-    "retry",
-  );
-}
-
-onBeforeUnmount(() =>
-  queue.value.forEach((item) => URL.revokeObjectURL(item.previewUrl)),
-);
+onBeforeUnmount(()=>queue.value.forEach(item=>URL.revokeObjectURL(item.previewUrl)));
+useSeoMeta({title:"投稿图片 · 月离图库",robots:"noindex,follow"});
 </script>
-
 <template>
-  <GalleryPublicPage class="max-w-7xl">
-    <header class="mb-8 max-w-3xl">
-      <div>
-        <h1 class="text-3xl font-bold tracking-tight text-highlighted">
-          批量投稿图片
-        </h1>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-muted">
-          一次最多 20
-          张。每张图片独立上传和处理，部分失败不会影响已经完成的项目。
-        </p>
-      </div>
-    </header>
-
-    <UAlert
-      v-if="!loggedIn"
-      class="gallery-submit-notice mb-6 rounded-2xl"
-      color="primary"
-      variant="subtle"
-      icon="i-tabler-shield-check"
-      title="可以直接匿名投稿"
-      description="浏览器会获得一个 30 天临时投稿身份；登录后可继续管理这些投稿。"
-    >
-      <template #actions
-        ><UButton label="登录后投稿" @click="void login()"
-      /></template>
-    </UAlert>
-
-    <form
-      class="grid items-start gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(20rem,.75fr)] xl:gap-9"
-      @submit.prevent="submitReady"
-    >
-      <section class="space-y-4" aria-labelledby="upload-queue-title">
-        <div class="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2
-              id="upload-queue-title"
-              class="text-lg font-semibold text-highlighted"
-            >
-              文件队列
-            </h2>
-            <p class="mt-1 text-sm text-muted">
-              {{ queue.length }} / {{ GALLERY_UPLOAD_BATCH_LIMIT }} 张<span
-                v-if="completedCount"
-                >，已完成 {{ completedCount }} 张</span
-              >
-            </p>
-          </div>
-          <label class="inline-flex cursor-pointer">
-            <input
-              type="file"
-              class="sr-only"
-              multiple
-              :accept="GALLERY_UPLOAD_ACCEPT"
-              :disabled="running || queue.length >= GALLERY_UPLOAD_BATCH_LIMIT"
-              @change="chooseFiles"
-            />
-            <span
-              class="inline-flex h-9 items-center gap-2 rounded-md border border-default bg-default px-3 text-sm font-medium text-highlighted transition-colors hover:bg-elevated"
-              ><UIcon name="i-tabler-plus" class="size-4" />选择图片</span
-            >
-          </label>
-        </div>
-
-        <label
-          v-if="!queue.length"
-          class="gallery-upload-field group grid min-h-[18rem] cursor-pointer place-items-center overflow-hidden rounded-2xl border border-dashed border-primary/40 hover:bg-muted focus-within:outline-2 focus-within:outline-offset-4 focus-within:outline-primary active:scale-[0.995] sm:min-h-[22rem]"
-        >
-          <input
-            type="file"
-            class="sr-only"
-            multiple
-            :accept="GALLERY_UPLOAD_ACCEPT"
-            @change="chooseFiles"
-          />
-          <span class="max-w-md px-6 text-center">
-            <UIcon
-              name="i-tabler-library-plus"
-              class="gallery-upload-icon mx-auto size-11 text-primary"
-            />
-            <span class="mt-4 block font-semibold text-highlighted"
-              >选择一组静态图片</span
-            >
-            <span class="mt-2 block text-sm leading-6 text-muted"
-              >支持 {{ GALLERY_UPLOAD_FORMAT_LABEL }}，单张最大 20
-              MiB。动画与重复文件会在上传前拦截。</span
-            >
-          </span>
-        </label>
-
-        <div v-else class="grid gap-3 xl:grid-cols-2">
-          <article
-            v-for="item in queue"
-            :key="item.id"
-            class="overflow-hidden rounded-xl border border-default bg-default shadow-sm"
-          >
-            <div class="relative aspect-[16/10] bg-elevated">
-              <img
-                :src="item.previewUrl"
-                :alt="item.title"
-                class="size-full object-cover"
-              />
-              <UBadge
-                class="absolute left-3 top-3"
-                :color="
-                  item.status === 'completed'
-                    ? 'success'
-                    : item.status === 'duplicate'
-                      ? 'success'
-                    : item.status === 'failed'
-                      ? 'error'
-                      : 'neutral'
-                "
-                variant="solid"
-                :label="
-                  (
-                    {
-                      ready: '待上传',
-                      uploading: '上传中',
-                      submitting: '提交中',
-                      completed: '已上传，等待处理',
-                      duplicate: '已投稿',
-                      failed: '上传未完成',
-                    } as const
-                  )[item.status]
-                "
-              />
-              <UButton
-                v-if="
-                  !['uploading', 'submitting'].includes(item.status)
-                "
-                class="absolute right-2 top-2"
-                color="neutral"
-                variant="solid"
-                size="xs"
-                icon="i-tabler-x"
-                aria-label="移除文件"
-                @click="removeItem(item.id)"
-              />
-            </div>
-            <div class="space-y-2 p-3">
-              <UInput
-                v-model="item.title"
-                maxlength="160"
-                aria-label="图片标题"
-                :disabled="isTerminalStatus(item.status)"
-                @update:model-value="markCustomized(item)"
-              />
-              <div class="flex items-center justify-between gap-2">
-                <UBadge
-                  v-if="item.customized"
-                  color="primary"
-                  variant="subtle"
-                  label="已单独修改"
-                />
-                <span v-else class="text-xs text-dimmed">使用批量默认值</span>
-                <UButton
-                  v-if="!isTerminalStatus(item.status)"
-                  type="button"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  :label="editingId === item.id ? '收起' : '单独编辑'"
-                  :trailing-icon="
-                    editingId === item.id
-                      ? 'i-tabler-chevron-up'
-                      : 'i-tabler-chevron-down'
-                  "
-                  @click="toggleItemEditor(item)"
-                />
-              </div>
-              <div
-                v-if="editingId === item.id"
-                class="space-y-3 border-t border-default pt-3"
-              >
-                <UFormField label="主分类" required
-                  ><USelect
-                    v-model="item.primaryCategoryId"
-                    :items="categoryItems"
-                    value-key="value"
-                    placeholder="选择分类"
-                    class="w-full"
-                    @update:model-value="markCustomized(item)"
-                /></UFormField>
-                <UFormField label="场景" required
-                  ><USelect
-                    v-model="item.sceneValueIds"
-                    :items="sceneItems"
-                    value-key="value"
-                    multiple
-                    placeholder="选择场景"
-                    class="w-full"
-                    @update:model-value="markCustomized(item)"
-                /></UFormField>
-                <details class="rounded-lg border border-default p-3">
-                  <summary
-                    class="cursor-pointer text-sm font-medium text-default"
-                  >
-                    更多信息
-                  </summary>
-                  <div class="mt-3 space-y-3">
-                    <UFormField label="说明"
-                      ><UTextarea
-                        v-model="item.description"
-                        :rows="3"
-                        class="w-full"
-                        @update:model-value="markCustomized(item)"
-                    /></UFormField>
-                    <UFormField label="来源地址"
-                      ><UInput
-                        v-model="item.sourceUrl"
-                        type="url"
-                        placeholder="https://"
-                        class="w-full"
-                        @update:model-value="markCustomized(item)"
-                    /></UFormField>
-                    <UFormField label="标签"
-                      ><UInput
-                        v-model="item.tags"
-                        placeholder="夜景, 蓝色, 雨"
-                        class="w-full"
-                        @update:model-value="markCustomized(item)"
-                    /></UFormField>
-                  </div>
-                </details>
-                <UButton
-                  v-if="item.customized"
-                  type="button"
-                  color="neutral"
-                  variant="outline"
-                  size="sm"
-                  icon="i-tabler-restore"
-                  label="恢复批量默认值"
-                  @click="restoreDefaults(item)"
-                />
-              </div>
-              <UProgress
-                v-if="item.status === 'uploading'"
-                size="xs"
-                :model-value="item.progress"
-              />
-              <p
-                v-if="item.error"
-                class="text-xs leading-5"
-                :class="
-                  item.status === 'duplicate' ? 'text-success' : 'text-error'
-                "
-              >
-                {{ item.error }}
-              </p>
-              <p v-else class="truncate text-xs text-muted">
-                {{ item.file.name }} ·
-                {{ (item.file.size / 1024 / 1024).toFixed(1) }} MiB
-              </p>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <aside
-        class="gallery-submit-form space-y-5 rounded-2xl border border-default bg-muted p-5 shadow-[0_18px_55px_rgb(25_41_73_/_0.07)] lg:sticky lg:top-24"
-      >
-        <div>
-          <h2 class="text-lg font-semibold text-highlighted">批量默认值</h2>
-          <p class="mt-1 text-xs leading-5 text-muted">
-            设置后点击“应用到队列”；之后仍可逐张覆盖，已完成项目不会被改动。
-          </p>
-        </div>
-        <UFormField label="统一标题" hint="可选；留空时保留各文件标题">
-          <UInput
-            v-model="sharedTitle"
-            maxlength="160"
-            placeholder="例如：城市夜景系列"
-          />
-        </UFormField>
-        <UFormField label="主分类" required hint="用于主要浏览入口"
-          ><USelect
-            v-model="primaryCategoryId"
-            :items="categoryItems"
-            value-key="value"
-            placeholder="选择壁纸、插画或摄影"
-        /></UFormField>
-        <UFormField label="场景" required hint="可选择 1-2 项"
-          ><USelect
-            v-model="sceneValueIds"
-            :items="sceneItems"
-            value-key="value"
-            multiple
-            placeholder="选择场景"
-        /></UFormField>
-        <details class="rounded-lg border border-default p-3">
-          <summary class="cursor-pointer text-sm font-medium text-default">
-            更多共同信息
-          </summary>
-          <div class="mt-4 space-y-4">
-            <UFormField label="说明" hint="可选"
-              ><UTextarea
-                v-model="description"
-                :rows="4"
-                placeholder="补充画面、背景或整理说明"
-            /></UFormField>
-            <UFormField label="来源地址" hint="可选，不知道可以留空"
-              ><UInput v-model="sourceUrl" type="url" placeholder="https://"
-            /></UFormField>
-            <UFormField label="标签" hint="可选，用逗号分隔"
-              ><UInput v-model="tags" placeholder="夜景, 蓝色, 雨"
-            /></UFormField>
-          </div>
-        </details>
-        <UButton
-          type="button"
-          block
-          color="primary"
-          variant="soft"
-          icon="i-tabler-copy-check"
-          :label="`应用到队列中的 ${queue.filter((item) => !isTerminalStatus(item.status)).length} 张`"
-          :disabled="!queue.some((item) => !isTerminalStatus(item.status))"
-          @click="applyDefaults"
-        />
-        <div class="grid gap-3 border-t border-default pt-5">
-          <UButton
-            v-if="readyCount || runningAction === 'submit'"
-            type="submit"
-            block
-            size="lg"
-            icon="i-tabler-send"
-            :label="readyCount > 1 ? `投稿 ${readyCount} 张图片` : '开始投稿'"
-            :loading="runningAction === 'submit'"
-            :disabled="!validMetadata"
-          />
-          <UButton
-            v-if="failedCount || runningAction === 'retry'"
-            type="button"
-            block
-            color="error"
-            variant="soft"
-            icon="i-tabler-refresh"
-            :label="
-              runningAction === 'retry'
-                ? '正在重试'
-                : `重试失败的 ${failedCount} 张`
-            "
-            :loading="runningAction === 'retry'"
-            :disabled="running || !validMetadata"
-            @click="retryFailed"
-          />
-          <UButton
-            v-if="
-              (completedCount || duplicateCount) && !readyCount && !failedCount
-            "
-            to="/submissions"
-            block
-            color="neutral"
-            variant="outline"
-            label="查看投稿记录"
-          />
-        </div>
-        <p class="text-xs leading-5 text-muted">
-          投稿者不会显示在公开页面。已发布图片不能替换文件，如需更换请重新投稿。
-        </p>
-      </aside>
-    </form>
-  </GalleryPublicPage>
+ <div class="submission-page">
+  <header class="submission-heading"><div><h1>投稿图片</h1><p>选择图片，整理信息，再提交到图库。</p></div><span>{{ queue.length ? '② 整理信息' : '① 选择图片' }}</span></header>
+  <UAlert v-if="optionsError" color="error" title="分类选项加载失败" class="mb-4"><template #actions><UButton label="重试" @click="refreshOptions()" /></template></UAlert>
+  <div class="submission-workspace">
+   <section class="submission-queue">
+    <div class="submission-drop" @dragover.prevent @drop.prevent="drop"><UIcon name="i-tabler-photo-plus" /><div><p>将图片拖到这里，或选择文件</p><small>{{ GALLERY_UPLOAD_FORMAT_LABEL }} · 每批最多 {{ GALLERY_UPLOAD_BATCH_LIMIT }} 张 · 单张不超过 20 MiB</small></div><UButton label="选择图片" icon="i-tabler-folder-open" variant="outline" :disabled="running||queue.length>=GALLERY_UPLOAD_BATCH_LIMIT" @click="fileInput?.click()" /><input ref="fileInput" type="file" multiple :accept="GALLERY_UPLOAD_ACCEPT" :disabled="running" class="sr-only" aria-label="选择投稿图片" @change="chooseFiles" /></div>
+    <UAlert v-if="errors.length" color="warning" title="部分文件没有加入" class="mt-4"><template #description><ul><li v-for="message in errors" :key="message">{{ message }}</li></ul></template></UAlert>
+    <div class="submission-queue-heading"><h2>文件队列 <span>· {{ queue.length }} 张</span></h2><UButton label="批量设置" icon="i-tabler-adjustments-horizontal" color="neutral" variant="outline" size="sm" :disabled="running||!queue.length" @click="void (batch = true)" /></div>
+    <div v-if="!queue.length" class="submission-empty"><UIcon name="i-tabler-photo" /><p>把喜欢的图片收集到一起。</p></div>
+    <div v-else class="submission-cards"><article v-for="item in queue" :key="item.id" :class="{editing:editingId===item.id&&!batch}" class="submission-card"><button type="button" class="submission-card-select" :aria-label="`编辑图片：${item.title}`" @click="editingId=item.id;batch=false"><img :src="item.previewUrl" :alt="item.title" /><div class="submission-card-copy"><h3>{{ item.title }}</h3><p>{{ statusLabels[item.status] }}<span v-if="item.status==='uploading'"> · {{ item.progress }}%</span></p></div></button><UButton icon="i-tabler-x" color="neutral" variant="ghost" size="xs" :aria-label="`移除文件：${item.file.name}`" :disabled="running" class="submission-remove" @click="removeItem(item.id)" /><p v-if="item.error" class="submission-error" role="alert">{{ item.error }}</p></article></div>
+   </section>
+   <aside class="submission-inspector"><div class="submission-inspector-heading"><h2>{{ batch ? '批量设置' : '图片信息' }}</h2><UButton v-if="batch" label="返回逐张编辑" color="neutral" variant="ghost" size="xs" @click="void (batch=false)" /><span v-else-if="focused">{{ queue.indexOf(focused)+1 }} / {{ queue.length }}</span></div><p v-if="batch" class="submission-help">点击“应用到待提交图片”后覆盖对应字段，已完成项目保持原样。</p><GallerySubmissionFields v-if="batch" v-model="defaults" :options="options" :disabled="running" batch /><GallerySubmissionFields v-else-if="focused" v-model="focusedModel" :options="options" :disabled="running||terminal(focused)" /><p v-else class="submission-help">选择图片后，在这里整理分类和维度。</p><UButton v-if="batch" label="应用到待提交图片" variant="outline" block class="mt-4" :disabled="running" @click="applyDefaults" /></aside>
+  </div>
+  <footer class="submission-footer"><div><p v-if="counts.completed">{{ counts.completed }} 张已提交<span v-if="counts.failed">，{{ counts.failed }} 张可重试</span></p><p v-else>提交后可在“我的投稿”查看处理与审核状态。</p><small v-if="queue.length&&!validMetadata">请为待提交图片填写标题、分类和必填维度。</small><small v-else-if="!loggedIn">当前使用临时投稿身份，<button type="button" @click="void login()">登录后管理更方便</button>。</small></div><div class="submission-submit-actions"><UButton v-if="counts.failed" label="重试失败项目" color="neutral" variant="outline" :loading="running" :disabled="!validMetadata" @click="run('failed')" /><UButton :label="running ? '正在提交' : `提交 ${counts.ready} 张投稿`" icon="i-tabler-upload" :loading="running" :disabled="!counts.ready||!validMetadata||Boolean(optionsError)" @click="run('ready')" /></div></footer>
+ </div>
 </template>
+<style scoped>
+.submission-page{padding-bottom:5rem}.submission-heading{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.3rem}.submission-heading h1{font-size:1.45rem;font-weight:650}.submission-heading p{color:var(--gallery-muted);font-size:.75rem;margin-top:.4rem}.submission-heading>span{font-size:.75rem;color:var(--gallery-accent)}.submission-workspace{display:grid;grid-template-columns:minmax(0,1fr) 23rem;gap:1.2rem;align-items:start}.submission-queue{min-width:0}.submission-drop{display:flex;align-items:center;justify-content:center;gap:1rem;padding:1.7rem 1rem;border:1px dashed var(--gallery-line);border-radius:.5rem;background:var(--gallery-panel)}.submission-drop>.iconify{font-size:2rem;color:var(--gallery-muted);flex-shrink:0}.submission-drop p{font-size:.8rem}.submission-drop small{display:block;font-size:.61rem;color:var(--gallery-muted);margin-top:.35rem}.submission-queue-heading{display:flex;justify-content:space-between;align-items:center;margin:1.3rem 0 1rem}.submission-queue-heading h2{font-size:.9rem;font-weight:600}.submission-queue-heading h2 span{color:var(--gallery-muted);font-weight:400}.submission-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(13.5rem,1fr));gap:.6rem;align-items:start}.submission-card{position:relative;overflow:hidden;border:1px solid var(--gallery-line);border-radius:.45rem;background:var(--gallery-panel)}.submission-card.editing{border-color:var(--gallery-accent)}.submission-card-select{display:block;text-align:left;width:100%}.submission-card-select img{display:block;width:100%;aspect-ratio:3/4;object-fit:contain;background:var(--gallery-viewer-canvas)}.submission-card-copy{padding:.65rem}.submission-card-copy h3{font-size:.72rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.submission-card-copy p{font-size:.65rem;color:var(--gallery-muted);margin-top:.3rem}.submission-remove{position:absolute;top:.35rem;right:.35rem;background:var(--gallery-panel-strong)}.submission-error{font-size:.7rem;padding:0 .65rem .65rem;color:var(--ui-error)}.submission-empty{display:grid;place-content:center;text-align:center;gap:1rem;min-height:19rem;color:var(--gallery-muted);font-size:.8rem}.submission-empty .iconify{font-size:2.5rem;margin:auto}.submission-inspector{position:sticky;top:5rem;max-height:calc(100dvh - 11rem);overflow:auto;scrollbar-width:thin;padding:1rem;background:var(--gallery-panel);border:1px solid var(--gallery-line);border-radius:.5rem}.submission-inspector-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}.submission-inspector-heading h2{font-size:.95rem;font-weight:600}.submission-inspector-heading>span,.submission-help{font-size:.7rem;color:var(--gallery-muted)}.submission-help{line-height:1.7;margin-bottom:1rem}.submission-footer{position:fixed;bottom:0;left:12.5rem;right:0;z-index:28;display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem max(1.25rem,calc((100% - 12.5rem - var(--gallery-content-max))/2 + 1.25rem));background:var(--gallery-canvas);border-top:1px solid var(--gallery-line)}.submission-footer p{font-size:.73rem;color:var(--gallery-muted)}.submission-footer small{display:block;font-size:.65rem;margin-top:.35rem;color:var(--gallery-accent)}.submission-footer button{cursor:pointer}.submission-submit-actions{display:flex;gap:.5rem;flex-shrink:0}
+@media(max-width:1250px){.submission-workspace{grid-template-columns:minmax(0,1fr) 20rem}.submission-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.submission-drop{flex-wrap:wrap}}@media(max-width:900px){.submission-footer{left:0;padding:.75rem}.submission-footer p{font-size:.65rem}}@media(max-width:700px){.submission-workspace{grid-template-columns:minmax(0,1fr)}.submission-inspector{position:static;max-height:none}.submission-heading>span{display:none}.submission-footer{align-items:flex-start}.submission-footer>div:first-child{max-width:48%}.submission-footer p,.submission-footer small{font-size:.58rem}.submission-submit-actions{flex-wrap:wrap;justify-content:flex-end}}
+</style>

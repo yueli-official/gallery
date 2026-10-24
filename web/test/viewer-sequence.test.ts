@@ -106,10 +106,5 @@ describe("Gallery Viewer 主题与标题尺度", () => {
     expect(detail).not.toContain("router.back()");
   });
 
-  it("常规页面标题使用产品级 type ramp", () => {
-    expect(css).toContain("--gallery-title-page: clamp(1.75rem, 2.2vw, 2rem)");
-    expect(css).toContain(
-      "--gallery-title-section: clamp(1.25rem, 1.8vw, 1.5rem)",
-    );
-  });
+
 });

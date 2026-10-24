@@ -178,7 +178,117 @@ func (p *PG) SiteSettings(ctx context.Context) (*model.SiteSettings, error) {
 			break
 		}
 	}
+	appearance, err := p.readAppearance(ctx)
+	if err != nil {
+		return nil, err
+	}
+	value.Appearance = appearance
 	return value, nil
+}
+
+func (p *PG) SpotlightCharacters(ctx context.Context) ([]model.SpotlightCharacter, error) {
+	values := make([]model.SpotlightCharacter, 0)
+	if err := p.db.Model("gallery_spotlight_characters").
+		Ctx(ctx).
+		Where("enabled", true).
+		Order("position ASC").
+		Scan(&values); err != nil {
+		return nil, gerror.Wrap(err, "query gallery spotlight characters")
+	}
+	return values, nil
+}
+
+func (p *PG) CategoryCovers(ctx context.Context) (map[string]model.CategoryCover, error) {
+	rows, err := p.db.GetAll(ctx, `
+SELECT c.slug AS category_slug, cc.image_url, cc.thumb_url, cc.accent
+FROM gallery_category_covers cc
+JOIN gallery_categories c ON c.id = cc.category_id`)
+	if err != nil {
+		return nil, gerror.Wrap(err, "query gallery category covers")
+	}
+	result := make(map[string]model.CategoryCover, len(rows))
+	for _, row := range rows {
+		value := model.CategoryCover{
+			CategorySlug: row["category_slug"].String(),
+			ImageURL:     row["image_url"].String(),
+			ThumbURL:     row["thumb_url"].String(),
+			Accent:       row["accent"].String(),
+		}
+		result[value.CategorySlug] = value
+	}
+	return result, nil
+}
+
+func (p *PG) HomePresentation(ctx context.Context) (*model.HomePresentation, error) {
+	spotlight := make([]model.SpotlightCharacter, 0)
+	if err := p.db.Model("gallery_spotlight_characters").
+		Ctx(ctx).
+		Order("position ASC").
+		Scan(&spotlight); err != nil {
+		return nil, gerror.Wrap(err, "query gallery spotlight characters")
+	}
+	covers := make([]model.CategoryCover, 0)
+	rows, err := p.db.GetAll(ctx, `
+SELECT c.slug AS category_slug, c.name AS category_name, cc.image_url, cc.thumb_url, cc.accent
+FROM gallery_category_covers cc
+JOIN gallery_categories c ON c.id = cc.category_id
+ORDER BY c.editorial_position ASC, c.slug ASC`)
+	if err != nil {
+		return nil, gerror.Wrap(err, "query gallery category covers")
+	}
+	for _, row := range rows {
+		covers = append(covers, model.CategoryCover{
+			CategorySlug: row["category_slug"].String(),
+			CategoryName: row["category_name"].String(),
+			ImageURL:     row["image_url"].String(),
+			ThumbURL:     row["thumb_url"].String(),
+			Accent:       row["accent"].String(),
+		})
+	}
+	return &model.HomePresentation{Spotlight: spotlight, Categories: covers}, nil
+}
+
+func (p *PG) ReplaceHomePresentation(ctx context.Context, input model.HomePresentationUpdateInput) error {
+	return p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if _, err := tx.Exec("DELETE FROM gallery_spotlight_characters"); err != nil {
+			return gerror.Wrap(err, "clear gallery spotlight characters")
+		}
+		for index := range input.Spotlight {
+			value := input.Spotlight[index]
+			position := value.Position
+			if position <= 0 {
+				position = index + 1
+			}
+			if _, err := tx.Exec(`
+INSERT INTO gallery_spotlight_characters
+(id, position, name, series, faction, image_url, thumb_url, accent, wash, enabled, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+				value.ID, position, value.Name, value.Series, value.Faction,
+				value.ImageURL, value.ThumbURL, value.Accent, value.Wash, value.Enabled); err != nil {
+				return gerror.Wrap(err, "replace gallery spotlight character")
+			}
+		}
+		if _, err := tx.Exec("DELETE FROM gallery_category_covers"); err != nil {
+			return gerror.Wrap(err, "clear gallery category covers")
+		}
+		for _, value := range input.Categories {
+			result, err := tx.Exec(`
+INSERT INTO gallery_category_covers (category_id, image_url, thumb_url, accent, updated_at)
+SELECT id, ?, ?, ?, NOW() FROM gallery_categories WHERE slug = ?`,
+				value.ImageURL, value.ThumbURL, value.Accent, value.CategorySlug)
+			if err != nil {
+				return gerror.Wrap(err, "replace gallery category cover")
+			}
+			affected, err := result.RowsAffected()
+			if err != nil {
+				return gerror.Wrap(err, "read gallery category cover result")
+			}
+			if affected == 0 {
+				return galleryerr.Validation("categorySlug", "unknown category")
+			}
+		}
+		return nil
+	})
 }
 
 func (p *PG) UpdateSiteSettings(ctx context.Context, input model.SiteSettingsUpdateInput) (*model.SiteSettings, error) {
@@ -219,6 +329,11 @@ WHERE site_key = 'gallery'`,
 		}
 		if affected == 0 {
 			return galleryerr.NotInitialized("site_settings")
+		}
+		if input.Appearance != nil {
+			if err := writeAppearance(ctx, tx, *input.Appearance); err != nil {
+				return err
+			}
 		}
 		if _, err := tx.Exec(`
 UPDATE gallery_home_sections
@@ -469,7 +584,11 @@ func (p *PG) ClassificationCandidateCounts(ctx context.Context, input model.Imag
 			if err != nil {
 				return gerror.Wrap(err, "encode gallery candidate count buckets")
 			}
-			where, args := publicImagePredicates(input, request.OtherFilters)
+			countInput := input
+			if request.Kind == classification.FilterGroupFacet {
+				countInput.OmitFacetOwner = request.OwnerID
+			}
+			where, args := publicImagePredicates(countInput, request.OtherFilters)
 			assignmentPredicate := ""
 			switch request.Kind {
 			case classification.FilterGroupCategory:
@@ -587,6 +706,26 @@ func (p *PG) ListImages(ctx context.Context, input model.ImageQuery, plan classi
 func publicImagePredicates(input model.ImageQuery, plan classification.FilterPlan) ([]string, []any) {
 	where := []string{eligibleImage}
 	args := make([]any, 0)
+	switch input.Orientation {
+	case "landscape":
+		where = append(where, "i.width > i.height")
+	case "portrait":
+		where = append(where, "i.height > i.width")
+	case "square":
+		where = append(where, "i.width = i.height")
+	}
+	if input.MinLongEdge > 0 {
+		where = append(where, "GREATEST(i.width,i.height) >= ?")
+		args = append(args, input.MinLongEdge)
+	}
+	for _, group := range input.RequiredFacetGroups {
+		if group.OwnerID == input.OmitFacetOwner {
+			continue
+		}
+		where = append(where, `EXISTS (SELECT 1 FROM gallery_image_facet_assignments required_assignment
+			WHERE required_assignment.image_id=i.id AND required_assignment.facet_value_id=ANY(?::uuid[]))`)
+		args = append(args, uuidArrayLiteral(group.ValueIDs))
+	}
 	if input.Search != "" {
 		where = append(where, `(i.title ILIKE ?
 			OR i.description ILIKE ?
@@ -1295,6 +1434,9 @@ RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
 		if err != nil || value == nil || value.ImageID == "" {
 			return err
 		}
+		if err := lockUnusedPresentationImage(tx, value.ImageID); err != nil {
+			return err
+		}
 		_, err = tx.Ctx(ctx).Exec(`UPDATE gallery_images SET publication_state = 'hidden', hidden_at = NOW(), updated_at = NOW() WHERE id = ?::uuid AND publication_state = 'published'`, value.ImageID)
 		return gerror.Wrap(err, "hide withdrawn gallery image")
 	})
@@ -1550,6 +1692,11 @@ func (p *PG) SetImagePrimaryCategory(ctx context.Context, imageID, categoryID st
 func (p *PG) UpdateAdminImage(ctx context.Context, id string, input model.AdminImageUpdateInput) (*model.AdminImage, error) {
 	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
 		tx = tx.Ctx(ctx)
+		if input.PublicationState == "hidden" {
+			if err := lockUnusedPresentationImage(tx, id); err != nil {
+				return err
+			}
+		}
 		record, err := tx.GetOne(`
 UPDATE gallery_images
 SET title = ?, description = ?, alt_text = ?, source_url = NULLIF(?, ''), updated_at = NOW(),
@@ -1643,7 +1790,11 @@ VALUES (?::uuid, ?::uuid, 'takedown', 'resolved', 'operator', ?, '管理员在�
 }
 
 func (p *PG) DeleteAdminImage(ctx context.Context, operator, id, expectedUpdatedAt string) error {
-	result, err := p.db.Exec(ctx, `
+	return p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if err := lockUnusedPresentationImage(tx.Ctx(ctx), id); err != nil {
+			return err
+		}
+		result, err := tx.Exec(`
 WITH deleted AS (
     UPDATE gallery_images
     SET publication_state = 'deleted', deleted_at = NOW(), updated_at = NOW()
@@ -1654,18 +1805,19 @@ WITH deleted AS (
 )
 INSERT INTO gallery_cases (id, image_id, kind, status, reporter_kind, reporter_id, reason, operator_sub)
 SELECT ?::uuid, id, 'takedown', 'resolved', 'operator', ?, '管理员删除图片', ? FROM deleted`,
-		id, expectedUpdatedAt, newIdentifier(), operator, operator)
-	if err != nil {
-		return gerror.Wrap(err, "delete admin gallery image")
-	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return gerror.Wrap(err, "read gallery image delete result")
-	}
-	if rows == 0 {
-		return galleryerr.Conflict("image_version")
-	}
-	return nil
+			id, expectedUpdatedAt, newIdentifier(), operator, operator)
+		if err != nil {
+			return gerror.Wrap(err, "delete admin gallery image")
+		}
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return gerror.Wrap(err, "read gallery image delete result")
+		}
+		if rows == 0 {
+			return galleryerr.Conflict("image_version")
+		}
+		return nil
+	})
 }
 
 func (p *PG) ReviewQueue(ctx context.Context, input model.AdminSubmissionQuery) ([]model.Submission, int, error) {
@@ -1906,7 +2058,11 @@ LIMIT ?`, args...).Scan(&values); err != nil {
 }
 
 func (p *PG) HideImage(ctx context.Context, operator, id, reason string) error {
-	result, err := p.db.Exec(ctx, `
+	return p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+		if err := lockUnusedPresentationImage(tx.Ctx(ctx), id); err != nil {
+			return err
+		}
+		result, err := tx.Exec(`
 WITH hidden AS (
     UPDATE gallery_images
     SET publication_state = 'hidden', hidden_at = NOW(), updated_at = NOW()
@@ -1915,18 +2071,19 @@ WITH hidden AS (
 )
 INSERT INTO gallery_cases (id, image_id, kind, status, reporter_kind, reporter_id, reason, operator_sub)
 SELECT ?::uuid, id, 'takedown', 'resolved', 'operator', ?, ?, ? FROM hidden`,
-		id, newIdentifier(), operator, reason, operator)
-	if err != nil {
-		return gerror.Wrap(err, "hide public gallery image")
-	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return gerror.Wrap(err, "read gallery hide result")
-	}
-	if rows == 0 {
-		return galleryerr.InvalidState("image", "not_published")
-	}
-	return nil
+			id, newIdentifier(), operator, reason, operator)
+		if err != nil {
+			return gerror.Wrap(err, "hide public gallery image")
+		}
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return gerror.Wrap(err, "read gallery hide result")
+		}
+		if rows == 0 {
+			return galleryerr.InvalidState("image", "not_published")
+		}
+		return nil
+	})
 }
 
 func (p *PG) Cases(ctx context.Context, input model.AdminCaseQuery) ([]model.Case, int, error) {

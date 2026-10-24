@@ -69,7 +69,8 @@
         "gallery.conflict",
         "gallery.invalid_state",
         "gallery.upstream_failed",
-        "common.unauthorized"
+        "common.unauthorized",
+        "gallery.image_presentation_in_use"
       ]
     },
     {
@@ -93,6 +94,24 @@
         "gallery.conflict",
         "gallery.invalid_state",
         "gallery.upstream_failed",
+        "common.unauthorized"
+      ]
+    },
+    {
+      "id": "gallery.delete.api.v1.gallery.me.saved-filters.by-filterId",
+      "method": "DELETE",
+      "path": "/api/v1/gallery/me/saved-filters/{filterId}",
+      "success": {
+        "status": 204,
+        "kind": "empty"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "gallery.not_initialized",
+        "gallery.authorization_unavailable",
+        "gallery.forbidden",
         "common.unauthorized"
       ]
     },
@@ -287,6 +306,16 @@
         "gallery.forbidden",
         "common.unauthorized"
       ]
+    },
+    {
+      "id": "gallery.get.api.v1.gallery.admin.home-presentation",
+      "method": "GET",
+      "path": "/api/v1/gallery/admin/home-presentation",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.GetAdminHomePresentationRes"
+      }
     },
     {
       "id": "gallery.get.api.v1.gallery.admin.images",
@@ -527,6 +556,25 @@
       ]
     },
     {
+      "id": "gallery.get.api.v1.gallery.images.by-imageId.download",
+      "method": "GET",
+      "path": "/api/v1/gallery/images/{imageId}/download",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.DownloadImageRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "gallery.not_initialized",
+        "gallery.authorization_unavailable",
+        "gallery.forbidden",
+        "common.unauthorized"
+      ]
+    },
+    {
       "id": "gallery.get.api.v1.gallery.images.by-imageId.related",
       "method": "GET",
       "path": "/api/v1/gallery/images/{imageId}/related",
@@ -574,6 +622,25 @@
         "status": 200,
         "kind": "resource",
         "schemaRef": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.GetFavoritesRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "gallery.not_initialized",
+        "gallery.authorization_unavailable",
+        "gallery.forbidden",
+        "common.unauthorized"
+      ]
+    },
+    {
+      "id": "gallery.get.api.v1.gallery.me.saved-filters",
+      "method": "GET",
+      "path": "/api/v1/gallery/me/saved-filters",
+      "success": {
+        "status": 200,
+        "kind": "collection",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.ListSavedFiltersRes"
       },
       "errors": [
         "common.internal",
@@ -752,6 +819,16 @@
       ]
     },
     {
+      "id": "gallery.patch.api.v1.gallery.admin.home-presentation",
+      "method": "PATCH",
+      "path": "/api/v1/gallery/admin/home-presentation",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.UpdateAdminHomePresentationRes"
+      }
+    },
+    {
       "id": "gallery.patch.api.v1.gallery.admin.images.by-imageId",
       "method": "PATCH",
       "path": "/api/v1/gallery/admin/images/{imageId}",
@@ -772,7 +849,8 @@
         "gallery.conflict",
         "gallery.invalid_state",
         "gallery.upstream_failed",
-        "common.unauthorized"
+        "common.unauthorized",
+        "gallery.image_presentation_in_use"
       ]
     },
     {
@@ -1210,7 +1288,8 @@
         "gallery.conflict",
         "gallery.invalid_state",
         "gallery.upstream_failed",
-        "common.unauthorized"
+        "common.unauthorized",
+        "gallery.image_presentation_in_use"
       ]
     },
     {
@@ -1232,7 +1311,8 @@
         "gallery.conflict",
         "gallery.invalid_state",
         "gallery.upstream_failed",
-        "common.unauthorized"
+        "common.unauthorized",
+        "gallery.image_presentation_in_use"
       ]
     },
     {
@@ -1255,7 +1335,8 @@
         "gallery.conflict",
         "gallery.invalid_state",
         "gallery.upstream_failed",
-        "common.unauthorized"
+        "common.unauthorized",
+        "gallery.image_presentation_in_use"
       ]
     },
     {
@@ -1402,6 +1483,25 @@
       ]
     },
     {
+      "id": "gallery.post.api.v1.gallery.me.saved-filters",
+      "method": "POST",
+      "path": "/api/v1/gallery/me/saved-filters",
+      "success": {
+        "status": 201,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.SaveFilterRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "gallery.not_initialized",
+        "gallery.authorization_unavailable",
+        "gallery.forbidden",
+        "common.unauthorized"
+      ]
+    },
+    {
       "id": "gallery.post.api.v1.gallery.me.submissions.by-submissionId.withdraw",
       "method": "POST",
       "path": "/api/v1/gallery/me/submissions/{submissionId}/withdraw",
@@ -1422,7 +1522,8 @@
         "gallery.conflict",
         "gallery.invalid_state",
         "gallery.upstream_failed",
-        "common.unauthorized"
+        "common.unauthorized",
+        "gallery.image_presentation_in_use"
       ]
     },
     {

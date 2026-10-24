@@ -50,6 +50,10 @@
       ]
     },
     {
+      "code": "gallery.image_presentation_in_use",
+      "messageKey": "errors.gallery.image_presentation_in_use"
+    },
+    {
       "code": "gallery.invalid_state",
       "messageKey": "errors.gallery.invalid_state",
       "params": [

@@ -79,31 +79,30 @@ useSeoMeta({ title: "我的收藏", robots: "noindex,nofollow" });
 
 <template>
   <GalleryPublicPage>
-    <GalleryPageHeader
+    <GalleryArchiveHero
+      kicker="月离图库 / FAVORITES"
       title="我的收藏"
       description="只对你可见。按收藏时间或标题整理，点击图片查看完整详情。"
+      :count="collection?.itemCount"
+      count-label="张收藏"
     >
       <template #actions>
-        <div v-if="collection" class="flex items-center gap-3">
-          <span class="text-sm tabular-nums text-muted"
-            >{{ collection.itemCount }} 张</span
-          >
-          <USelect
-            :model-value="sort"
-            :items="sortItems"
-            value-key="value"
-            class="w-36"
-            aria-label="收藏排序"
-            @update:model-value="updateQuery({ sort: String($event) })"
-          />
-        </div>
+        <USelect
+          v-if="collection"
+          :model-value="sort"
+          :items="sortItems"
+          value-key="value"
+          class="w-36"
+          aria-label="收藏排序"
+          @update:model-value="updateQuery({ sort: String($event) })"
+        />
       </template>
-    </GalleryPageHeader>
+    </GalleryArchiveHero>
     <div v-if="!hydrated || pending" class="gallery-grid">
       <USkeleton
         v-for="index in 12"
         :key="index"
-        class="aspect-[4/3] rounded-lg"
+        class="aspect-[3/4] rounded-[0.9rem]"
       />
     </div>
     <UAlert

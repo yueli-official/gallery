@@ -43,34 +43,44 @@ async function submit(): Promise<void> {
 
 <template>
   <form
-    class="gallery-global-search flex w-full max-w-[46rem] items-center gap-1 rounded-xl border border-default bg-muted px-[0.22rem] py-[0.18rem] shadow-none focus-within:border-primary/55"
+    class="gallery-global-search"
     role="search"
     @submit.prevent="submit"
   >
     <svg
-      class="gallery-search-icon ml-2.5 shrink-0 text-muted"
+      class="gallery-search-icon ml-2 shrink-0 text-[var(--gallery-muted)]"
       viewBox="0 0 24 24"
-      width="17"
-      height="17"
+      width="15"
+      height="15"
       aria-hidden="true"
     >
-      <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8" />
-      <path d="m16 16 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+      <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6" />
+      <path d="m16 16 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
     </svg>
     <input
       v-model="query"
-      class="gallery-search-input min-w-0 flex-1 border-0 bg-transparent px-[0.3rem] py-2 text-[0.84rem] text-highlighted outline-none placeholder:text-dimmed"
+      type="search"
+      class="gallery-search-input"
       :placeholder="resolvedPlaceholder"
       aria-label="搜索图库"
     />
     <button
       type="submit"
-      class="gallery-search-submit grid size-[2.2rem] shrink-0 place-items-center rounded-lg text-muted transition-colors hover:bg-default hover:text-primary focus-visible:bg-default focus-visible:text-primary focus-visible:outline-2 focus-visible:outline-transparent"
+      class="gallery-search-submit grid size-[1.65rem] shrink-0 place-items-center text-[var(--gallery-muted)] transition-colors hover:text-[var(--gallery-ink)] focus-visible:outline-2 focus-visible:outline-[var(--gallery-accent)]"
       aria-label="提交搜索"
     >
-      <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
-        <path d="M5 12h14m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+      <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+        <path d="M5 12h14m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
     </button>
   </form>
 </template>
+
+<style scoped>
+.gallery-global-search{display:flex;align-items:center;gap:.25rem;width:100%;max-width:54rem;min-width:0;padding:.1rem .15rem;border:1px solid var(--gallery-line);border-radius:.4rem;background:var(--gallery-panel-strong);transition:border-color .16s,box-shadow .16s}
+.gallery-global-search:focus-within{border-color:var(--gallery-accent);box-shadow:0 0 0 3px var(--gallery-accent-soft)}
+.gallery-search-input{flex:1;min-width:0;border:0;border-radius:0;background:transparent;padding:.55rem .45rem;color:var(--gallery-ink);font-size:.74rem;line-height:1.5}
+.gallery-search-input::placeholder{color:var(--gallery-muted)}
+.gallery-search-input:focus-visible{outline:none;box-shadow:none}
+.gallery-search-submit{border-radius:.2rem}
+</style>

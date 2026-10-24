@@ -31,7 +31,7 @@ export function useGalleryCatalogState() {
     await router.push({ path: "/images", query: galleryCatalogQuery(next) });
   }
 
-  function apply() {
+  function apply(extra: Partial<GalleryCatalogState> = {}) {
     return pushState({
       ...state.value,
       q: searchDraft.value.trim(),
@@ -39,6 +39,7 @@ export function useGalleryCatalogState() {
       facets: [...selectedFacets.value],
       tag: selectedTag.value,
       page: 1,
+      ...extra,
     });
   }
 
@@ -53,6 +54,9 @@ export function useGalleryCatalogState() {
       categories: [],
       facets: [],
       tag: "",
+      orientation: undefined,
+      minLongEdge: undefined,
+      matchAll: undefined,
       page: 1,
     });
   }

@@ -1,0 +1,2 @@
+# Applied migration bytes are immutable, including their original CRLF endings.
+api/manifest/sql/migrations/0014_gallery_presentation.*.sql -text

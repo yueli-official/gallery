@@ -888,6 +888,51 @@
         "properties": {},
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.api.v1.DeleteSavedFilterReq": {
+        "properties": {
+          "filterId": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "required": [
+          "filterId"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.DeleteSavedFilterRes": {
+        "properties": {},
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.DownloadImageReq": {
+        "properties": {
+          "imageId": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "required": [
+          "imageId"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.DownloadImageRes": {
+        "properties": {
+          "mime": {
+            "format": "string",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "url": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.api.v1.ExecuteClassificationGovernanceReq": {
         "properties": {
           "command": {
@@ -913,6 +958,19 @@
         "properties": {
           "execution": {
             "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationGovernanceExecution",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.GetAdminHomePresentationReq": {
+        "properties": {},
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.GetAdminHomePresentationRes": {
+        "properties": {
+          "presentation": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.HomePresentation",
             "description": ""
           }
         },
@@ -1114,6 +1172,14 @@
           "site": {
             "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.SiteSettings",
             "description": ""
+          },
+          "spotlight": {
+            "format": "[]model.SpotlightCharacter",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.SpotlightCharacter",
+              "description": ""
+            },
+            "type": "array"
           },
           "tags": {
             "format": "[]model.TagCandidate",
@@ -1726,6 +1792,18 @@
             "format": "string",
             "type": "string"
           },
+          "matchAll": {
+            "format": "bool",
+            "type": "boolean"
+          },
+          "minLongEdge": {
+            "format": "int",
+            "type": "integer"
+          },
+          "orientation": {
+            "format": "string",
+            "type": "string"
+          },
           "page": {
             "default": 1,
             "format": "int",
@@ -1918,6 +1996,23 @@
             "format": "[]v1.AuthorizationRoleView",
             "items": {
               "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.AuthorizationRoleView",
+              "description": ""
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.ListSavedFiltersReq": {
+        "properties": {},
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.ListSavedFiltersRes": {
+        "properties": {
+          "items": {
+            "format": "[]model.SavedFilter",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.SavedFilter",
               "description": ""
             },
             "type": "array"
@@ -2398,6 +2493,28 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.api.v1.SaveFilterReq": {
+        "properties": {
+          "name": {
+            "format": "string",
+            "type": "string"
+          },
+          "query": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.SavedFilterQuery",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.SaveFilterRes": {
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.SavedFilter",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.api.v1.SetAuthorizationAutomaticRuleReq": {
         "properties": {
           "enabled": {
@@ -2488,6 +2605,36 @@
         "properties": {},
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.api.v1.UpdateAdminHomePresentationReq": {
+        "properties": {
+          "categories": {
+            "format": "[]model.CategoryCover",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.CategoryCover",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "spotlight": {
+            "format": "[]model.SpotlightCharacter",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.SpotlightCharacter",
+              "description": ""
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.UpdateAdminHomePresentationRes": {
+        "properties": {
+          "presentation": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.HomePresentation",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.api.v1.UpdateAdminImageReq": {
         "properties": {
           "altText": {
@@ -2539,6 +2686,10 @@
       },
       "github.com.yueli-official.gallery.api.api.v1.UpdateAdminSiteSettingsReq": {
         "properties": {
+          "appearance": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.GalleryAppearance",
+            "description": ""
+          },
           "description": {
             "format": "string",
             "type": "string"
@@ -3075,6 +3226,31 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.internal.model.CategoryCover": {
+        "properties": {
+          "accent": {
+            "format": "string",
+            "type": "string"
+          },
+          "categoryName": {
+            "format": "string",
+            "type": "string"
+          },
+          "categorySlug": {
+            "format": "string",
+            "type": "string"
+          },
+          "imageUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "thumbUrl": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.internal.model.ClassificationCatalog": {
         "properties": {
           "categories": {
@@ -3217,6 +3393,14 @@
           "id": {
             "format": "string",
             "type": "string"
+          },
+          "maxValues": {
+            "format": "int",
+            "type": "integer"
+          },
+          "minValues": {
+            "format": "int",
+            "type": "integer"
           },
           "name": {
             "format": "string",
@@ -3422,6 +3606,18 @@
             "format": "int64",
             "type": "integer"
           },
+          "coverAccent": {
+            "format": "string",
+            "type": "string"
+          },
+          "coverThumbUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "coverUrl": {
+            "format": "string",
+            "type": "string"
+          },
           "id": {
             "format": "string",
             "type": "string"
@@ -3439,6 +3635,35 @@
             "type": "boolean"
           },
           "slug": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.internal.model.ClassificationPresentation": {
+        "properties": {
+          "assetId": {
+            "format": "string",
+            "type": "string"
+          },
+          "icon": {
+            "format": "string",
+            "type": "string"
+          },
+          "imageId": {
+            "format": "string",
+            "type": "string"
+          },
+          "kind": {
+            "format": "string",
+            "type": "string"
+          },
+          "mode": {
+            "format": "string",
+            "type": "string"
+          },
+          "nodeId": {
             "format": "string",
             "type": "string"
           }
@@ -3788,6 +4013,44 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.internal.model.GalleryAppearance": {
+        "properties": {
+          "classification": {
+            "format": "[]model.ClassificationPresentation",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationPresentation",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "sidebar": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.SidebarAppearance",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.internal.model.HomePresentation": {
+        "properties": {
+          "categories": {
+            "format": "[]model.CategoryCover",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.CategoryCover",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "spotlight": {
+            "format": "[]model.SpotlightCharacter",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.SpotlightCharacter",
+              "description": ""
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.internal.model.HomeSectionSettings": {
         "properties": {
           "actionLabel": {
@@ -4071,8 +4334,83 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.internal.model.SavedFilter": {
+        "properties": {
+          "id": {
+            "format": "string",
+            "type": "string"
+          },
+          "name": {
+            "format": "string",
+            "type": "string"
+          },
+          "query": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.SavedFilterQuery",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.internal.model.SavedFilterQuery": {
+        "properties": {
+          "categories": {
+            "format": "string",
+            "type": "string"
+          },
+          "facets": {
+            "format": "string",
+            "type": "string"
+          },
+          "matchAll": {
+            "format": "bool",
+            "type": "boolean"
+          },
+          "minLongEdge": {
+            "format": "int",
+            "type": "integer"
+          },
+          "orientation": {
+            "format": "string",
+            "type": "string"
+          },
+          "q": {
+            "format": "string",
+            "type": "string"
+          },
+          "tag": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.internal.model.SidebarAppearance": {
+        "properties": {
+          "assetId": {
+            "format": "string",
+            "type": "string"
+          },
+          "imageId": {
+            "format": "string",
+            "type": "string"
+          },
+          "mode": {
+            "format": "string",
+            "type": "string"
+          },
+          "overlay": {
+            "format": "float64",
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.internal.model.SiteSettings": {
         "properties": {
+          "appearance": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.GalleryAppearance",
+            "description": ""
+          },
           "description": {
             "format": "string",
             "type": "string"
@@ -4106,6 +4444,51 @@
             "type": "string"
           },
           "title": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.internal.model.SpotlightCharacter": {
+        "properties": {
+          "accent": {
+            "format": "string",
+            "type": "string"
+          },
+          "enabled": {
+            "format": "bool",
+            "type": "boolean"
+          },
+          "faction": {
+            "format": "string",
+            "type": "string"
+          },
+          "id": {
+            "format": "string",
+            "type": "string"
+          },
+          "imageUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "name": {
+            "format": "string",
+            "type": "string"
+          },
+          "position": {
+            "format": "int",
+            "type": "integer"
+          },
+          "series": {
+            "format": "string",
+            "type": "string"
+          },
+          "thumbUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "wash": {
             "format": "string",
             "type": "string"
           }
@@ -5774,6 +6157,56 @@
         ]
       }
     },
+    "/api/v1/gallery/admin/home-presentation": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.GetAdminHomePresentationRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Get the editable homepage spotlight and category covers",
+        "tags": [
+          "Gallery admin"
+        ]
+      },
+      "patch": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.UpdateAdminHomePresentationReq",
+                "description": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.UpdateAdminHomePresentationRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Replace the homepage spotlight and category covers",
+        "tags": [
+          "Gallery admin"
+        ]
+      }
+    },
     "/api/v1/gallery/admin/images": {
       "get": {
         "parameters": [
@@ -6573,6 +7006,30 @@
         "parameters": [
           {
             "in": "query",
+            "name": "orientation",
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "minLongEdge",
+            "schema": {
+              "format": "int",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "matchAll",
+            "schema": {
+              "format": "bool",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
             "name": "q",
             "schema": {
               "format": "string",
@@ -6868,6 +7325,38 @@
         ]
       }
     },
+    "/api/v1/gallery/images/{imageId}/download": {
+      "get": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "imageId",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.DownloadImageRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Create a download URL for an eligible image's original file",
+        "tags": [
+          "Gallery images"
+        ]
+      }
+    },
     "/api/v1/gallery/images/{imageId}/events": {
       "post": {
         "parameters": [
@@ -7113,6 +7602,88 @@
         "summary": "Idempotently add an image to favorites",
         "tags": [
           "Gallery favorites"
+        ]
+      }
+    },
+    "/api/v1/gallery/me/saved-filters": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.ListSavedFiltersRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "List the current user's saved image filters",
+        "tags": [
+          "Gallery filters"
+        ]
+      },
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.SaveFilterReq",
+                "description": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.SaveFilterRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Save a validated image filter for the current user",
+        "tags": [
+          "Gallery filters"
+        ]
+      }
+    },
+    "/api/v1/gallery/me/saved-filters/{filterId}": {
+      "delete": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "filterId",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.DeleteSavedFilterRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Delete the current user's saved filter",
+        "tags": [
+          "Gallery filters"
         ]
       }
     },

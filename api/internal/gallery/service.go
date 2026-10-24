@@ -25,6 +25,9 @@ import (
 )
 
 type Store interface {
+	SavedFilters(context.Context, string) ([]model.SavedFilter, error)
+	SaveFilter(context.Context, string, model.SavedFilterInput) (*model.SavedFilter, error)
+	DeleteSavedFilter(context.Context, string, string) error
 	SiteSettings(context.Context) (*model.SiteSettings, error)
 	UpdateSiteSettings(context.Context, model.SiteSettingsUpdateInput) (*model.SiteSettings, error)
 	ClassificationRevision(context.Context) (uint64, error)
@@ -76,6 +79,16 @@ type ClassificationCreationStore interface {
 	CreateClassificationIdentity(context.Context, string, model.ClassificationIdentityCreateInput) (*model.ClassificationIdentityCreateResult, error)
 }
 
+type DiscoveryPresentationStore interface {
+	SpotlightCharacters(context.Context) ([]model.SpotlightCharacter, error)
+	CategoryCovers(context.Context) (map[string]model.CategoryCover, error)
+}
+
+type HomePresentationStore interface {
+	HomePresentation(context.Context) (*model.HomePresentation, error)
+	ReplaceHomePresentation(context.Context, model.HomePresentationUpdateInput) error
+}
+
 type ClassificationUpdateStore interface {
 	UpdateClassificationIdentity(context.Context, string, string, model.ClassificationIdentityUpdateInput) (*model.ClassificationIdentityCreateResult, error)
 }
@@ -93,6 +106,7 @@ type Service struct {
 }
 
 type AssetReferencePort interface {
+	SignOriginal(context.Context, string) (*model.ImageDownload, error)
 	RegisterSubmission(context.Context, string, string, string, string) error
 	UnregisterSubmission(context.Context, string, string, string) error
 	PrepareSubmission(context.Context, string) (model.SubmissionAssetFacts, error)
@@ -272,6 +286,7 @@ func (s *Service) Discovery(ctx context.Context, seed string) (*model.Discovery,
 	if settings == nil {
 		return nil, galleryerr.NotInitialized("site_settings")
 	}
+	normalizeAppearance(&settings.Appearance)
 	seed = strings.TrimSpace(seed)
 	if seed == "" {
 		seed = s.clock().UTC().Format("2006-01-02")
@@ -304,15 +319,35 @@ func (s *Service) Discovery(ctx context.Context, seed string) (*model.Discovery,
 	if err != nil {
 		return nil, err
 	}
+	categories := categoryCandidates(discovery.Candidates.Categories)
+	spotlight := make([]model.SpotlightCharacter, 0)
+	if presentation, ok := s.store.(DiscoveryPresentationStore); ok {
+		spotlight, err = presentation.SpotlightCharacters(ctx)
+		if err != nil {
+			return nil, err
+		}
+		covers, err := presentation.CategoryCovers(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for index := range categories {
+			if cover, ok := covers[categories[index].Slug]; ok {
+				categories[index].CoverURL = cover.ImageURL
+				categories[index].CoverThumb = cover.ThumbURL
+				categories[index].CoverAccent = cover.Accent
+			}
+		}
+	}
 	normalizeCards(images)
 	normalizeTagCandidates(tags, "")
 	return &model.Discovery{
 		Site:       *settings,
 		Seed:       seed,
 		Images:     images,
-		Categories: categoryCandidates(discovery.Candidates.Categories),
+		Categories: categories,
 		Facets:     facetCandidates(discovery.Candidates.Facets),
 		Tags:       nonNilTagCandidates(tags),
+		Spotlight:  spotlight,
 	}, nil
 }
 
@@ -327,12 +362,76 @@ func (s *Service) SiteSettings(ctx context.Context) (*model.SiteSettings, error)
 	if settings == nil {
 		return nil, galleryerr.NotInitialized("site_settings")
 	}
+	normalizeAppearance(&settings.Appearance)
 	return settings, nil
+}
+
+func (s *Service) HomePresentation(ctx context.Context) (*model.HomePresentation, error) {
+	store, ok := s.store.(HomePresentationStore)
+	if !ok {
+		return &model.HomePresentation{
+			Spotlight:  []model.SpotlightCharacter{},
+			Categories: []model.CategoryCover{},
+		}, nil
+	}
+	return store.HomePresentation(ctx)
+}
+
+func (s *Service) UpdateHomePresentation(ctx context.Context, input model.HomePresentationUpdateInput) (*model.HomePresentation, error) {
+	store, ok := s.store.(HomePresentationStore)
+	if !ok {
+		return nil, galleryerr.NotInitialized("home_presentation")
+	}
+	if len(input.Spotlight) > 8 {
+		return nil, galleryerr.Validation("spotlight", "at most 8 spotlight characters")
+	}
+	if len(input.Categories) > 12 {
+		return nil, galleryerr.Validation("categories", "at most 12 category covers")
+	}
+	seen := make(map[string]struct{}, len(input.Spotlight))
+	for index := range input.Spotlight {
+		value := &input.Spotlight[index]
+		value.ID = strings.TrimSpace(value.ID)
+		value.Name = strings.TrimSpace(value.Name)
+		value.Series = strings.TrimSpace(value.Series)
+		value.Faction = strings.TrimSpace(value.Faction)
+		value.ImageURL = strings.TrimSpace(value.ImageURL)
+		value.ThumbURL = strings.TrimSpace(value.ThumbURL)
+		value.Accent = strings.TrimSpace(value.Accent)
+		value.Wash = strings.TrimSpace(value.Wash)
+		if value.ID == "" || value.Name == "" || value.ImageURL == "" {
+			return nil, galleryerr.Validation("spotlight", "id, name and imageUrl are required")
+		}
+		if _, exists := seen[value.ID]; exists {
+			return nil, galleryerr.Validation("spotlight", "duplicate spotlight id")
+		}
+		seen[value.ID] = struct{}{}
+		value.Position = index + 1
+	}
+	for index := range input.Categories {
+		value := &input.Categories[index]
+		value.CategorySlug = strings.TrimSpace(value.CategorySlug)
+		value.ImageURL = strings.TrimSpace(value.ImageURL)
+		value.ThumbURL = strings.TrimSpace(value.ThumbURL)
+		value.Accent = strings.TrimSpace(value.Accent)
+		if value.CategorySlug == "" || value.ImageURL == "" {
+			return nil, galleryerr.Validation("categories", "categorySlug and imageUrl are required")
+		}
+	}
+	if err := store.ReplaceHomePresentation(ctx, input); err != nil {
+		return nil, err
+	}
+	return store.HomePresentation(ctx)
 }
 
 func (s *Service) UpdateSiteSettings(ctx context.Context, input model.SiteSettingsUpdateInput) (*model.SiteSettings, error) {
 	if s.store == nil {
 		return nil, galleryerr.NotInitialized("store")
+	}
+	if input.Appearance != nil {
+		if err := s.validateAppearance(ctx, input.Appearance); err != nil {
+			return nil, err
+		}
 	}
 	input.Name = strings.TrimSpace(input.Name)
 	input.Title = strings.TrimSpace(input.Title)
@@ -401,7 +500,11 @@ func (s *Service) UpdateSiteSettings(ctx context.Context, input model.SiteSettin
 	if len(input.HomeSections) != 4 || len(expected) != 0 {
 		return nil, galleryerr.Validation("homeSections", "all four home sections are required")
 	}
-	return s.store.UpdateSiteSettings(ctx, input)
+	value, err := s.store.UpdateSiteSettings(ctx, input)
+	if err == nil && value != nil {
+		normalizeAppearance(&value.Appearance)
+	}
+	return value, err
 }
 
 func (s *Service) SubmissionOptions(ctx context.Context) (*model.SubmissionOptions, error) {
@@ -421,13 +524,37 @@ func (s *Service) SubmissionOptions(ctx context.Context) (*model.SubmissionOptio
 	if result.Outcome != classification.OutcomeAccepted {
 		return nil, classificationValidation(result.Diagnostics)
 	}
+	facets := facetCandidates(result.Candidates.Facets)
+	snapshot, err := s.store.ClassificationSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, policy := range snapshot.Policies {
+		if policy.Key != "gallery.image.public" {
+			continue
+		}
+		for _, rule := range policy.Facets {
+			for i := range facets {
+				if facets[i].ID == PublicID(string(rule.FacetID)) {
+					facets[i].MinValues = rule.MinValues
+					facets[i].MaxValues = rule.MaxValues
+				}
+			}
+		}
+	}
 	return &model.SubmissionOptions{
 		Categories: categoryCandidates(result.Candidates.Categories),
-		Facets:     facetCandidates(result.Candidates.Facets),
+		Facets:     facets,
 	}, nil
 }
 
 func (s *Service) Images(ctx context.Context, query model.ImageQuery) (*model.ImagePage, error) {
+	if !oneOf(query.Orientation, "", "landscape", "portrait", "square") {
+		return nil, galleryerr.Validation("orientation", "unsupported orientation")
+	}
+	if query.MinLongEdge < 0 || query.MinLongEdge > 32768 {
+		return nil, galleryerr.Validation("minLongEdge", "unsupported image dimension")
+	}
 	query.Search = strings.TrimSpace(query.Search)
 	query.Tag = strings.TrimSpace(query.Tag)
 	query.Page = bounded(query.Page, 1, 100000, 1)
@@ -445,6 +572,23 @@ func (s *Service) Images(ctx context.Context, query model.ImageQuery) (*model.Im
 		return nil, err
 	}
 	discoverRequest.CandidateProjection = classification.CandidateProjectionAvailable
+	if query.MatchAll {
+		for _, filter := range discoverRequest.Facets {
+			for _, reference := range filter.Values {
+				p := catalog.Discover(classification.DiscoverRequest{PolicyKey: "gallery.image.public", Facets: []classification.FacetFilter{{Facet: filter.Facet, Values: []classification.Reference{reference}}}})
+				facts := p.FactRequest()
+				resolved := p.Complete(classification.DiscoverFacts{CatalogRevision: facts.CatalogRevision, RequestToken: facts.RequestToken})
+				if resolved.Outcome != classification.OutcomeAccepted {
+					return nil, classificationValidation(resolved.Diagnostics)
+				}
+				for _, group := range resolved.FilterPlan.Groups {
+					if group.Kind == classification.FilterGroupFacet {
+						query.RequiredFacetGroups = append(query.RequiredFacetGroups, model.ImageFacetMatchGroup{OwnerID: group.OwnerID, ValueIDs: group.ValueIDs})
+					}
+				}
+			}
+		}
+	}
 	preparation := catalog.Discover(discoverRequest)
 	factRequest := preparation.FactRequest()
 	countGroups, freshnessToken, err := s.store.ClassificationCandidateCounts(ctx, query, factRequest.CountGroups)

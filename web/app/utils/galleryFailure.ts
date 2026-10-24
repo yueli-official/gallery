@@ -4,6 +4,7 @@ import {
   type GalleryFailureCode,
 } from "../generated/galleryFailure";
 const messages: Record<GalleryFailureCode, string> = {
+  "gallery.image_presentation_in_use": "这张图片正在用作导航背景或分类封面，请先在站点设置中解除引用。",
   "gallery.not_found": "内容不存在或已被移除，请刷新后重试。",
   "gallery.gone": "内容已下线或已删除。",
   "gallery.not_initialized": "图库暂未准备完成，请稍后重试。",

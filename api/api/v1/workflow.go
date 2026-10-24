@@ -100,6 +100,21 @@ type UpdateAdminSiteSettingsRes struct {
 	Site model.SiteSettings `json:"site"`
 }
 
+type GetAdminHomePresentationReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/home-presentation" method:"GET" tags:"Gallery admin" summary:"Get the editable homepage spotlight and category covers"`
+}
+type GetAdminHomePresentationRes struct {
+	Presentation model.HomePresentation `json:"presentation"`
+}
+
+type UpdateAdminHomePresentationReq struct {
+	g.Meta `path:"/api/v1/gallery/admin/home-presentation" method:"PATCH" tags:"Gallery admin" summary:"Replace the homepage spotlight and category covers"`
+	model.HomePresentationUpdateInput
+}
+type UpdateAdminHomePresentationRes struct {
+	Presentation model.HomePresentation `json:"presentation"`
+}
+
 type GetClassificationCatalogReq struct {
 	g.Meta `path:"/api/v1/gallery/admin/classification" method:"GET" tags:"Gallery admin" summary:"Get the authoritative classification catalog including inactive identities"`
 }

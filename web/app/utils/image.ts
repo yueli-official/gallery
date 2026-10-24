@@ -1,3 +1,5 @@
+import { assetMediaUrl } from "@yueli/asset-nuxt/media";
+
 export type GalleryRendition =
   | "thumbnail"
   | "grid-sm"
@@ -19,32 +21,11 @@ export interface GalleryImageSourcePolicy {
   fetchpriority: "high" | "auto";
 }
 
-const BASE62_ALPHABET =
-  "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function mediaKey(assetId: string): string {
-  if (!UUID_RE.test(assetId)) return "";
-  let value = BigInt(`0x${assetId.replaceAll("-", "")}`);
-  if (value === 0n) return "0";
-  let key = "";
-  while (value > 0n) {
-    key = BASE62_ALPHABET[Number(value % 62n)] + key;
-    value /= 62n;
-  }
-  return key;
-}
-
-// 与 @yueli/asset-nuxt/media 的公共合同保持一致；包发布后可机械替换
-// 这里的临时兼容实现，页面无需变化。
 export function galleryRendition(
   assetId: string,
   rendition: GalleryRendition,
 ): string {
-  const key = mediaKey(assetId);
-  if (!key) return "";
-  return `/media/${key}?format=webp&preset=${rendition}&v=1`;
+  return assetMediaUrl(assetId, rendition, { version: 1 });
 }
 
 export function galleryImageSources(
