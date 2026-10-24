@@ -890,6 +890,21 @@
       "gallery.authorization_unavailable",
       "gallery.forbidden",
       "common.unauthorized"
+    ],
+    "GET /api/v1/authorization/setup": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "gallery.authorization_unavailable"
+    ],
+    "POST /api/v1/authorization/setup/claim": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "gallery.authorization_unavailable",
+      "common.unauthorized",
+      "gallery.forbidden",
+      "gallery.conflict"
     ]
   }
 }

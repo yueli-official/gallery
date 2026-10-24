@@ -514,6 +514,23 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.api.v1.ClaimInitialAdministratorReq": {
+        "properties": {},
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.ClaimInitialAdministratorRes": {
+        "properties": {
+          "claimed": {
+            "format": "bool",
+            "type": "boolean"
+          },
+          "created": {
+            "format": "bool",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.api.v1.CommentView": {
         "properties": {
           "authorName": {
@@ -1298,6 +1315,23 @@
           "image": {
             "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ImageDetail",
             "description": ""
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.GetInitialAdministratorClaimStatusReq": {
+        "properties": {},
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.GetInitialAdministratorClaimStatusRes": {
+        "properties": {
+          "canClaim": {
+            "format": "bool",
+            "type": "boolean"
+          },
+          "claimed": {
+            "format": "bool",
+            "type": "boolean"
           }
         },
         "type": "object"
@@ -5259,6 +5293,58 @@
         "summary": "Requestable roles",
         "tags": [
           "authorization"
+        ]
+      }
+    },
+    "/api/v1/authorization/setup": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.GetInitialAdministratorClaimStatusRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Read initial administrator claim status",
+        "tags": [
+          "Authorization"
+        ]
+      }
+    },
+    "/api/v1/authorization/setup/claim": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.ClaimInitialAdministratorReq",
+                "description": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.ClaimInitialAdministratorRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Explicitly claim the initial site administrator",
+        "tags": [
+          "Authorization"
         ]
       }
     },

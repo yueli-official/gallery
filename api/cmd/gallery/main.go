@@ -93,14 +93,12 @@ func main() {
 		Memory: authorization.MemoryOptions{
 			RootScopeID:       galleryauthz.RootScopeID,
 			ProtectedSubjects: protected,
+			AllowUnclaimed:    len(protected) == 0,
 			Predicates:        galleryauthz.PredicateEvaluators(),
 		},
 	})
 	if err != nil {
 		panic(err)
-	}
-	if authz.InstanceWasCreated() && len(protected) == 0 {
-		panic("gallery authorization bootstrap requires at least one administrator subject")
 	}
 	authorizationService := galleryauthz.New(authz)
 	workCatalog, err := work.Compile(galleryservice.WorkDefinition())

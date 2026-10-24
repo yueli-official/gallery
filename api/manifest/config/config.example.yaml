@@ -22,8 +22,7 @@ gallery:
     allowHttp: false
   assetNamespace: "gallery"
   authorization:
-    bootstrapAdministratorSubs:
-      - "TestA123"
+    bootstrapAdministratorSubs: []
   identity:
     baseUrl: "" # empty derives the internal Identity origin from gallery.jwks.url
   asset:

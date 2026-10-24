@@ -8,6 +8,7 @@ import (
 )
 
 type Runtime interface {
+	authorization.AdministratorClaimer
 	authorization.Authorizer
 	authorization.AccessReader
 	authorization.RoleManager

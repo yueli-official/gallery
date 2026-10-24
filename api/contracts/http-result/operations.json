@@ -173,6 +173,22 @@
       ]
     },
     {
+      "id": "gallery.get.api.v1.authorization.setup",
+      "method": "GET",
+      "path": "/api/v1/authorization/setup",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.GetInitialAdministratorClaimStatusRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "gallery.authorization_unavailable"
+      ]
+    },
+    {
       "id": "gallery.get.api.v1.gallery.admin.cases",
       "method": "GET",
       "path": "/api/v1/gallery/admin/cases",
@@ -1107,6 +1123,25 @@
         "gallery.invalid_state",
         "gallery.upstream_failed",
         "common.unauthorized"
+      ]
+    },
+    {
+      "id": "gallery.post.api.v1.authorization.setup.claim",
+      "method": "POST",
+      "path": "/api/v1/authorization/setup/claim",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.ClaimInitialAdministratorRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "gallery.authorization_unavailable",
+        "common.unauthorized",
+        "gallery.forbidden",
+        "gallery.conflict"
       ]
     },
     {

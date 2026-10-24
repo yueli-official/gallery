@@ -47,6 +47,7 @@ func Configure(s *ghttp.Server, deps Deps) {
 			middlewares = append(middlewares, controller.AuthorizationMiddleware(deps.Authorization))
 			group.Middleware(middlewares...)
 			group.Bind(controller.NewPublic(deps.Gallery))
+			group.Bind(controller.NewAuthorizationSetup(deps.Authorization))
 			if deps.Comments != nil {
 				group.Bind(controller.NewPublicComments(deps.Comments))
 			}

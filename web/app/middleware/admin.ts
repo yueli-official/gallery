@@ -108,6 +108,13 @@ const managementLandingPages = [
 ] as const;
 
 export default defineNuxtRouteMiddleware(async (to) => {
+  const { refresh } = useGalleryAdministratorClaim();
+  const setup = await refresh();
+  if (!setup.claimed) {
+    if (to.path !== "/manage/setup") return navigateTo("/manage/setup");
+    return;
+  }
+  if (to.path === "/manage/setup") return navigateTo("/manage");
   const { can, canManage, refreshMe } = useGalleryMe();
   await refreshMe();
 
