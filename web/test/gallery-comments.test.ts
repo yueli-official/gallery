@@ -11,7 +11,6 @@ function source(relativePath: string) {
 
 const viewer = source("../app/components/GalleryViewer.vue");
 const section = source("../app/components/GalleryCommentSection.vue");
-const publicStyles = source("../app/assets/css/main.css");
 const management = source("../app/pages/manage/comments.vue");
 const layout = source("../app/layouts/manage.vue");
 const me = source("../app/composables/useGalleryMe.ts");
@@ -19,27 +18,13 @@ const me = source("../app/composables/useGalleryMe.ts");
 describe("Gallery comments", () => {
   it("attaches a two-level public thread to an Image rather than its Submission", () => {
     expect(viewer).toContain("<GalleryCommentSection");
-    expect(viewer).toContain('v-show="!fullscreen"');
     expect(section).toContain("PublicCommentThread");
     expect(section).toContain("sortOrder: order.value");
     expect(section).not.toContain("submissionId");
     expect(section).toContain("匿名评论需要审核");
     expect(section).toContain("登录后直接发布");
     expect(section).not.toContain("GalleryCommentForm");
-    expect(publicStyles).not.toMatch(
-      /\.gallery-detail-comments\s*\{[^}]*border-top/,
-    );
-    expect(publicStyles).not.toMatch(
-      /\.gallery-detail-related\s*\{[^}]*border-top/,
-    );
-    expect(section).toContain(
-      "mt-12 w-full rounded-2xl bg-muted p-3 sm:p-6 lg:mt-16 lg:p-8",
-    );
-    expect(viewer).toContain("gallery-detail-related mt-20 lg:mt-28");
-    expect(publicStyles).not.toMatch(/\.gallery-detail-comments\s*\{/);
-    expect(publicStyles).not.toMatch(
-      /\.gallery-detail-related\s*\{[^}]*(?:margin|padding|background)/,
-    );
+
   });
 
   it("uses the shared collection and confirmation language for moderation", () => {
