@@ -105,6 +105,7 @@ function moreItems(item: GalleryClassificationCatalogNode) {
           :style="{ paddingLeft: `${depth(item) * 1.25}rem` }"
         >
           <div class="flex flex-wrap items-center gap-2">
+            <GalleryClassificationVisual :visual="item.visual" />
             <h3 class="font-medium text-highlighted">{{ item.name }}</h3>
             <UBadge
               v-if="item.status !== 'active'"

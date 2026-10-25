@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/yueli-official/gallery/api/internal/galleryerr"
 	"github.com/yueli-official/gallery/api/internal/model"
+	"regexp"
 	"strings"
 )
 
@@ -20,6 +21,10 @@ func normalizeAppearance(value *model.GalleryAppearance) {
 }
 
 func (s *Service) validateAppearance(ctx context.Context, value *model.GalleryAppearance) error {
+	value.Sidebar.Delivery = nil
+	for i := range value.Classification {
+		value.Classification[i].Delivery = nil
+	}
 	if !oneOf(value.Sidebar.Mode, "plain", "image") || value.Sidebar.Overlay < 0.55 || value.Sidebar.Overlay > 0.95 {
 		return galleryerr.Validation("appearance/sidebar", "invalid navigation background")
 	}
@@ -46,6 +51,9 @@ func (s *Service) validateAppearance(ctx context.Context, value *model.GalleryAp
 	for _, item := range snapshot.FacetValues {
 		identities["facet_value:"+string(item.ID)] = true
 	}
+	for _, item := range snapshot.Facets {
+		identities["facet:"+string(item.ID)] = true
+	}
 	seen := map[string]bool{}
 	for i := range value.Classification {
 		item := &value.Classification[i]
@@ -54,23 +62,79 @@ func (s *Service) validateAppearance(ctx context.Context, value *model.GalleryAp
 			return galleryerr.Validation("appearance/classification", "invalid classification identity")
 		}
 		key := item.Kind + ":" + item.NodeID
-		if !identities[key] || seen[key] || !oneOf(item.Mode, "icon", "image") {
+		if (!identities[key] && item.Kind != "tag") || seen[key] || !oneOf(item.Mode, "icon", "image") {
 			return galleryerr.Validation("appearance/classification", "invalid or duplicate presentation")
 		}
 		seen[key] = true
-		if !oneOf(item.Icon, "photo", "device-desktop", "camera", "palette", "user", "mountain", "building", "device-gamepad-2", "book", "sparkles", "category", "device-mobile", "leaf", "heart", "tag", "square") {
-			return galleryerr.Validation("appearance/classification", "unsupported icon")
-		}
-		if item.Mode == "image" {
-			item.ImageID, err = DatabaseID(item.ImageID)
-			if err != nil {
-				return galleryerr.Validation("appearance/classification", "select a published image")
-			}
-		} else {
-			item.ImageID = ""
+		if err := s.validateClassificationVisual(ctx, item); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+var tablerIconName = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+
+func (s *Service) validateClassificationVisual(ctx context.Context, value *model.ClassificationPresentation) error {
+	if value == nil {
+		return nil
+	}
+	value.Delivery = nil
+	value.Icon = strings.TrimPrefix(strings.TrimSpace(value.Icon), "i-tabler-")
+	if len(value.Icon) > 100 || !tablerIconName.MatchString(value.Icon) || !oneOf(value.Mode, "icon", "image") {
+		return galleryerr.Validation("visual", "select a valid Tabler icon and display mode")
+	}
+	var err error
+	if value.ImageID != "" {
+		value.ImageID, err = DatabaseID(value.ImageID)
+		if err != nil {
+			return galleryerr.Validation("visual/imageId", "select a published image")
+		}
+	}
+	if value.AssetID != "" {
+		value.AssetID, err = DatabaseID(value.AssetID)
+		if err != nil {
+			return galleryerr.Validation("visual/assetId", "select a valid image")
+		}
+		if s.assets == nil || s.media == nil {
+			return galleryerr.NotInitialized("asset")
+		}
+		// The Asset authorization boundary checks the caller's namespace/profile.
+		if _, err := s.media.AuthorizeMedia(ctx, []string{value.AssetID}); err != nil {
+			return err
+		}
+		facts, err := s.assets.PrepareSubmission(ctx, value.AssetID)
+		if err != nil {
+			return err
+		}
+		if value.ImageID == "" && (facts.Width > 1024 || facts.Height > 1024) {
+			return galleryerr.Validation("visual/assetId", "cover longest edge must not exceed 1024 pixels")
+		}
+	}
+	if value.Mode == "image" && value.AssetID == "" && value.ImageID == "" {
+		return galleryerr.Validation("visual/assetId", "select a cover image")
+	}
+	return nil
+}
+
+func (s *Service) classificationVisuals(ctx context.Context) (map[string]*model.ClassificationPresentation, error) {
+	settings, err := s.store.SiteSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := map[string]*model.ClassificationPresentation{}
+	if settings == nil {
+		return result, nil
+	}
+	normalizeAppearance(&settings.Appearance)
+	if err := s.prepareAppearance(ctx, &settings.Appearance); err != nil {
+		return nil, err
+	}
+	for i := range settings.Appearance.Classification {
+		item := &settings.Appearance.Classification[i]
+		result[item.Kind+":"+item.NodeID] = item
+	}
+	return result, nil
 }
 
 func (s *Service) SavedFilters(ctx context.Context, owner string) ([]model.SavedFilter, error) {

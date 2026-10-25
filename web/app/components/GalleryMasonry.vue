@@ -6,9 +6,9 @@ const props = defineProps<{
   priority?: boolean;
 }>();
 
-function sourcePolicy(assetId: string, index: number) {
+function sourcePolicy(image: GalleryImageCard, index: number) {
   return galleryImageSources(
-    assetId,
+    image,
     "masonry",
     Boolean(props.priority && index < 6),
   );
@@ -38,7 +38,7 @@ function sourcePolicy(assetId: string, index: number) {
           }"
         >
           <img
-            v-bind="sourcePolicy(image.assetId, index)"
+            v-bind="sourcePolicy(image, index)"
             :alt="image.altText || image.title"
             :width="image.width || undefined"
             :height="image.height || undefined"

@@ -116,6 +116,7 @@ function valueMore(item: GalleryClassificationCatalogNode) {
         >
           <div class="min-w-0">
             <div class="flex items-center gap-2">
+              <GalleryClassificationVisual :visual="facet.visual" />
               <h3 class="font-semibold text-highlighted">{{ facet.name }}</h3>
               <UTooltip :text="`${facet.values.length} 个值`">
                 <UBadge
@@ -162,6 +163,7 @@ function valueMore(item: GalleryClassificationCatalogNode) {
         >
           <div class="min-w-0 pl-4">
             <div class="flex items-center gap-2">
+              <GalleryClassificationVisual :visual="value.visual" />
               <span class="text-sm font-medium text-highlighted">{{
                 value.name
               }}</span

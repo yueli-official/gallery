@@ -2039,7 +2039,9 @@ func (p *PG) PublishedImageCandidates(ctx context.Context, afterID string, limit
 		limit = 100
 	}
 	args := []any{}
-	predicate := "publication_state = 'published' AND safety_state = 'safe'"
+	// Completed publications need no backfill. Reposting the whole collection
+	// exhausts Asset's request budget and blocks interactive downloads.
+	predicate := "publication_state = 'published' AND safety_state = 'safe' AND NOT public_rendition_ready AND deleted_at IS NULL"
 	if afterID != "" {
 		predicate += " AND id > ?::uuid"
 		args = append(args, afterID)

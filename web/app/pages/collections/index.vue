@@ -4,6 +4,7 @@ import type { GalleryCollection } from "~/types/gallery";
 const { data, error, status, refresh } = await useFetch<{
   items: GalleryCollection[];
 }>("/api/gallery/collections");
+useGalleryMediaRefresh(data, refresh);
 useSeoMeta({ title: "专题集合", description: "由运营方整理的公开图片专题。" });
 </script>
 
@@ -37,7 +38,7 @@ useSeoMeta({ title: "专题集合", description: "由运营方整理的公开图
       >
         <img
           v-if="collection.coverAssetId"
-          v-bind="galleryImageSources(collection.coverAssetId, 'grid', false)"
+          v-bind="galleryImageSources(collection, 'grid', false)"
           :alt="collection.coverAltText || collection.name"
           :width="collection.coverWidth"
           :height="collection.coverHeight"

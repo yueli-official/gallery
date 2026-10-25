@@ -61,6 +61,33 @@ export function useGalleryAssetUpload() {
   }
 
   async function upload(file: File, onProgress?: (value: number) => void) {
+    // Normalize orientation/color in the browser before transmission. Asset
+    // independently enforces the registered WebP storage target.
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    try {
+      const scale = Math.min(1, 4096 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext("2d", { colorSpace: "srgb" });
+      if (!context) throw new Error("image_processing_unavailable");
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = "high";
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob(value => value?.type === "image/webp" ? resolve(value) : reject(new Error("image_processing_failed")), "image/webp", 1),
+      );
+      file = new File([blob], file.name.replace(/\.[^.]+$/, "") + ".webp", { type: "image/webp" });
+      canvas.width = canvas.height = 1;
+    } finally {
+      bitmap.close();
+    }
+    return uploadPrepared(file, onProgress);
+  }
+
+  // The shared image workbench already produces normalized, metadata-free
+  // WebP. Preserve its output instead of encoding it a second time.
+  async function uploadPrepared(file: File, onProgress?: (value: number) => void) {
     const init = await call<UploadInit>("/api/v1/assets/upload-init", {
       method: "POST",
       body: {
@@ -72,9 +99,10 @@ export function useGalleryAssetUpload() {
         category: "gallery-submission",
         visibility: "private",
         multipart: false,
+        imageProcess: { execution: "auto", target: "stored", preprocessed: true },
       },
     });
-    await put(init.uploadUrl, file, init.uploadHeaders ?? {}, onProgress);
+    await put(init.uploadUrl, file, { "Content-Type": file.type, ...init.uploadHeaders }, onProgress);
     onProgress?.(98);
     const finalized = await call<{ asset: GalleryUploadedAsset }>(
       "/api/v1/assets/finalize",
@@ -87,5 +115,5 @@ export function useGalleryAssetUpload() {
     return finalized.asset;
   }
 
-  return { upload };
+  return { upload, uploadPrepared };
 }

@@ -97,6 +97,7 @@ type Service struct {
 	store            Store
 	collections      *collection.Service
 	assets           AssetReferencePort
+	media            MediaAuthorizationPort
 	clock            func() time.Time
 	catalogMu        sync.Mutex
 	catalog          *classification.Catalog
@@ -206,8 +207,8 @@ func (s *Service) ProcessQueuedSubmissions(ctx context.Context, limit int) (int,
 }
 
 // ReconcilePublishedImages backfills the Asset publication reference for
-// images approved before public rendition publication became explicit. The
-// cursor keeps the sweep bounded and the Asset operation is idempotent.
+// images whose public renditions are not yet ready. The cursor keeps the sweep
+// bounded and successful rows leave the candidate set.
 func (s *Service) ReconcilePublishedImages(ctx context.Context, pageSize int) (int, error) {
 	store, ok := s.store.(PublicationReconciliationStore)
 	if !ok || s.assets == nil {
@@ -287,6 +288,9 @@ func (s *Service) Discovery(ctx context.Context, seed string) (*model.Discovery,
 		return nil, galleryerr.NotInitialized("site_settings")
 	}
 	normalizeAppearance(&settings.Appearance)
+	if err := s.prepareAppearance(ctx, &settings.Appearance); err != nil {
+		return nil, err
+	}
 	seed = strings.TrimSpace(seed)
 	if seed == "" {
 		seed = s.clock().UTC().Format("2006-01-02")
@@ -339,6 +343,9 @@ func (s *Service) Discovery(ctx context.Context, seed string) (*model.Discovery,
 		}
 	}
 	normalizeCards(images)
+	if err := s.prepareCards(ctx, images); err != nil {
+		return nil, err
+	}
 	normalizeTagCandidates(tags, "")
 	return &model.Discovery{
 		Site:       *settings,
@@ -363,6 +370,9 @@ func (s *Service) SiteSettings(ctx context.Context) (*model.SiteSettings, error)
 		return nil, galleryerr.NotInitialized("site_settings")
 	}
 	normalizeAppearance(&settings.Appearance)
+	if err := s.prepareAppearance(ctx, &settings.Appearance); err != nil {
+		return nil, err
+	}
 	return settings, nil
 }
 
@@ -503,6 +513,9 @@ func (s *Service) UpdateSiteSettings(ctx context.Context, input model.SiteSettin
 	value, err := s.store.UpdateSiteSettings(ctx, input)
 	if err == nil && value != nil {
 		normalizeAppearance(&value.Appearance)
+		if err := s.prepareAppearance(ctx, &value.Appearance); err != nil {
+			return nil, err
+		}
 	}
 	return value, err
 }
@@ -622,6 +635,9 @@ func (s *Service) Images(ctx context.Context, query model.ImageQuery) (*model.Im
 		return nil, err
 	}
 	normalizeCards(items)
+	if err := s.prepareCards(ctx, items); err != nil {
+		return nil, err
+	}
 	normalizeTagCandidates(tags, query.Tag)
 	pages := 0
 	if total > 0 {
@@ -682,6 +698,18 @@ func classificationDiagnostics(values []classification.Diagnostic) []model.Class
 }
 
 func (s *Service) Image(ctx context.Context, rawID, userID string) (*model.ImageDetail, error) {
+	value, err := s.loadImage(ctx, rawID, userID)
+	if err != nil {
+		return nil, err
+	}
+	normalizeDetail(value)
+	if err := s.prepareMedia(ctx, []mediaTarget{{value.AssetID, &value.Delivery}}); err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
+func (s *Service) loadImage(ctx context.Context, rawID, userID string) (*model.ImageDetail, error) {
 	id, err := DatabaseID(rawID)
 	if err != nil {
 		return nil, galleryerr.NotFound("image", strings.TrimSpace(rawID))
@@ -700,7 +728,6 @@ func (s *Service) Image(ctx context.Context, rawID, userID string) (*model.Image
 		}
 		return nil, galleryerr.NotFound("image", PublicID(id))
 	}
-	normalizeDetail(value)
 	return value, nil
 }
 
@@ -709,7 +736,7 @@ func (s *Service) RelatedImages(ctx context.Context, rawID string, limit int) ([
 	if err != nil {
 		return nil, galleryerr.NotFound("image", strings.TrimSpace(rawID))
 	}
-	_, err = s.Image(ctx, rawID, "")
+	_, err = s.loadImage(ctx, rawID, "")
 	if err != nil {
 		return nil, err
 	}
@@ -729,6 +756,13 @@ func (s *Service) RelatedImages(ctx context.Context, rawID string, limit int) ([
 			values[index].Reasons = []model.RelatedImageReason{}
 		}
 	}
+	targets := make([]mediaTarget, 0, len(values))
+	for i := range values {
+		targets = append(targets, mediaTarget{values[i].AssetID, &values[i].Delivery})
+	}
+	if err := s.prepareMedia(ctx, targets); err != nil {
+		return nil, err
+	}
 	return values, nil
 }
 
@@ -740,6 +774,12 @@ func (s *Service) Collections(ctx context.Context) ([]model.Collection, error) {
 	for index := range values {
 		normalizeCollection(&values[index])
 	}
+	if err != nil {
+		return nil, err
+	}
+	if err := s.prepareCollections(ctx, values); err != nil {
+		return nil, err
+	}
 	return values, err
 }
 
@@ -750,6 +790,12 @@ func (s *Service) AdminCollections(ctx context.Context) ([]model.Collection, err
 	}
 	for index := range values {
 		normalizeCollection(&values[index])
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := s.prepareCollections(ctx, values); err != nil {
+		return nil, err
 	}
 	return values, err
 }
@@ -763,7 +809,13 @@ func (s *Service) Collection(ctx context.Context, slug string, page, size int) (
 		return nil, galleryerr.NotFound("collection", strings.TrimSpace(slug))
 	}
 	normalizeCollection(&value.Collection)
+	if err := s.prepareMedia(ctx, []mediaTarget{{value.CoverAssetID, &value.CoverDelivery}}); err != nil {
+		return nil, err
+	}
 	normalizeCards(value.Images)
+	if err := s.prepareCards(ctx, value.Images); err != nil {
+		return nil, err
+	}
 	value.Total = value.ItemCount
 	if value.Images == nil {
 		value.Images = []model.ImageCard{}
@@ -791,7 +843,13 @@ func (s *Service) AdminCollection(ctx context.Context, rawID string, page, size 
 		return nil, galleryerr.NotFound("collection", rawID)
 	}
 	normalizeCollection(&value.Collection)
+	if err := s.prepareMedia(ctx, []mediaTarget{{value.CoverAssetID, &value.CoverDelivery}}); err != nil {
+		return nil, err
+	}
 	normalizeCards(value.Images)
+	if err := s.prepareCards(ctx, value.Images); err != nil {
+		return nil, err
+	}
 	value.Total = value.ItemCount
 	if value.Images == nil {
 		value.Images = []model.ImageCard{}
@@ -850,6 +908,9 @@ func (s *Service) UpdateEditorialCollection(ctx context.Context, rawID string, i
 	value, err := s.store.UpdateEditorialCollection(ctx, id, input)
 	if value != nil {
 		normalizeCollection(value)
+		if err := s.prepareMedia(ctx, []mediaTarget{{value.CoverAssetID, &value.CoverDelivery}}); err != nil {
+			return nil, err
+		}
 	}
 	return value, err
 }
@@ -874,6 +935,9 @@ func (s *Service) ReorderEditorialMembers(ctx context.Context, rawID string, inp
 	value, err := s.store.ReorderEditorialMembers(ctx, id, input.Version, input.ImageIDs)
 	if value != nil {
 		normalizeCollection(value)
+		if err := s.prepareMedia(ctx, []mediaTarget{{value.CoverAssetID, &value.CoverDelivery}}); err != nil {
+			return nil, err
+		}
 	}
 	return value, err
 }
@@ -923,6 +987,9 @@ func (s *Service) Ranking(ctx context.Context, kind, window string) (*model.Rank
 	value.Kind, value.Window = kind, window
 	value.Images = nonNilCards(value.Images)
 	normalizeCards(value.Images)
+	if err := s.prepareCards(ctx, value.Images); err != nil {
+		return nil, err
+	}
 	return value, nil
 }
 
@@ -981,7 +1048,9 @@ func (s *Service) Submit(ctx context.Context, subject model.Subject, input model
 		}
 	}
 	review := "pending"
-	if subject.Kind == "operator" || (subject.Kind == "user" && subject.Verified) {
+	// Operator imports go through an explicit review/publish action. Marking
+	// them not_required strands them outside the existing review state machine.
+	if subject.Kind == "user" && subject.Verified {
 		review = "not_required"
 	}
 	value, err := s.store.CreateSubmission(ctx, subject, input, review)
@@ -1098,6 +1167,10 @@ func (s *Service) PreviewClassificationGovernance(ctx context.Context, input mod
 }
 
 func (s *Service) ClassificationCatalog(ctx context.Context) (*model.ClassificationCatalog, error) {
+	visuals, err := s.classificationVisuals(ctx)
+	if err != nil {
+		return nil, err
+	}
 	snapshot, err := s.store.ClassificationSnapshot(ctx)
 	if err != nil {
 		return nil, err
@@ -1128,6 +1201,17 @@ func (s *Service) ClassificationCatalog(ctx context.Context) (*model.Classificat
 			ID: facet.ID, Slug: facet.Slug, Name: facet.Name, Status: string(facet.Status),
 			EditorialPosition: facet.EditorialPosition, ReplacementID: facet.ReplacementID, Values: values,
 		})
+	}
+	for i := range result.Categories {
+		item := &result.Categories[i]
+		item.Visual = visuals["category:"+PublicID(item.ID)]
+	}
+	for i := range result.Facets {
+		item := &result.Facets[i]
+		item.Visual = visuals["facet:"+PublicID(item.ID)]
+		for j := range item.Values {
+			item.Values[j].Visual = visuals["facet_value:"+PublicID(item.Values[j].ID)]
+		}
 	}
 	return result, nil
 }
@@ -1169,6 +1253,9 @@ func (s *Service) CreateClassificationIdentity(ctx context.Context, operator str
 	if input.Kind == "tag" && (input.ParentID != "" || input.FacetID != "") {
 		return nil, galleryerr.Validation("classification", "a tag cannot have a parent or owning facet")
 	}
+	if err := s.validateClassificationVisual(ctx, input.Visual); err != nil {
+		return nil, err
+	}
 	result, err := creationStore.CreateClassificationIdentity(ctx, operator, input)
 	if err != nil {
 		return nil, err
@@ -1202,6 +1289,9 @@ func (s *Service) UpdateClassificationIdentity(ctx context.Context, operator, ra
 	}
 	if input.Slug == "" || len([]rune(input.Slug)) > 80 || strings.ContainsAny(input.Slug, " /?#") {
 		return nil, galleryerr.Validation("slug", "a URL-safe slug is required and must be at most 80 characters")
+	}
+	if err := s.validateClassificationVisual(ctx, input.Visual); err != nil {
+		return nil, err
 	}
 	result, err := updateStore.UpdateClassificationIdentity(ctx, operator, id, input)
 	if err != nil {
@@ -1238,6 +1328,13 @@ func (s *Service) ClassificationTags(ctx context.Context, cursor string, size in
 	for index := range page.Items {
 		page.Items[index].ID = PublicID(page.Items[index].ID)
 		page.Items[index].ReplacementID = PublicID(page.Items[index].ReplacementID)
+	}
+	visuals, err := s.classificationVisuals(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range page.Items {
+		page.Items[i].Visual = visuals["tag:"+page.Items[i].ID]
 	}
 	return page, nil
 }
@@ -1603,6 +1700,9 @@ func (s *Service) Favorites(ctx context.Context, userID string, page, size int, 
 	}
 	detail.ID = PublicID(detail.ID)
 	normalizeCards(detail.Images)
+	if err := s.prepareCards(ctx, detail.Images); err != nil {
+		return nil, err
+	}
 	detail.Total = detail.ItemCount
 	if detail.Images == nil {
 		detail.Images = []model.ImageCard{}
@@ -1750,6 +1850,13 @@ func (s *Service) AdminImages(ctx context.Context, query model.AdminImageQuery) 
 	for index := range values {
 		normalizeAdminImage(&values[index])
 	}
+	mediaTargets := make([]mediaTarget, 0, len(values))
+	for i := range values {
+		mediaTargets = append(mediaTargets, mediaTarget{values[i].AssetID, &values[i].Delivery})
+	}
+	if err := s.prepareMedia(ctx, mediaTargets); err != nil {
+		return nil, err
+	}
 	pages := 0
 	if total > 0 {
 		pages = int(math.Ceil(float64(total) / float64(query.PageSize)))
@@ -1777,6 +1884,9 @@ func (s *Service) AdminImage(ctx context.Context, rawID string) (*model.AdminIma
 		return nil, galleryerr.NotFound("image", rawID)
 	}
 	normalizeAdminImage(value)
+	if err := s.prepareMedia(ctx, []mediaTarget{{value.AssetID, &value.Delivery}}); err != nil {
+		return nil, err
+	}
 	return value, nil
 }
 
@@ -1862,6 +1972,9 @@ func (s *Service) UpdateAdminImage(ctx context.Context, rawID string, input mode
 	value, err := s.store.UpdateAdminImage(ctx, id, input)
 	if value != nil {
 		normalizeAdminImage(value)
+		if err := s.prepareMedia(ctx, []mediaTarget{{value.AssetID, &value.Delivery}}); err != nil {
+			return nil, err
+		}
 	}
 	return value, err
 }
@@ -2266,6 +2379,10 @@ func normalizeDetail(value *model.ImageDetail) {
 	}
 	if value.Facets == nil {
 		value.Facets = []model.FacetValueAssignment{}
+	}
+	for index := range value.Facets {
+		value.Facets[index].FacetID = PublicID(value.Facets[index].FacetID)
+		value.Facets[index].ValueID = PublicID(value.Facets[index].ValueID)
 	}
 }
 

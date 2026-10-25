@@ -14,10 +14,11 @@ func TestRegisterSubmissionUsesServiceCredentialInsteadOfUserBearer(t *testing.T
 		if err := request.ParseForm(); err != nil {
 			t.Fatal(err)
 		}
-		if request.Form.Get("grant_type") != "client_credentials" || request.Form.Get("client_id") != "gallery-asset-svc" || request.Form.Get("client_secret") != "secret" || request.Form.Get("scope") != "asset:sign" {
+		id, secret, ok := request.BasicAuth()
+		if request.Form.Get("grant_type") != "client_credentials" || !ok || id != "gallery-asset-svc" || secret != "secret" || request.Form.Get("scope") != "asset:sign" {
 			t.Fatalf("token form = %v", request.Form)
 		}
-		_ = json.NewEncoder(response).Encode(map[string]any{"access_token": "service-token", "expires_in": 600})
+		_ = json.NewEncoder(response).Encode(map[string]any{"access_token": "service-token", "token_type": "Bearer", "expires_in": 600})
 	})
 	mux.HandleFunc("/api/v1/asset-references", func(response http.ResponseWriter, request *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
@@ -46,7 +47,7 @@ func TestPrepareSubmissionUsesSignedThumbnailAndReturnsImmutableFacts(t *testing
 	mux := http.NewServeMux()
 	mux.HandleFunc("/oauth2/token", func(response http.ResponseWriter, _ *http.Request) {
 		tokenCalls++
-		_ = json.NewEncoder(response).Encode(map[string]any{"access_token": "service-token", "expires_in": 600})
+		_ = json.NewEncoder(response).Encode(map[string]any{"access_token": "service-token", "token_type": "Bearer", "expires_in": 600})
 	})
 	mux.HandleFunc("/api/v1/assets/asset-1/sign", func(response http.ResponseWriter, request *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
@@ -79,7 +80,7 @@ func TestPrepareSubmissionUsesSignedThumbnailAndReturnsImmutableFacts(t *testing
 func TestPrepareSubmissionRejectsRelativePreviewURL(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/oauth2/token", func(response http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(response).Encode(map[string]any{"access_token": "service-token", "expires_in": 600})
+		_ = json.NewEncoder(response).Encode(map[string]any{"access_token": "service-token", "token_type": "Bearer", "expires_in": 600})
 	})
 	mux.HandleFunc("/api/v1/assets/asset-1/sign", func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
@@ -107,7 +108,7 @@ func TestPrepareSubmissionRejectsRelativePreviewURL(t *testing.T) {
 func TestPublishImageRegistersPublicRenditionWithServiceCredential(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/oauth2/token", func(response http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(response).Encode(map[string]any{"access_token": "service-token", "expires_in": 600})
+		_ = json.NewEncoder(response).Encode(map[string]any{"access_token": "service-token", "token_type": "Bearer", "expires_in": 600})
 	})
 	mux.HandleFunc("/api/v1/assets/asset-1/publications", func(response http.ResponseWriter, request *http.Request) {
 		response.Header().Set("Content-Type", "application/json")

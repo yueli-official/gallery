@@ -28,6 +28,7 @@ export interface GalleryMetrics {
 }
 
 export interface GalleryImageCard {
+	 delivery?: GalleryMediaDelivery;
   id: string;
   assetId: string;
   title: string;
@@ -40,6 +41,12 @@ export interface GalleryImageCard {
   publishedAt?: string;
   updatedAt?: string;
   metrics: GalleryMetrics;
+}
+
+export interface GalleryMediaDelivery {
+  mode: "signed";
+  expiresAt: string;
+  renditions: Record<string, string>;
 }
 
 export interface GalleryFacetAssignment {
@@ -188,6 +195,7 @@ export type GalleryClassificationStatus =
   "draft" | "active" | "inactive" | "replaced";
 
 export interface GalleryClassificationCatalogNode {
+  visual?: import("./presentation").GalleryPresentationRule;
   id: string;
   parentId: string;
   slug: string;
@@ -198,6 +206,7 @@ export interface GalleryClassificationCatalogNode {
 }
 
 export interface GalleryClassificationCatalogFacet {
+  visual?: import("./presentation").GalleryPresentationRule;
   id: string;
   slug: string;
   name: string;
@@ -252,6 +261,7 @@ export interface GalleryClassificationGovernancePreview {
 }
 
 export interface GalleryClassificationTag {
+  visual?: import("./presentation").GalleryPresentationRule;
   id: string;
   name: string;
   slug: string;
@@ -278,6 +288,7 @@ export interface GalleryClassificationTagProposal {
 }
 
 export interface GalleryCollection {
+	 coverDelivery?: GalleryMediaDelivery;
   id: string;
   kind: "gallery.editorial" | "gallery.favorites";
   resourceKind: "gallery.image";

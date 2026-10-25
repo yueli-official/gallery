@@ -17,8 +17,8 @@ func (p *PG) readAppearance(ctx context.Context) (model.GalleryAppearance, error
 		return value, err
 	}
 	err = p.db.Ctx(ctx).Raw(`SELECT p.kind, p.node_id::text, p.mode, p.icon,
-        COALESCE(p.image_id::text, '') AS image_id, COALESCE(i.asset_id::text, '') AS asset_id
-        FROM gallery_classification_presentation p LEFT JOIN gallery_images i ON i.id=p.image_id
+        COALESCE(p.image_id::text, '') AS image_id, COALESCE(p.asset_id::text, '') AS asset_id
+        FROM gallery_classification_presentation p
         ORDER BY p.kind,p.node_id`).Scan(&value.Classification)
 	return value, err
 }
@@ -46,20 +46,68 @@ func writeAppearance(ctx context.Context, tx gdb.TX, appearance model.GalleryApp
         sidebar_overlay=? WHERE site_key='gallery'`, appearance.Sidebar.Mode, appearance.Sidebar.ImageID, appearance.Sidebar.Overlay); err != nil {
 		return err
 	}
+	// A sidebar-only settings save must not replace independently edited covers.
+	if appearance.Classification == nil {
+		return nil
+	}
 	if _, err := tx.Exec(`DELETE FROM gallery_classification_presentation`); err != nil {
 		return err
 	}
 	for _, item := range appearance.Classification {
-		if _, err := tx.Exec(`INSERT INTO gallery_classification_presentation(kind,node_id,mode,icon,image_id)
-            VALUES(?,?::uuid,?,?,NULLIF(?, '')::uuid)`, item.Kind, item.NodeID, item.Mode, item.Icon, item.ImageID); err != nil {
+		if err := writeClassificationVisual(tx, item.Kind, item.NodeID, &item); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+// Identity edits and appearance edits share one authoritative presentation row.
+func writeClassificationVisual(tx gdb.TX, kind, id string, visual *model.ClassificationPresentation) error {
+	if visual == nil {
+		return nil
+	}
+	table := map[string]string{"category": "gallery_categories", "facet": "gallery_facets", "facet_value": "gallery_facet_values", "tag": "gallery_tags"}[kind]
+	if table == "" {
+		return galleryerr.Validation("visual/kind", "unsupported identity")
+	}
+	exists, err := tx.GetValue(`SELECT EXISTS(SELECT 1 FROM `+table+` WHERE id=?::uuid)`, id)
+	if err != nil {
+		return err
+	}
+	if !exists.Bool() {
+		return galleryerr.NotFound(kind, "")
+	}
+	assetID := visual.AssetID
+	if visual.ImageID != "" {
+		row, err := tx.GetOne(`SELECT asset_id::text FROM gallery_images i WHERE i.id=?::uuid AND `+eligibleImage+` FOR SHARE`, visual.ImageID)
+		if err != nil {
+			return err
+		}
+		if len(row) == 0 {
+			return galleryerr.Validation("visual/imageId", "select an eligible published image")
+		}
+		assetID = row["asset_id"].String()
+	}
+	if assetID != "" {
+		// Covers must not republish an image already hidden or rejected by Gallery.
+		images, err := tx.GetAll(`SELECT (`+eligibleImage+`) AS eligible FROM gallery_images i WHERE i.asset_id=?::uuid FOR SHARE`, assetID)
+		if err != nil {
+			return err
+		}
+		for _, image := range images {
+			if !image["eligible"].Bool() {
+				return galleryerr.Validation("visual/assetId", "select an eligible image")
+			}
+		}
+	}
+	_, err = tx.Exec(`INSERT INTO gallery_classification_presentation(kind,node_id,mode,icon,image_id,asset_id)
+	VALUES(?,?::uuid,?,?,NULLIF(?, '')::uuid,NULLIF(?, '')::uuid)
+	ON CONFLICT(kind,node_id) DO UPDATE SET mode=EXCLUDED.mode,icon=EXCLUDED.icon,image_id=EXCLUDED.image_id,asset_id=EXCLUDED.asset_id`, kind, id, visual.Mode, visual.Icon, visual.ImageID, assetID)
+	return err
+}
+
 const presentationImageUnused = `NOT EXISTS (SELECT 1 FROM gallery_site_settings s WHERE s.sidebar_image_id=gallery_images.id)
-    AND NOT EXISTS (SELECT 1 FROM gallery_classification_presentation p WHERE p.image_id=gallery_images.id)`
+    AND NOT EXISTS (SELECT 1 FROM gallery_classification_presentation p WHERE p.image_id=gallery_images.id OR p.asset_id=gallery_images.asset_id)`
 
 func lockUnusedPresentationImage(tx gdb.TX, id string) error {
 	row, err := tx.GetOne(`SELECT id FROM gallery_images WHERE id=?::uuid FOR UPDATE`, id)

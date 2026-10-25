@@ -1,4 +1,12 @@
 import { assetMediaUrl } from "@yueli/asset-nuxt/media";
+import type { GalleryMediaDelivery } from "~/types/gallery";
+
+export type GalleryMediaReference = string | {
+  assetId?: string;
+  coverAssetId?: string;
+  delivery?: GalleryMediaDelivery;
+  coverDelivery?: GalleryMediaDelivery;
+};
 
 export type GalleryRendition =
   | "thumbnail"
@@ -22,14 +30,24 @@ export interface GalleryImageSourcePolicy {
 }
 
 export function galleryRendition(
-  assetId: string,
+  reference: GalleryMediaReference,
   rendition: GalleryRendition,
 ): string {
-  return assetMediaUrl(assetId, rendition, { version: 1 });
+  if (typeof reference !== "string") {
+    const delivery = reference.delivery ?? reference.coverDelivery;
+    if (delivery) {
+      const url = delivery.renditions[rendition];
+      if (delivery.mode !== "signed" || !url) throw new TypeError("Missing signed Gallery rendition");
+      return url;
+    }
+  }
+  const assetId = typeof reference === "string" ? reference : reference.assetId ?? reference.coverAssetId ?? "";
+  // Asset's lossless-alpha revision uses a separate immutable cache identity.
+  return assetMediaUrl(assetId, rendition, { version: 20261025 });
 }
 
 export function galleryImageSources(
-  assetId: string,
+  reference: GalleryMediaReference,
   slot: GalleryImageSlot,
   priority = false,
 ): GalleryImageSourcePolicy {
@@ -41,22 +59,22 @@ export function galleryImageSources(
   if (slot === "grid") {
     return {
       ...base,
-      src: galleryRendition(assetId, "grid-lg"),
-      srcset: `${galleryRendition(assetId, "grid-sm")} 480w, ${galleryRendition(assetId, "grid-lg")} 960w`,
+      src: galleryRendition(reference, "grid-lg"),
+      srcset: `${galleryRendition(reference, "grid-sm")} 480w, ${galleryRendition(reference, "grid-lg")} 960w`,
       sizes: "(max-width: 639px) 50vw, (max-width: 1279px) 33vw, 20vw",
     };
   }
   if (slot === "masonry") {
     return {
       ...base,
-      src: galleryRendition(assetId, "masonry-lg"),
-      srcset: `${galleryRendition(assetId, "masonry-sm")} 960w, ${galleryRendition(assetId, "masonry-lg")} 1600w`,
+      src: galleryRendition(reference, "masonry-lg"),
+      srcset: `${galleryRendition(reference, "masonry-sm")} 960w, ${galleryRendition(reference, "masonry-lg")} 1600w`,
       sizes: "(max-width: 639px) 50vw, (max-width: 1279px) 33vw, 20vw",
     };
   }
   return {
     ...base,
-    src: galleryRendition(assetId, slot),
+    src: galleryRendition(reference, slot),
     sizes: slot === "display" ? "100vw" : undefined,
   };
 }

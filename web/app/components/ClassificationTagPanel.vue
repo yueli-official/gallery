@@ -95,6 +95,7 @@ function moreItems(item: GalleryClassificationTag) {
       >
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
+            <GalleryClassificationVisual :visual="tag.visual" />
             <h3 class="font-medium text-highlighted">{{ tag.name }}</h3>
             <UTooltip
               v-if="tag.assignmentCount"

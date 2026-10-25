@@ -28,6 +28,7 @@ const { data, pending, error, refresh } = await useAsyncData(
     ),
   { server: false, default: () => ({ items: [] }) },
 );
+useGalleryMediaRefresh(data, refresh);
 const search = ref("");
 const visibility = ref<"all" | "public" | "private">("all");
 const filteredCollections = computed(() => {
@@ -147,7 +148,7 @@ async function createCollection() {
           <div class="hidden aspect-[4/3] w-16 shrink-0 overflow-hidden rounded-lg bg-elevated sm:block">
             <img
               v-if="item.coverAssetId"
-              v-bind="galleryImageSources(item.coverAssetId, 'grid', false)"
+              v-bind="galleryImageSources(item, 'grid', false)"
               :alt="item.coverAltText || item.name"
               class="size-full object-cover"
             />

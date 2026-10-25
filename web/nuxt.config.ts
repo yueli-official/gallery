@@ -40,7 +40,7 @@ export default defineNuxtConfig({
     ],
   },
   icon: {
-    provider: "none",
+    provider: "server",
     fallbackToApi: false,
     serverBundle: { collections: ["tabler"] },
     clientBundle: {
@@ -142,6 +142,7 @@ export default defineNuxtConfig({
     },
   },
   runtimeConfig: {
+    healthMediaImageId: "",
     apiBase: process.env.NUXT_API_BASE || "http://127.0.0.1:8091",
     assetBase: process.env.NUXT_ASSET_BASE || "http://127.0.0.1:8082",
     identityBase: process.env.NUXT_IDENTITY_BASE || "http://127.0.0.1:8081",

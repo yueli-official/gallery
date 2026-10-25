@@ -190,7 +190,7 @@ async function saveSettings(): Promise<void> {
       {
         method: "PATCH",
         body: {
-          appearance: form.appearance,
+          appearance: { sidebar: form.appearance.sidebar },
           name: form.name,
           title: form.title,
           description: form.description,

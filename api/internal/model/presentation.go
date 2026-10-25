@@ -1,19 +1,28 @@
 package model
 
 type SidebarAppearance struct {
-	Mode    string  `json:"mode" orm:"sidebar_mode"`
-	ImageID string  `json:"imageId" orm:"sidebar_image_id"`
-	AssetID string  `json:"assetId" orm:"asset_id"`
-	Overlay float64 `json:"overlay" orm:"sidebar_overlay"`
+	Delivery *MediaDelivery `json:"delivery,omitempty" orm:"-"`
+	Mode     string         `json:"mode" orm:"sidebar_mode"`
+	ImageID  string         `json:"imageId" orm:"sidebar_image_id"`
+	AssetID  string         `json:"assetId" orm:"asset_id"`
+	Overlay  float64        `json:"overlay" orm:"sidebar_overlay"`
 }
 
 type ClassificationPresentation struct {
-	Kind    string `json:"kind" orm:"kind"`
-	NodeID  string `json:"nodeId" orm:"node_id"`
-	Mode    string `json:"mode" orm:"mode"`
-	Icon    string `json:"icon" orm:"icon"`
-	ImageID string `json:"imageId" orm:"image_id"`
-	AssetID string `json:"assetId" orm:"asset_id"`
+	Delivery *MediaDelivery `json:"delivery,omitempty" orm:"-"`
+	Kind     string         `json:"kind" orm:"kind"`
+	NodeID   string         `json:"nodeId" orm:"node_id"`
+	Mode     string         `json:"mode" orm:"mode"`
+	Icon     string         `json:"icon" orm:"icon"`
+	ImageID  string         `json:"imageId" orm:"image_id"`
+	AssetID  string         `json:"assetId" orm:"asset_id"`
+}
+
+// MediaDelivery is transient authorization, not persisted presentation data.
+type MediaDelivery struct {
+	Mode       string            `json:"mode"`
+	ExpiresAt  string            `json:"expiresAt"`
+	Renditions map[string]string `json:"renditions"`
 }
 
 type GalleryAppearance struct {

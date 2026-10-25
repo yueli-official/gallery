@@ -201,9 +201,17 @@ func main() {
 		panic(fmt.Sprintf("gallery asset client: %v", err))
 	}
 	service.SetAssetReferencePort(assetPort)
+	deliveryMode := g.Cfg().MustGet(ctx, "gallery.asset.deliveryMode", "public").String()
+	switch deliveryMode {
+	case "public":
+	case "signed":
+		service.SetMediaAuthorizationPort(assetPort)
+	default:
+		panic("gallery.asset.deliveryMode must be public or signed")
+	}
 	processorCtx, stopProcessor := context.WithCancel(context.Background())
 	defer stopProcessor()
-	refClient := &referencesync.Client{BaseURL: assetCfg.BaseURL, Token: referencesync.ClientCredentials(assetCfg.TokenURL, assetCfg.ClientID, assetCfg.ClientSecret)}
+	refClient := &referencesync.Client{BaseURL: assetCfg.BaseURL, Token: assetPort.ServiceToken}
 	go assetreferences.Run(processorCtx, workDB, refClient, appconfig.AssetNamespace(ctx), func(err error) { g.Log().Warning(ctx, "asset reference reconciliation:", err) }, os.Getenv("ASSET_PUBLIC_ORIGIN"))
 
 	go runSubmissionProcessor(processorCtx, service)

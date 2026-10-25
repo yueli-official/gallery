@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { GallerySite } from "~/types/gallery";
 const gallerySite = useGallerySiteSettings();
-const { data: response } = await useFetch<{ site: GallerySite }>("/api/gallery/site", { key: "gallery-public-site-settings" });
+const { data: response, refresh: refreshSite } = await useFetch<{ site: GallerySite }>("/api/gallery/site", { key: "gallery-public-site-settings" });
+useGalleryMediaRefresh(response, refreshSite);
 watch(() => response.value?.site, value => { if (value) gallerySite.value = value; }, { immediate: true });
 const mobileOpen = ref(false);
 const { canManage, refreshMe } = useGalleryMe();

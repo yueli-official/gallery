@@ -7,12 +7,15 @@ import type {
   GalleryRelatedImage,
 } from "~/types/gallery";
 
+definePageMeta({ key: "gallery-image-viewer" });
+
 const route = useRoute("/images/[imageId]");
 const router = useRouter();
 const imageId = computed(() => String(route.params.imageId));
 const { data, error, status, refresh } = await useFetch<{
   image: GalleryImage;
-}>(() => `/api/gallery/images/${encodeURIComponent(imageId.value)}`);
+}>(() => `/api/gallery/images/${encodeURIComponent(imageId.value)}`, { key: "gallery-image-detail", watch: [imageId] });
+useGalleryMediaRefresh(data, refresh);
 const {
   data: relatedData,
   status: relatedStatus,
@@ -28,6 +31,7 @@ const {
   },
   { watch: [imageId], immediate: Boolean(data.value?.image) },
 );
+useGalleryMediaRefresh(relatedData, refreshRelated);
 
 if (import.meta.server && error.value) {
   const responseStatus =
@@ -200,7 +204,7 @@ useSeoMeta({
   ogDescription: () =>
     image.value?.description || image.value?.altText || "查看公开图片详情。",
   ogImage: () =>
-    image.value ? galleryRendition(image.value.assetId, "og") : undefined,
+    image.value ? galleryRendition(image.value, "og") : undefined,
   twitterCard: "summary_large_image",
 });
 useHead(() =>
@@ -215,8 +219,8 @@ useHead(() =>
               name: image.value.title,
               caption: image.value.altText,
               description: image.value.description || image.value.altText,
-              contentUrl: galleryRendition(image.value.assetId, "display"),
-              thumbnailUrl: galleryRendition(image.value.assetId, "thumbnail"),
+              contentUrl: galleryRendition(image.value, "display"),
+              thumbnailUrl: galleryRendition(image.value, "thumbnail"),
               width: image.value.width,
               height: image.value.height,
               uploadDate: image.value.publishedAt,

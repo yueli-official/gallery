@@ -704,6 +704,10 @@
           "slug": {
             "format": "string",
             "type": "string"
+          },
+          "visual": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationPresentation",
+            "description": ""
           }
         },
         "type": "object"
@@ -2785,6 +2789,10 @@
           "slug": {
             "format": "string",
             "type": "string"
+          },
+          "visual": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationPresentation",
+            "description": ""
           }
         },
         "required": [
@@ -2939,6 +2947,10 @@
           "createdAt": {
             "format": "*gtime.Time",
             "type": "string"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.MediaDelivery",
+            "description": ""
           },
           "description": {
             "format": "string",
@@ -3343,6 +3355,10 @@
               "description": ""
             },
             "type": "array"
+          },
+          "visual": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationPresentation",
+            "description": ""
           }
         },
         "type": "object"
@@ -3376,6 +3392,10 @@
           "status": {
             "format": "string",
             "type": "string"
+          },
+          "visual": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationPresentation",
+            "description": ""
           }
         },
         "type": "object"
@@ -3681,6 +3701,10 @@
             "format": "string",
             "type": "string"
           },
+          "delivery": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.MediaDelivery",
+            "description": ""
+          },
           "icon": {
             "format": "string",
             "type": "string"
@@ -3733,6 +3757,10 @@
           "status": {
             "format": "string",
             "type": "string"
+          },
+          "visual": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationPresentation",
+            "description": ""
           }
         },
         "type": "object"
@@ -3841,6 +3869,10 @@
             "format": "string",
             "type": "string"
           },
+          "coverDelivery": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.MediaDelivery",
+            "description": ""
+          },
           "coverHeight": {
             "format": "int",
             "type": "integer"
@@ -3925,6 +3957,10 @@
           "coverColor": {
             "format": "string",
             "type": "string"
+          },
+          "coverDelivery": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.MediaDelivery",
+            "description": ""
           },
           "coverHeight": {
             "format": "int",
@@ -4124,6 +4160,10 @@
             "format": "string",
             "type": "string"
           },
+          "delivery": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.MediaDelivery",
+            "description": ""
+          },
           "dominantColor": {
             "format": "string",
             "type": "string"
@@ -4176,6 +4216,10 @@
           "assetId": {
             "format": "string",
             "type": "string"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.MediaDelivery",
+            "description": ""
           },
           "description": {
             "format": "string",
@@ -4256,6 +4300,27 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.internal.model.MediaDelivery": {
+        "properties": {
+          "expiresAt": {
+            "format": "string",
+            "type": "string"
+          },
+          "mode": {
+            "format": "string",
+            "type": "string"
+          },
+          "renditions": {
+            "additionalProperties": {
+              "format": "string",
+              "type": "string"
+            },
+            "format": "map[string]string",
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.internal.model.Metrics": {
         "properties": {
           "favorites": {
@@ -4303,6 +4368,10 @@
           "assetId": {
             "format": "string",
             "type": "string"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.MediaDelivery",
+            "description": ""
           },
           "dominantColor": {
             "format": "string",
@@ -4423,6 +4492,10 @@
           "assetId": {
             "format": "string",
             "type": "string"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.MediaDelivery",
+            "description": ""
           },
           "imageId": {
             "format": "string",
@@ -5630,6 +5703,10 @@
                   "slug": {
                     "format": "string",
                     "type": "string"
+                  },
+                  "visual": {
+                    "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationPresentation",
+                    "description": ""
                   }
                 },
                 "type": "object"
@@ -5650,7 +5727,7 @@
             "description": ""
           }
         },
-        "summary": "Update the name and slug of a classification identity",
+        "summary": "Update classification identity fields, icon and cover",
         "tags": [
           "Gallery admin"
         ]

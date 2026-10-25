@@ -295,6 +295,7 @@ const { data: collectionData, refresh: refreshCollections } =
         : Promise.resolve({ items: [] }),
     { server: false, default: () => ({ items: [] }) },
   );
+useGalleryMediaRefresh(collectionData, refreshCollections);
 const collectionOptions = computed(() =>
   collectionData.value.items.map((item) => ({
     label: `${item.name} · ${item.itemCount} 张`,
@@ -864,7 +865,7 @@ function applyHeaderSort(by: string, order: ImageSortOrder) {
         >
           <div class="flex min-w-0 items-center gap-3">
             <img
-              :src="galleryRendition(image.assetId, 'thumbnail')"
+              :src="galleryRendition(image, 'thumbnail')"
               :alt="image.altText"
               class="hidden aspect-[4/3] w-16 shrink-0 rounded-lg bg-elevated object-cover sm:block"
             />
@@ -972,7 +973,7 @@ function applyHeaderSort(by: string, order: ImageSortOrder) {
         >
           <div class="relative aspect-[4/3] overflow-hidden bg-elevated">
             <img
-              v-bind="galleryImageSources(image.assetId, 'grid', false)"
+              v-bind="galleryImageSources(image, 'grid', false)"
               :alt="image.altText"
               class="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
             />
@@ -1130,7 +1131,7 @@ function applyHeaderSort(by: string, order: ImageSortOrder) {
             class="grid max-h-72 min-h-48 place-items-center overflow-hidden rounded-xl bg-elevated p-2"
           >
             <img
-              :src="galleryRendition(editing.assetId, 'preview')"
+              :src="galleryRendition(editing, 'preview')"
               :alt="editForm.altText || editing.title"
               class="max-h-68 max-w-full rounded-lg object-contain"
             />

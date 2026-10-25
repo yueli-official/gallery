@@ -85,6 +85,7 @@ const { data, pending, error, refresh } = await useAsyncData(
   },
   { server: false },
 );
+useGalleryMediaRefresh(data, refresh);
 const collection = computed(() => data.value?.collection);
 const members = computed(() => {
   const byID = new Map(
@@ -835,7 +836,7 @@ async function saveOrder(): Promise<void> {
                 :style="{ backgroundColor: item.dominantColor || undefined }"
               >
                 <img
-                  v-bind="galleryImageSources(item.assetId, 'grid', false)"
+                  v-bind="galleryImageSources(item, 'grid', false)"
                   :alt="item.altText || item.title"
                   class="size-full object-cover"
                 />
@@ -887,7 +888,7 @@ async function saveOrder(): Promise<void> {
                 :style="{ backgroundColor: item.dominantColor || undefined }"
               >
                 <img
-                  v-bind="galleryImageSources(item.assetId, 'grid', false)"
+                  v-bind="galleryImageSources(item, 'grid', false)"
                   :alt="item.altText || item.title"
                   class="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
                 />
@@ -1071,7 +1072,7 @@ async function saveOrder(): Promise<void> {
                   <img
                     v-if="selectedCover"
                     v-bind="
-                      galleryImageSources(selectedCover.assetId, 'grid', false)
+                      galleryImageSources(selectedCover, 'grid', false)
                     "
                     :alt="selectedCover.altText || selectedCover.title"
                   />

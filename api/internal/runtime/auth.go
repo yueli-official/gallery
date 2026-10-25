@@ -37,7 +37,7 @@ func NewRemoteVerifier(config RemoteVerifierConfig) (*foundationauth.Verifier, e
 	if err != nil {
 		return nil, err
 	}
-	return foundationauth.NewVerifier(foundationauth.Config{
+	return foundationauth.NewAccessTokenVerifier(foundationauth.Config{
 		Keys: keys, Issuer: config.Issuer, Audiences: optionalAudience(config.Audience), Clock: config.Clock,
 	})
 }

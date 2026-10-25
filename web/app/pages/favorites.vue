@@ -31,6 +31,7 @@ const { data, error, pending, refresh } = await useAsyncData(
     ),
   { server: false, watch: [page, sort] },
 );
+useGalleryMediaRefresh(data, refresh);
 const collection = computed(() => data.value?.collection);
 const images = computed(() => collection.value?.items || []);
 const removing = ref("");

@@ -45,20 +45,21 @@ type Metrics struct {
 }
 
 type ImageCard struct {
-	ID                  string      `json:"id" orm:"id"`
-	AssetID             string      `json:"assetId" orm:"asset_id"`
-	Title               string      `json:"title" orm:"title"`
-	AltText             string      `json:"altText" orm:"alt_text"`
-	Width               int         `json:"width" orm:"width"`
-	Height              int         `json:"height" orm:"height"`
-	DominantColor       string      `json:"dominantColor" orm:"dominant_color"`
-	PrimaryCategory     string      `json:"primaryCategory" orm:"primary_category"`
-	PrimaryCategorySlug string      `json:"primaryCategorySlug" orm:"primary_category_slug"`
-	PublishedAt         *gtime.Time `json:"publishedAt" orm:"published_at"`
-	UpdatedAt           *gtime.Time `json:"updatedAt" orm:"updated_at"`
-	Metrics             Metrics     `json:"metrics" orm:"-"`
-	ViewCount           int64       `json:"-" orm:"view_count"`
-	FavoriteCount       int64       `json:"-" orm:"favorite_count"`
+	Delivery            *MediaDelivery `json:"delivery,omitempty" orm:"-"`
+	ID                  string         `json:"id" orm:"id"`
+	AssetID             string         `json:"assetId" orm:"asset_id"`
+	Title               string         `json:"title" orm:"title"`
+	AltText             string         `json:"altText" orm:"alt_text"`
+	Width               int            `json:"width" orm:"width"`
+	Height              int            `json:"height" orm:"height"`
+	DominantColor       string         `json:"dominantColor" orm:"dominant_color"`
+	PrimaryCategory     string         `json:"primaryCategory" orm:"primary_category"`
+	PrimaryCategorySlug string         `json:"primaryCategorySlug" orm:"primary_category_slug"`
+	PublishedAt         *gtime.Time    `json:"publishedAt" orm:"published_at"`
+	UpdatedAt           *gtime.Time    `json:"updatedAt" orm:"updated_at"`
+	Metrics             Metrics        `json:"metrics" orm:"-"`
+	ViewCount           int64          `json:"-" orm:"view_count"`
+	FavoriteCount       int64          `json:"-" orm:"favorite_count"`
 }
 
 type ImagePublicationCandidate struct {
@@ -288,27 +289,28 @@ type TagCandidate struct {
 }
 
 type Collection struct {
-	ID             string      `json:"id" orm:"id"`
-	Kind           string      `json:"kind" orm:"kind"`
-	ResourceKind   string      `json:"resourceKind" orm:"resource_kind"`
-	OwnerKind      string      `json:"ownerKind" orm:"owner_kind"`
-	OwnerID        string      `json:"-" orm:"owner_id"`
-	Visibility     string      `json:"visibility" orm:"visibility"`
-	Name           string      `json:"name" orm:"name"`
-	Description    string      `json:"description" orm:"description"`
-	Version        int64       `json:"version" orm:"version"`
-	Slug           string      `json:"slug,omitempty" orm:"slug"`
-	CoverImageID   string      `json:"coverImageId,omitempty" orm:"cover_image_id"`
-	CoverAssetID   string      `json:"coverAssetId,omitempty" orm:"cover_asset_id"`
-	CoverAltText   string      `json:"coverAltText,omitempty" orm:"cover_alt_text"`
-	CoverWidth     int         `json:"coverWidth,omitempty" orm:"cover_width"`
-	CoverHeight    int         `json:"coverHeight,omitempty" orm:"cover_height"`
-	CoverColor     string      `json:"coverColor,omitempty" orm:"cover_color"`
-	SEOTitle       string      `json:"seoTitle,omitempty" orm:"seo_title"`
-	SEODescription string      `json:"seoDescription,omitempty" orm:"seo_description"`
-	ItemCount      int         `json:"itemCount" orm:"item_count"`
-	CreatedAt      *gtime.Time `json:"createdAt" orm:"created_at"`
-	UpdatedAt      *gtime.Time `json:"updatedAt" orm:"updated_at"`
+	CoverDelivery  *MediaDelivery `json:"coverDelivery,omitempty" orm:"-"`
+	ID             string         `json:"id" orm:"id"`
+	Kind           string         `json:"kind" orm:"kind"`
+	ResourceKind   string         `json:"resourceKind" orm:"resource_kind"`
+	OwnerKind      string         `json:"ownerKind" orm:"owner_kind"`
+	OwnerID        string         `json:"-" orm:"owner_id"`
+	Visibility     string         `json:"visibility" orm:"visibility"`
+	Name           string         `json:"name" orm:"name"`
+	Description    string         `json:"description" orm:"description"`
+	Version        int64          `json:"version" orm:"version"`
+	Slug           string         `json:"slug,omitempty" orm:"slug"`
+	CoverImageID   string         `json:"coverImageId,omitempty" orm:"cover_image_id"`
+	CoverAssetID   string         `json:"coverAssetId,omitempty" orm:"cover_asset_id"`
+	CoverAltText   string         `json:"coverAltText,omitempty" orm:"cover_alt_text"`
+	CoverWidth     int            `json:"coverWidth,omitempty" orm:"cover_width"`
+	CoverHeight    int            `json:"coverHeight,omitempty" orm:"cover_height"`
+	CoverColor     string         `json:"coverColor,omitempty" orm:"cover_color"`
+	SEOTitle       string         `json:"seoTitle,omitempty" orm:"seo_title"`
+	SEODescription string         `json:"seoDescription,omitempty" orm:"seo_description"`
+	ItemCount      int            `json:"itemCount" orm:"item_count"`
+	CreatedAt      *gtime.Time    `json:"createdAt" orm:"created_at"`
+	UpdatedAt      *gtime.Time    `json:"updatedAt" orm:"updated_at"`
 }
 
 type CollectionDetail struct {
@@ -479,17 +481,19 @@ type ClassificationGovernanceExecution struct {
 }
 
 type ClassificationIdentityCreateInput struct {
-	Kind     string `json:"kind"`
-	Name     string `json:"name"`
-	Slug     string `json:"slug"`
-	ParentID string `json:"parentId"`
-	FacetID  string `json:"facetId"`
+	Visual   *ClassificationPresentation `json:"visual,omitempty"`
+	Kind     string                      `json:"kind"`
+	Name     string                      `json:"name"`
+	Slug     string                      `json:"slug"`
+	ParentID string                      `json:"parentId"`
+	FacetID  string                      `json:"facetId"`
 }
 
 type ClassificationIdentityUpdateInput struct {
-	Kind string `json:"kind"`
-	Name string `json:"name"`
-	Slug string `json:"slug"`
+	Visual *ClassificationPresentation `json:"visual,omitempty"`
+	Kind   string                      `json:"kind"`
+	Name   string                      `json:"name"`
+	Slug   string                      `json:"slug"`
 }
 
 type ClassificationIdentityCreateResult struct {
@@ -498,16 +502,18 @@ type ClassificationIdentityCreateResult struct {
 }
 
 type ClassificationCatalogNode struct {
-	ID                string `json:"id"`
-	ParentID          string `json:"parentId"`
-	Slug              string `json:"slug"`
-	Name              string `json:"name"`
-	Status            string `json:"status"`
-	EditorialPosition *int   `json:"editorialPosition"`
-	ReplacementID     string `json:"replacementId"`
+	Visual            *ClassificationPresentation `json:"visual,omitempty"`
+	ID                string                      `json:"id"`
+	ParentID          string                      `json:"parentId"`
+	Slug              string                      `json:"slug"`
+	Name              string                      `json:"name"`
+	Status            string                      `json:"status"`
+	EditorialPosition *int                        `json:"editorialPosition"`
+	ReplacementID     string                      `json:"replacementId"`
 }
 
 type ClassificationCatalogFacet struct {
+	Visual            *ClassificationPresentation `json:"visual,omitempty"`
 	ID                string                      `json:"id"`
 	Slug              string                      `json:"slug"`
 	Name              string                      `json:"name"`
@@ -529,13 +535,14 @@ type ClassificationTagCursor struct {
 }
 
 type ClassificationTag struct {
-	ID              string `json:"id" orm:"id"`
-	Name            string `json:"name" orm:"name"`
-	Slug            string `json:"slug" orm:"slug"`
-	Status          string `json:"status" orm:"status"`
-	ReplacementID   string `json:"replacementId" orm:"replacement_id"`
-	AssignmentCount int64  `json:"assignmentCount" orm:"assignment_count"`
-	AliasCount      int64  `json:"aliasCount" orm:"alias_count"`
+	Visual          *ClassificationPresentation `json:"visual,omitempty" orm:"-"`
+	ID              string                      `json:"id" orm:"id"`
+	Name            string                      `json:"name" orm:"name"`
+	Slug            string                      `json:"slug" orm:"slug"`
+	Status          string                      `json:"status" orm:"status"`
+	ReplacementID   string                      `json:"replacementId" orm:"replacement_id"`
+	AssignmentCount int64                       `json:"assignmentCount" orm:"assignment_count"`
+	AliasCount      int64                       `json:"aliasCount" orm:"alias_count"`
 }
 
 type ClassificationTagPage struct {

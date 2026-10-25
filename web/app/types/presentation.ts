@@ -1,5 +1,6 @@
 export interface GalleryPresentationRule {
-  kind: "category" | "facet_value";
+	 delivery?: import("./gallery").GalleryMediaDelivery;
+  kind: "category" | "facet" | "facet_value" | "tag";
   nodeId: string;
   mode: "icon" | "image";
   icon: string;
@@ -7,7 +8,7 @@ export interface GalleryPresentationRule {
   assetId: string;
 }
 export interface GalleryAppearance {
-  sidebar: { mode: "plain" | "image"; imageId: string; assetId: string; overlay: number };
+  sidebar: { mode: "plain" | "image"; imageId: string; assetId: string; overlay: number; delivery?: import("./gallery").GalleryMediaDelivery };
   classification: GalleryPresentationRule[];
 }
 export interface GallerySavedFilter {

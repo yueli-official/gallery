@@ -29,6 +29,12 @@ func Configure(s *ghttp.Server, deps Deps) {
 		checks = map[string]runtime.ReadinessCheck{"database": runtime.DatabaseReadiness}
 	}
 	s.Use(runtime.TraceRouteMiddleware)
+	if deps.Gallery != nil && deps.Gallery.SignedMediaDelivery() {
+		s.Use(func(r *ghttp.Request) {
+			r.Response.Header().Set("Cache-Control", "private, no-store")
+			r.Middleware.Next()
+		})
+	}
 	s.Group("/", func(group *ghttp.RouterGroup) {
 		group.Middleware(apiMiddleware)
 		group.GET("/healthz", controller.Healthz)

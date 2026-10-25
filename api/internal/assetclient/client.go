@@ -10,10 +10,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
-	"time"
 
 	foundationhttpclient "github.com/yueli-official/foundation/go/httpclient"
+	"github.com/yueli-official/foundation/go/oauthclient"
 	"github.com/yueli-official/gallery/api/internal/galleryerr"
 	"github.com/yueli-official/gallery/api/internal/model"
 )
@@ -29,16 +28,10 @@ type Config struct {
 }
 
 type HTTP struct {
-	baseURL      string
-	tokenURL     string
-	clientID     string
-	clientSecret string
-	scope        string
-	siteKey      string
-	http         *http.Client
-	tokenMu      sync.Mutex
-	token        string
-	tokenExpires time.Time
+	baseURL string
+	siteKey string
+	http    *http.Client
+	tokens  *oauthclient.Credentials
 }
 
 type SubmissionAssetFacts = model.SubmissionAssetFacts
@@ -55,9 +48,12 @@ func NewHTTP(cfg Config) (*HTTP, error) {
 	if scope == "" {
 		scope = "asset:sign"
 	}
+	tokens, err := oauthclient.NewCredentials(oauthclient.Config{Endpoint: strings.TrimSpace(cfg.TokenURL), ClientID: strings.TrimSpace(cfg.ClientID), ClientSecret: cfg.ClientSecret, Scopes: strings.Fields(scope), HTTPClient: client})
+	if err != nil {
+		return nil, err
+	}
 	return &HTTP{
-		baseURL: strings.TrimRight(cfg.BaseURL, "/"), tokenURL: strings.TrimSpace(cfg.TokenURL),
-		clientID: strings.TrimSpace(cfg.ClientID), clientSecret: cfg.ClientSecret, scope: scope,
+		baseURL: strings.TrimRight(cfg.BaseURL, "/"), tokens: tokens,
 		siteKey: strings.TrimSpace(cfg.SiteKey), http: client,
 	}, nil
 }
@@ -185,40 +181,5 @@ func remoteCode(err error) string {
 }
 
 func (c *HTTP) accessToken(ctx context.Context) (string, error) {
-	c.tokenMu.Lock()
-	defer c.tokenMu.Unlock()
-	if c.token != "" && time.Until(c.tokenExpires) > 30*time.Second {
-		return c.token, nil
-	}
-	form := url.Values{
-		"grant_type": {"client_credentials"}, "client_id": {c.clientID},
-		"client_secret": {c.clientSecret}, "scope": {c.scope},
-	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.tokenURL, strings.NewReader(form.Encode()))
-	if err != nil {
-		return "", err
-	}
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	response, err := c.http.Do(request)
-	if err != nil {
-		return "", err
-	}
-	defer response.Body.Close()
-	var token struct {
-		AccessToken string `json:"access_token"`
-		ExpiresIn   int    `json:"expires_in"`
-	}
-	if err := json.NewDecoder(response.Body).Decode(&token); err != nil {
-		return "", err
-	}
-	if response.StatusCode < 200 || response.StatusCode >= 300 || strings.TrimSpace(token.AccessToken) == "" {
-		return "", fmt.Errorf("client credentials grant failed with %s", response.Status)
-	}
-	ttl := time.Duration(token.ExpiresIn) * time.Second
-	if ttl <= 0 {
-		ttl = time.Minute
-	}
-	c.token = token.AccessToken
-	c.tokenExpires = time.Now().Add(ttl)
-	return c.token, nil
+	return c.tokens.Token(ctx)
 }

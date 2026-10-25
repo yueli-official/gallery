@@ -23,7 +23,7 @@ const emit = defineEmits<{
           :style="{ backgroundColor: image.dominantColor || undefined }"
         >
           <img
-            v-bind="galleryImageSources(image.assetId, 'grid')"
+            v-bind="galleryImageSources(image, 'grid')"
             :alt="image.altText || image.title"
             :width="image.width || undefined"
             :height="image.height || undefined"

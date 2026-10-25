@@ -26,7 +26,7 @@ body.gallery-manage-active {
   color-scheme: light;
   --ui-radius: 0.25rem;
   --gallery-admin-shell: #ffffff;
-  --gallery-admin-canvas: #f4f6f8;
+  --gallery-admin-canvas: #f5f6f8;
   --ui-bg: #ffffff;
   --ui-bg-muted: #f4f6f8;
   --ui-bg-elevated: #edf1f5;
@@ -39,7 +39,8 @@ body.gallery-manage-active {
   --ui-text-muted: #586477;
   --ui-text-dimmed: #687386;
   --ui-text-highlighted: #172033;
-  --ui-primary: #2458ff;
+  --ui-primary: #86621f;
+  --ui-text-inverted: #ffffff;
   --yueli-surface-page: var(--gallery-admin-shell);
   --yueli-surface-region: var(--gallery-admin-canvas);
   --yueli-surface-card: var(--ui-bg);
@@ -60,12 +61,12 @@ body.gallery-manage-active {
 
 .dark body.gallery-manage-active {
   color-scheme: dark;
-  --gallery-admin-shell: #10151f;
-  --gallery-admin-canvas: #161c27;
-  --ui-bg: #1c2431;
-  --ui-bg-muted: #222c3b;
-  --ui-bg-elevated: #293547;
-  --ui-bg-accented: #334158;
+  --gallery-admin-shell: #0f141c;
+  --gallery-admin-canvas: #141b25;
+  --ui-bg: #1b2430;
+  --ui-bg-muted: #202a36;
+  --ui-bg-elevated: #27323f;
+  --ui-bg-accented: #343027;
   --ui-bg-inverted: #f4f7fb;
   --ui-border: #334052;
   --ui-border-muted: #273243;
@@ -74,12 +75,13 @@ body.gallery-manage-active {
   --ui-text-muted: #aab5c5;
   --ui-text-dimmed: #8c99ab;
   --ui-text-highlighted: #f4f7fb;
-  --ui-primary: #7c9fff;
+  --ui-primary: #e7c68e;
+  --ui-text-inverted: #141b25;
   --yueli-surface-page: var(--gallery-admin-shell);
   --yueli-surface-region: var(--gallery-admin-canvas);
   --yueli-surface-card: var(--ui-bg);
   --yueli-surface-inset: var(--ui-bg-muted);
-  --yueli-surface-overlay: #253043;
+  --yueli-surface-overlay: #1b2430;
   --yueli-border-soft: var(--ui-border-muted);
   --yueli-border-strong: var(--ui-border);
   --yueli-shadow-card: 0 1px 2px rgb(0 0 0 / 0.28);

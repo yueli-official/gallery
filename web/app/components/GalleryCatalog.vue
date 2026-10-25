@@ -7,6 +7,7 @@ const route = useRoute();
 const catalog = useGalleryCatalogState();
 const { state, request, selectedCategories, selectedFacets, selectedTag } = catalog;
 const { data, status, error, refresh } = await useFetch<GalleryImagePage>("/api/gallery/images", { query: request });
+useGalleryMediaRefresh(data, refresh);
 const pending = useMinimumLoading(computed(() => status.value === "pending" || status.value === "idle"));
 const navigation = useGalleryViewerNavigation();
 watch([data, request], ([page, query]) => { if (page && page.page === query.page) navigation.value = createCatalogViewerNavigationSession(page.items, query, galleryPageCount(page)); }, { immediate: true });

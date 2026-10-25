@@ -2,6 +2,7 @@
 import { ManagePage, TabbedSurface } from "@yueli/ui/admin";
 import { SkeletonList } from "~/utils/manageComponents";
 import { classificationMutationErrorMessage } from "~/utils/classificationMutation";
+import type { GalleryPresentationRule } from "~/types/presentation";
 import type {
   GalleryClassificationCatalog,
   GalleryClassificationCatalogFacet,
@@ -131,8 +132,16 @@ const createKind = ref<"category" | "facet" | "facet_value" | "tag">(
 );
 const createFacetID = ref("");
 const createForm = reactive({ name: "", slug: "", parentId: "__root__" });
+const visualEditor = ref<{ prepare: () => Promise<boolean> }>();
+const visualBusy = ref(false);
+const visualDraft = ref<GalleryPresentationRule>();
+function defaultVisual(kind: GalleryPresentationRule["kind"], nodeId = ""): GalleryPresentationRule {
+  return { kind, nodeId, mode: "icon", icon: "photo", imageId: "", assetId: "" };
+}
 
 const catalog = computed(() => data.value.catalog);
+useGalleryMediaRefresh(data, refresh);
+useGalleryMediaRefresh(tagData, refreshTags);
 const query = computed(() =>
   String(route.query.q || "")
     .trim()
@@ -244,6 +253,7 @@ function openCreateIdentity(
   createFacetID.value = facetID;
   createError.value = "";
   Object.assign(createForm, { name: "", slug: "", parentId: "__root__" });
+  visualDraft.value = defaultVisual(kind);
   createOpen.value = true;
 }
 
@@ -255,6 +265,7 @@ function openEditIdentity(kind: IdentityKind, item: ManagedIdentity) {
   createKind.value = kind as "category" | "facet" | "facet_value" | "tag";
   createFacetID.value = "";
   createError.value = "";
+  visualDraft.value = item.visual ? structuredClone(toRaw(item.visual)) : defaultVisual(createKind.value, item.id);
   Object.assign(createForm, {
     name: item.name,
     slug: item.slug,
@@ -264,17 +275,19 @@ function openEditIdentity(kind: IdentityKind, item: ManagedIdentity) {
 }
 
 function closeCreateIdentity() {
+  if (creating.value || visualBusy.value) return;
   createOpen.value = false;
 }
 
 async function saveIdentity() {
   if (
     !canGovern.value ||
-    creating.value ||
+    creating.value || visualBusy.value ||
     !createForm.name.trim() ||
     !createForm.slug.trim()
   )
     return;
+  if (!(await visualEditor.value?.prepare())) return;
   creating.value = true;
   createError.value = "";
   try {
@@ -288,6 +301,7 @@ async function saveIdentity() {
         kind: createKind.value,
         name: createForm.name.trim(),
         slug: createForm.slug.trim(),
+        visual: visualDraft.value,
         ...(identityFormMode.value === "create"
           ? {
               parentId:
@@ -300,6 +314,7 @@ async function saveIdentity() {
     );
     createOpen.value = false;
     await (createKind.value === "tag" ? refreshTags() : refresh());
+    await refreshNuxtData("gallery-public-site-settings");
     actionSuccess.value = `${createTitle.value}完成。`;
   } catch (cause) {
     createError.value = classificationMutationErrorMessage(
@@ -666,14 +681,14 @@ async function reviewTagProposal(
       </div>
     </TabbedSurface>
 
-    <UModal v-model:open="createOpen" :title="createTitle">
+    <USlideover v-model:open="createOpen" :title="createTitle" :dismissible="!creating && !visualBusy" :close="!creating && !visualBusy">
       <template #body>
         <form id="classification-create-form" class="space-y-4" @submit.prevent="saveIdentity">
           <UAlert
             v-if="createError"
             color="error"
             variant="subtle"
-            title="创建失败"
+            title="保存失败"
             :description="createError"
           />
           <UFormField label="名称" required>
@@ -683,7 +698,7 @@ async function reviewTagProposal(
             <UInput
               v-model="createForm.slug"
               class="w-full"
-              placeholder="例如 landscape"
+              placeholder="例如 blue-archive"
             />
           </UFormField>
           <UFormField
@@ -697,6 +712,7 @@ async function reviewTagProposal(
               class="w-full"
             />
           </UFormField>
+          <GalleryClassificationVisualEditor v-if="visualDraft" :key="`${identityFormMode}:${createKind}:${editingIdentityID}:${createOpen}`" ref="visualEditor" v-model="visualDraft" :disabled="creating" @busy="visualBusy = $event" />
           <p class="text-xs leading-5 text-muted">
             {{ identityFormHint }}
           </p>
@@ -708,18 +724,19 @@ async function reviewTagProposal(
             label="取消"
             color="neutral"
             variant="ghost"
+            :disabled="creating || visualBusy"
             @click="closeCreateIdentity"
           />
           <UButton
             form="classification-create-form"
             type="submit"
-            :label="createTitle"
+            :label="identityFormMode === 'create' ? '创建' : '保存'"
             :loading="creating"
-            :disabled="!createForm.name.trim() || !createForm.slug.trim()"
+            :disabled="visualBusy || !createForm.name.trim() || !createForm.slug.trim()"
           />
         </div>
       </template>
-    </UModal>
+    </USlideover>
 
     <ClassificationEditorModal
       v-if="canGovern"

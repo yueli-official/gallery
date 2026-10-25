@@ -133,7 +133,7 @@ type CreateClassificationIdentityRes struct {
 }
 
 type UpdateClassificationIdentityReq struct {
-	g.Meta     `path:"/api/v1/gallery/admin/classification/identities/{identityId}" method:"PATCH" tags:"Gallery admin" summary:"Update the name and slug of a classification identity"`
+	g.Meta     `path:"/api/v1/gallery/admin/classification/identities/{identityId}" method:"PATCH" tags:"Gallery admin" summary:"Update classification identity fields, icon and cover"`
 	IdentityID string `p:"identityId" v:"required"`
 	model.ClassificationIdentityUpdateInput
 }

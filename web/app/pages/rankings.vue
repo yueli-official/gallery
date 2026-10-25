@@ -11,6 +11,7 @@ const { data, error, status, refresh } = await useFetch<{
   query: computed(() => ({ kind: kind.value, window: windowKey.value })),
   watch: [kind, windowKey],
 });
+useGalleryMediaRefresh(data, refresh);
 const kinds = [
   { label: "趋势", value: "trending" },
   { label: "收藏最多", value: "most_favorited" },

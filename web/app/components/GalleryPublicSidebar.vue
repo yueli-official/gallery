@@ -18,7 +18,7 @@ const navigation = [
 const background = computed(() => {
   const config = site.value?.appearance.sidebar;
   if (config?.mode !== "image") return {};
-  return { backgroundImage: `linear-gradient(rgba(12,17,25,${config.overlay}), rgba(12,17,25,${config.overlay})), url("${galleryRendition(config.assetId, "display")}")` };
+  return { backgroundImage: `linear-gradient(rgba(12,17,25,${config.overlay}), rgba(12,17,25,${config.overlay})), url("${galleryRendition(config, "display")}")` };
 });
 const imageBackground = computed(() => site.value?.appearance.sidebar.mode === "image");
 function link(item: GallerySavedFilter) {

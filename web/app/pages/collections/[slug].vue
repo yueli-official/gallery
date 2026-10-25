@@ -10,6 +10,7 @@ const { data, error, status, refresh } = await useFetch<{
   query: computed(() => ({ page: page.value, size: 24 })),
   watch: [page],
 });
+useGalleryMediaRefresh(data, refresh);
 if (import.meta.server && error.value) setResponseStatus(404);
 const collection = computed(() => data.value?.collection);
 const images = computed(() => collection.value?.items || []);
@@ -23,7 +24,7 @@ useSeoMeta({
   robots: () => (error.value ? "noindex, nofollow" : "index, follow"),
   ogImage: () =>
     collection.value?.coverAssetId
-      ? galleryRendition(collection.value.coverAssetId, "og")
+      ? galleryRendition(collection.value, "og")
       : undefined,
 });
 
@@ -74,7 +75,7 @@ function setPage(value: number): void {
       >
         <img
           v-if="collection.coverAssetId"
-          v-bind="galleryImageSources(collection.coverAssetId, 'preview', true)"
+          v-bind="galleryImageSources(collection, 'preview', true)"
           :alt="collection.coverAltText || collection.name"
           :width="collection.coverWidth"
           :height="collection.coverHeight"
