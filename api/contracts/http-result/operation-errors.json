@@ -905,6 +905,21 @@
       "common.unauthorized",
       "gallery.forbidden",
       "gallery.conflict"
+    ],
+    "GET /api/v1/gallery/tag-suggestions": [
+      "common.internal",
+      "common.validation_failed",
+      "gallery.not_initialized",
+      "gallery.forbidden"
+    ],
+    "POST /api/v1/gallery/images/{imageId}/tag-proposals": [
+      "common.internal",
+      "common.unauthorized",
+      "common.validation_failed",
+      "gallery.forbidden",
+      "gallery.not_initialized",
+      "gallery.not_found",
+      "gallery.rate_limited"
     ]
   }
 }

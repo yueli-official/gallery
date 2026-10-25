@@ -269,6 +269,12 @@ func (f *fakeStore) ExecuteClassificationGovernance(_ context.Context, _ string,
 func (f *fakeStore) ClassificationTags(_ context.Context, _ model.ClassificationTagCursor, _ int) ([]model.ClassificationTag, bool, error) {
 	return append([]model.ClassificationTag(nil), f.classificationTags...), false, nil
 }
+func (f *fakeStore) TagSuggestions(context.Context, string, int) ([]model.TagCandidate, error) {
+	return nil, nil
+}
+func (f *fakeStore) ProposeImageTags(context.Context, model.Subject, string, []classification.TagLookupRequest) ([]model.ClassificationTagProposal, error) {
+	return nil, nil
+}
 func (f *fakeStore) ClassificationTagProposals(context.Context, string, int, int) ([]model.ClassificationTagProposal, int, error) {
 	return append([]model.ClassificationTagProposal(nil), f.tagProposals...), len(f.tagProposals), nil
 }

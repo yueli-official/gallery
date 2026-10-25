@@ -49,11 +49,18 @@ func (p *PG) ClassificationTagProposals(ctx context.Context, status string, page
 	}
 	var values []model.ClassificationTagProposal
 	if err := p.db.Ctx(ctx).Raw(`
-SELECT id::text AS id, submission_id::text AS submission_id, input_value, lookup_key, status,
-       COALESCE(resolved_tag_id::text, '') AS resolved_tag_id, created_at, reviewed_at
-FROM gallery_tag_proposals
-WHERE status = ?
-ORDER BY created_at, id
+SELECT p.id::text AS id, COALESCE(p.submission_id::text, '') AS submission_id,
+       COALESCE(p.image_id::text, submission.image_id::text, '') AS image_id,
+       COALESCE(image.title, submission.title, '') AS image_title,
+       COALESCE(NULLIF(p.proposer_id, ''), submission.subject_id, '') AS proposer_id,
+       CASE WHEN p.image_id IS NOT NULL THEN p.proposer_kind ELSE submission.subject_kind END AS proposer_kind,
+       p.input_value, p.lookup_key, p.status,
+       COALESCE(p.resolved_tag_id::text, '') AS resolved_tag_id, p.created_at, p.reviewed_at
+FROM gallery_tag_proposals p
+LEFT JOIN gallery_submissions submission ON submission.id = p.submission_id
+LEFT JOIN gallery_images image ON image.id = COALESCE(p.image_id, submission.image_id)
+WHERE p.status = ?
+ORDER BY p.created_at, p.id
 LIMIT ? OFFSET ?`, status, size, (page-1)*size).Scan(&values); err != nil {
 		return nil, 0, gerror.Wrap(err, "query gallery tag proposals")
 	}
@@ -77,7 +84,8 @@ FOR UPDATE`)
 			return galleryerr.NotInitialized("classification_catalog")
 		}
 		proposal, err := tx.GetOne(`
-SELECT id::text AS id, submission_id::text AS submission_id, input_value, lookup_key, status,
+SELECT id::text AS id, COALESCE(submission_id::text, '') AS submission_id,
+       COALESCE(image_id::text, '') AS image_id, proposer_id, proposer_kind, input_value, lookup_key, status,
        COALESCE(resolved_tag_id::text, '') AS resolved_tag_id, created_at, reviewed_at
 FROM gallery_tag_proposals
 WHERE id = ?::uuid
@@ -96,7 +104,8 @@ FOR UPDATE`, id)
 UPDATE gallery_tag_proposals
 SET status = 'rejected', reviewed_by = ?, reviewed_at = NOW(), updated_at = NOW()
 WHERE id = ?::uuid
-RETURNING id::text AS id, submission_id::text AS submission_id, input_value, lookup_key, status,
+RETURNING id::text AS id, COALESCE(submission_id::text, '') AS submission_id,
+          COALESCE(image_id::text, '') AS image_id, proposer_id, proposer_kind, input_value, lookup_key, status,
           COALESCE(resolved_tag_id::text, '') AS resolved_tag_id, created_at, reviewed_at`, operator, id)
 			if err != nil {
 				return gerror.Wrap(err, "reject gallery tag proposal")
@@ -106,6 +115,16 @@ RETURNING id::text AS id, submission_id::text AS submission_id, input_value, loo
 		}
 
 		lookupKey := proposal["lookup_key"].String()
+		imageID := proposal["image_id"].String()
+		if imageID != "" {
+			image, err := tx.GetOne(`SELECT i.id FROM gallery_images i WHERE i.id = ?::uuid AND `+eligibleImage+` FOR UPDATE`, imageID)
+			if err != nil {
+				return gerror.Wrap(err, "lock contribution image for review")
+			}
+			if len(image) == 0 {
+				return galleryerr.InvalidState("image", "not_public")
+			}
+		}
 		targetID := ""
 		existing, err := tx.GetOne(`
 SELECT target.id::text AS id, target.status
@@ -158,25 +177,33 @@ VALUES (?::uuid, ?, ?::uuid, 'canonical', ?)`, catalog["id"].String(), lookupKey
 			catalogChanged = true
 		}
 
-		if _, err := tx.Ctx(ctx).Exec(`
+		if proposal["submission_id"].String() != "" {
+			if _, err := tx.Ctx(ctx).Exec(`
 INSERT INTO gallery_submission_tag_assignments (submission_id, tag_id)
 VALUES (?::uuid, ?::uuid)
 ON CONFLICT DO NOTHING`, proposal["submission_id"].String(), targetID); err != nil {
-			return gerror.Wrap(err, "assign approved gallery submission tag")
-		}
-		if _, err := tx.Ctx(ctx).Exec(`
+				return gerror.Wrap(err, "assign approved gallery submission tag")
+			}
+			if _, err := tx.Ctx(ctx).Exec(`
 INSERT INTO gallery_image_tag_assignments (image_id, tag_id)
 SELECT image_id, ?::uuid
 FROM gallery_submissions
 WHERE id = ?::uuid AND image_id IS NOT NULL
 ON CONFLICT DO NOTHING`, targetID, proposal["submission_id"].String()); err != nil {
-			return gerror.Wrap(err, "assign approved gallery image tag")
+				return gerror.Wrap(err, "assign approved gallery image tag")
+			}
+		} else {
+			if _, err := tx.Exec(`INSERT INTO gallery_image_tag_assignments (image_id, tag_id)
+VALUES (?::uuid, ?::uuid) ON CONFLICT DO NOTHING`, imageID, targetID); err != nil {
+				return gerror.Wrap(err, "assign approved image contribution tag")
+			}
 		}
 		record, err := tx.GetOne(`
 UPDATE gallery_tag_proposals
 SET status = 'approved', resolved_tag_id = ?::uuid, reviewed_by = ?, reviewed_at = NOW(), updated_at = NOW()
 WHERE id = ?::uuid
-RETURNING id::text AS id, submission_id::text AS submission_id, input_value, lookup_key, status,
+RETURNING id::text AS id, COALESCE(submission_id::text, '') AS submission_id,
+          COALESCE(image_id::text, '') AS image_id, proposer_id, proposer_kind, input_value, lookup_key, status,
           resolved_tag_id::text AS resolved_tag_id, created_at, reviewed_at`, targetID, operator, id)
 		if err != nil {
 			return gerror.Wrap(err, "approve gallery tag proposal")

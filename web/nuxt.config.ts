@@ -23,6 +23,9 @@ export default defineNuxtConfig({
 
   extends: ["@yueli/identity-nuxt", "@yueli/asset-nuxt"],
   modules: ["@nuxt/ui", "@yueli/ui", "@yueli/nuxt-runtime"],
+  // Fontsource files are bundled locally; automatic font discovery must not
+  // make rendering depend on remote font-provider requests.
+  ui: { fonts: false },
   yueliUi: {
     tablerIcons: [
       ...galleryPresentationIcons.map(name => `i-tabler-${name}`),
@@ -122,15 +125,6 @@ export default defineNuxtConfig({
   devServer: {
     host: "127.0.0.1",
     port: Number(process.env.NUXT_DEV_PORT || "3007"),
-  },
-  fonts: {
-    providers: {
-      google: false,
-      googleicons: false,
-      bunny: false,
-      fontshare: false,
-      fontsource: false,
-    },
   },
   nitro: {
     esbuild: {

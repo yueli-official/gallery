@@ -553,6 +553,10 @@ type ClassificationTagPage struct {
 type ClassificationTagProposal struct {
 	ID            string      `json:"id" orm:"id"`
 	SubmissionID  string      `json:"submissionId" orm:"submission_id"`
+	ImageID       string      `json:"imageId" orm:"image_id"`
+	ImageTitle    string      `json:"imageTitle" orm:"image_title"`
+	ProposerID    string      `json:"proposerId" orm:"proposer_id"`
+	ProposerKind  string      `json:"proposerKind" orm:"proposer_kind"`
 	InputValue    string      `json:"inputValue" orm:"input_value"`
 	LookupKey     string      `json:"lookupKey" orm:"lookup_key"`
 	Status        string      `json:"status" orm:"status"`

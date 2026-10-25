@@ -745,6 +745,22 @@
       ]
     },
     {
+      "id": "gallery.get.api.v1.gallery.tag-suggestions",
+      "method": "GET",
+      "path": "/api/v1/gallery/tag-suggestions",
+      "success": {
+        "status": 200,
+        "kind": "collection",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.TagSuggestionsRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.validation_failed",
+        "gallery.not_initialized",
+        "gallery.forbidden"
+      ]
+    },
+    {
       "id": "gallery.get.api.v1.internal.personal-token.permissions",
       "method": "GET",
       "path": "/api/v1/internal/personal-token/permissions",
@@ -1515,6 +1531,25 @@
         "gallery.invalid_state",
         "gallery.upstream_failed",
         "common.unauthorized"
+      ]
+    },
+    {
+      "id": "gallery.post.api.v1.gallery.images.by-imageId.tag-proposals",
+      "method": "POST",
+      "path": "/api/v1/gallery/images/{imageId}/tag-proposals",
+      "success": {
+        "status": 200,
+        "kind": "collection",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.ProposeImageTagsRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.unauthorized",
+        "common.validation_failed",
+        "gallery.forbidden",
+        "gallery.not_initialized",
+        "gallery.not_found",
+        "gallery.rate_limited"
       ]
     },
     {

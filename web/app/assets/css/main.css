@@ -1,6 +1,9 @@
+@import "@fontsource-variable/dm-sans";
+@import "@fontsource-variable/space-grotesk";
+
 @theme {
   --font-sans: "DM Sans Variable", "Noto Sans SC", "PingFang SC", "Microsoft YaHei UI", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Space Grotesk", ui-monospace, monospace;
+  --font-mono: "Space Grotesk Variable", ui-monospace, monospace;
 }
 :root {
   --gallery-title-page:clamp(1.45rem,2.2vw,1.85rem);--gallery-title-section:clamp(1.05rem,1.6vw,1.35rem);--gallery-on-accent:#fff;
@@ -90,7 +93,7 @@ body.gallery-manage-active {
   --yueli-admin-search: var(--ui-bg-muted);
 }
 
-html{scroll-behavior:smooth}body{min-width:320px;background:var(--gallery-canvas);font-family:var(--font-sans);text-rendering:optimizeLegibility}body:not(.gallery-manage-active) :is(h1,h2,h3){font-family:var(--font-sans)}button:not(:disabled),a{touch-action:manipulation}button:not(:disabled){cursor:pointer}.font-numeric{font-family:var(--font-mono);font-variant-numeric:tabular-nums}.font-editorial{font-family:Georgia,serif}.gallery-public-active :focus-visible{outline:2px solid var(--gallery-accent);outline-offset:3px}.gallery-section-heading{display:flex;align-items:center;justify-content:space-between;margin:1rem 0}.gallery-section-heading h2{font-size:.85rem;font-weight:600}.gallery-detail-page{min-width:0}
+html{scroll-behavior:smooth}body{min-width:320px;background:var(--gallery-canvas);font-family:var(--font-sans);text-rendering:optimizeLegibility}body:not(.gallery-manage-active) :is(h1,h2,h3){font-family:var(--font-sans)}button:not(:disabled),a{touch-action:manipulation}button:not(:disabled){cursor:pointer}.font-numeric{font-family:var(--font-mono);font-variant-numeric:tabular-nums}.font-editorial{font-family:Georgia,serif}.gallery-public-active :focus-visible:not([data-slot]){outline:2px solid var(--gallery-accent);outline-offset:3px}.gallery-section-heading{display:flex;align-items:center;justify-content:space-between;margin:1rem 0}.gallery-section-heading h2{font-size:.85rem;font-weight:600}.gallery-detail-page{min-width:0}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
 
 .gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(15rem,1fr));gap:.65rem;align-items:start}

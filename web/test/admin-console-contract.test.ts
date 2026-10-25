@@ -121,7 +121,6 @@ describe("Gallery management console contract", () => {
     expect(facetPanel).toContain('label="新增"');
     expect(facetPanel).not.toContain('label="新增值"');
     expect(proposalPanel).not.toContain("<details");
-    expect(proposalPanel).not.toContain("submissionId");
     expect(proposalPanel).not.toContain("font-mono");
     expect(proposalPanel).toContain('size="xs"');
     expect(proposalPanel).not.toContain("min-h-11");

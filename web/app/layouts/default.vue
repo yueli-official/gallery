@@ -5,6 +5,10 @@ const { data: response, refresh: refreshSite } = await useFetch<{ site: GalleryS
 useGalleryMediaRefresh(response, refreshSite);
 watch(() => response.value?.site, value => { if (value) gallerySite.value = value; }, { immediate: true });
 const mobileOpen = ref(false);
+const colorMode = useColorMode();
+function toggleTheme(): void {
+  colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
+}
 const { canManage, refreshMe } = useGalleryMe();
 const { loggedIn } = useAuth();
 const actions = computed(() => canManage.value ? [{ label: "图库管理", icon: "i-tabler-settings", to: "/manage" }] : []);
@@ -20,7 +24,10 @@ useHead({ bodyAttrs: { class: "gallery-public-active" } });
       <header class="gallery-workspace-topbar">
         <UButton class="gallery-mobile-menu" icon="i-tabler-menu-2" color="neutral" variant="ghost" aria-label="打开导航" @click="void (mobileOpen = true)" />
         <GalleryGlobalSearch compact :placeholder="gallerySite?.searchPlaceholder" />
-        <ConsumerAccountControl :context-actions="actions" />
+        <div class="gallery-workspace-actions">
+          <UButton icon="i-tabler-moon-stars" color="neutral" variant="ghost" aria-label="切换明暗主题" title="切换明暗主题" @click="toggleTheme" />
+          <ConsumerAccountControl :context-actions="actions" />
+        </div>
       </header>
       <main id="public-main" tabindex="-1" class="gallery-workspace-main"><slot /></main>
     </div>
@@ -30,6 +37,6 @@ useHead({ bodyAttrs: { class: "gallery-public-active" } });
   </div>
 </template>
 <style scoped>
-.gallery-workspace{--gallery-content-max:120rem;min-height:100dvh;color:var(--gallery-ink)}.gallery-workspace-sidebar{position:fixed;inset:0 auto 0 0;width:12.5rem;z-index:30;overflow-y:auto}.gallery-workspace-panel{margin-left:12.5rem;min-width:0}.gallery-workspace-topbar{position:sticky;top:0;z-index:25;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.75rem max(1.25rem,calc((100% - var(--gallery-content-max))/2 + 1.25rem));background:var(--gallery-canvas);border-bottom:1px solid var(--gallery-line);min-height:4rem}.gallery-workspace-main{width:100%;max-width:var(--gallery-content-max);margin-inline:auto;padding:1.15rem 1.25rem 2rem;outline:none;min-width:0}.gallery-mobile-menu{display:none}
+.gallery-workspace{--gallery-content-max:120rem;min-height:100dvh;color:var(--gallery-ink)}.gallery-workspace-sidebar{position:fixed;inset:0 auto 0 0;width:12.5rem;z-index:30;overflow-y:auto}.gallery-workspace-panel{margin-left:12.5rem;min-width:0}.gallery-workspace-topbar{position:sticky;top:0;z-index:25;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.75rem max(1.25rem,calc((100% - var(--gallery-content-max))/2 + 1.25rem));background:var(--gallery-canvas);border-bottom:1px solid var(--gallery-line);min-height:4rem}.gallery-workspace-main{width:100%;max-width:var(--gallery-content-max);margin-inline:auto;padding:1.15rem 1.25rem 2rem;outline:none;min-width:0}.gallery-mobile-menu{display:none}.gallery-workspace-actions{display:flex;align-items:center;gap:.5rem;flex-shrink:0}
 @media(max-width:900px){.gallery-workspace-sidebar{display:none}.gallery-workspace-panel{margin-left:0}.gallery-mobile-menu{display:inline-flex}.gallery-workspace-topbar{gap:.5rem;padding:.65rem .75rem}.gallery-workspace-main{padding:.85rem .75rem 1.5rem}}
 </style>

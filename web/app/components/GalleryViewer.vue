@@ -257,7 +257,9 @@ async function download(format: "webp" | "jpg" = "webp"){
   }
   const url=URL.createObjectURL(blob);const anchor=document.createElement("a");
   const extension=format;
-  anchor.href=url;anchor.download=`${image.value.title.replace(/[\\/:*?"<>|]/g,"_")}.${extension}`;document.body.appendChild(anchor);anchor.click();anchor.remove();URL.revokeObjectURL(url);
+  anchor.href=url;anchor.download=`${image.value.title.replace(/[\\/:*?"<>|]/g,"_")}.${extension}`;document.body.appendChild(anchor);anchor.click();anchor.remove();
+  // The browser starts reading the blob asynchronously after the click.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
  }catch(reason){downloadError.value=galleryFailureMessage(reason,"图片下载失败，请稍后重试");}finally{downloadPending.value=false;}
 }
 </script>
@@ -273,6 +275,7 @@ async function download(format: "webp" | "jpg" = "webp"){
       <div ref="viewportElement" class="detail-image-viewport" :class="{ 'can-pan':canPan, dragging:drag?.panning }" @pointerdown="onPointerDown" @pointermove="onPointerMove" @pointerup="onPointerUp" @pointercancel="drag=undefined" @wheel="onWheel">
        <img v-bind="galleryImageSources(image,'display',true)" :alt="image.altText || image.title" :width="image.width" :height="image.height" :style="mediaStyle" :draggable="false" />
       </div>
+      <UButton v-if="fullscreenSupported && !fullscreen" class="detail-immersive-action" icon="i-tabler-slideshow" label="沉浸浏览" size="md" @click="toggleFullscreen" />
       <UButton class="detail-image-nav is-previous" icon="i-tabler-chevron-left" color="neutral" variant="soft" aria-label="上一张图片" :disabled="!previous || status==='pending'" @click="navigate(previous)" />
       <UButton class="detail-image-nav is-next" icon="i-tabler-chevron-right" color="neutral" variant="soft" aria-label="下一张图片" :disabled="!next || status==='pending'" @click="navigate(next)" />
       <span v-if="status==='pending'" class="detail-image-loading" role="status"><UIcon name="i-tabler-loader-2" class="animate-spin" />正在加载</span>
@@ -287,22 +290,21 @@ async function download(format: "webp" | "jpg" = "webp"){
       </div>
       <div class="detail-fit-controls">
        <UButton icon="i-tabler-arrows-minimize" label="适应窗口" color="neutral" variant="ghost" size="sm" :aria-pressed="zoom===null" @click="resetMedia" />
-       <UTooltip text="实际大小（100%）"><UButton icon="i-tabler-focus-centered" color="neutral" variant="ghost" aria-label="图片实际大小" :aria-pressed="zoom===1" @click="setZoom(1)" /></UTooltip>
-       <UButton :icon="fullscreen ? 'i-tabler-minimize' : 'i-tabler-maximize'" color="neutral" variant="ghost" :aria-label="fullscreen ? '退出图片全屏' : '全屏看图'" :disabled="!fullscreenSupported" @click="toggleFullscreen" />
       </div>
+      <UButton v-if="fullscreen" icon="i-tabler-x" label="退出浏览" color="neutral" variant="ghost" size="sm" @click="toggleFullscreen" />
      </div>
      <p v-if="viewerError" class="detail-viewer-error" role="alert">{{ viewerError }}</p>
     </section>
     <aside class="detail-information">
      <header><h1>{{ image.title }}</h1><p v-if="image.description">{{ image.description }}</p></header>
-     <div class="detail-main-actions"><UDropdownMenu :items="downloadItems" :content="{ align:'start' }"><UButton icon="i-tabler-download" trailing-icon="i-tabler-chevron-down" label="下载" class="detail-download-button" :loading="downloadPending" :disabled="downloadPending" aria-label="选择图片下载格式" /></UDropdownMenu><UTooltip :text="image.favorited ? '取消收藏' : '收藏图片'"><UButton :icon="image.favorited ? 'i-tabler-heart-filled' : 'i-tabler-heart'" color="neutral" variant="outline" :aria-label="image.favorited ? '取消收藏图片' : '收藏图片'" :aria-pressed="Boolean(image.favorited)" :loading="favoritePending" @click="toggleFavorite" /></UTooltip><UTooltip text="分享图片"><UButton icon="i-tabler-share-3" color="neutral" variant="outline" aria-label="分享图片" @click="share" /></UTooltip></div>
+     <div class="detail-main-actions"><UDropdownMenu :items="downloadItems" :content="{ align:'start' }"><UButton icon="i-tabler-download" label="下载" class="detail-download-button" :loading="downloadPending" :disabled="downloadPending" aria-label="选择图片下载格式" /></UDropdownMenu><UTooltip :text="image.favorited ? '取消收藏' : '收藏图片'"><UButton :icon="image.favorited ? 'i-tabler-heart-filled' : 'i-tabler-heart'" color="neutral" variant="ghost" :aria-label="image.favorited ? '取消收藏图片' : '收藏图片'" :aria-pressed="Boolean(image.favorited)" :loading="favoritePending" @click="toggleFavorite" /></UTooltip><UTooltip text="分享图片"><UButton icon="i-tabler-share-3" color="neutral" variant="ghost" aria-label="分享图片" @click="share" /></UTooltip></div>
      <p v-if="downloadError" class="text-xs text-error" role="alert">{{ downloadError }}</p>
      <section v-if="category || assignedGroups.length" class="detail-taxonomy" aria-label="分类、作品与角色">
       <GalleryVisualChoice v-if="category" :node="category" kind="category" compact :aria-label="`分类：${category.name}`" :title="`分类：${category.name}`" @select="void router.push({path:'/images',query:{categories:category.slug}})" />
       <template v-for="item in assignedGroups" :key="item.group.id"><GalleryVisualChoice v-for="node in item.values" :key="node.id" :node="node" compact :aria-label="`${item.group.name}：${node.name}`" :title="`${item.group.name}：${node.name}`" @select="facetLink(item.group.slug,node.slug)" /></template>
      </section>
      <section class="detail-metadata-group"><h2>文件信息</h2><dl><div><dt>分辨率</dt><dd>{{ image.width }} × {{ image.height }}</dd></div><div><dt>比例</dt><dd>{{ ratio }}</dd></div><template v-if="fileFacts"><div><dt>格式</dt><dd>{{ fileFacts.mime.replace('image/','').toUpperCase() }}</dd></div><div><dt>文件大小</dt><dd>{{ (fileFacts.sizeBytes/1024/1024).toFixed(2) }} MiB</dd></div></template></dl><p v-if="factsFailed" class="detail-facts-error">文件信息未能读取 <button type="button" @click="loadFacts">重试</button></p></section>
-     <section v-if="image.tags.length" class="detail-metadata-group"><h2>标签</h2><div class="detail-tags"><NuxtLink v-for="tag in image.tags" :key="tag" :to="{path:'/images',query:{tag}}">{{ tag }}</NuxtLink></div></section>
+     <section class="detail-metadata-group"><h2>标签</h2><div v-if="image.tags.length" class="detail-tags mb-2"><NuxtLink v-for="tag in image.tags" :key="tag" :to="{path:'/images',query:{tag}}">{{ tag }}</NuxtLink></div><GalleryTagContribution :image-id="image.id" :tags="image.tags" /></section>
      <section class="detail-metadata-group"><h2>来源</h2><a v-if="image.sourceUrl" :href="image.sourceUrl" target="_blank" rel="noopener noreferrer nofollow" referrerpolicy="no-referrer" class="detail-source">查看原始页面 <UIcon name="i-tabler-arrow-up-right" /></a><p v-else class="detail-facts-error">未填写</p></section>
      <div class="detail-secondary-actions"><UButton v-if="can('gallery.image.update')" :to="`/manage/images?q=${encodeURIComponent(image.title)}`" icon="i-tabler-edit" label="编辑信息" color="neutral" variant="ghost" size="xs" /><UButton icon="i-tabler-flag" label="报告问题" color="neutral" variant="ghost" size="xs" @click="reportKind='report';reportOpen=true" /><UButton icon="i-tabler-link" label="补充来源" color="neutral" variant="ghost" size="xs" @click="reportKind='source_correction';reportOpen=true" /></div>
     </aside>
@@ -314,10 +316,11 @@ async function download(format: "webp" | "jpg" = "webp"){
  </article>
 </template>
 <style scoped>
-.detail-toolbar{display:flex;align-items:center;margin-bottom:1rem}.detail-toolbar>button{display:flex;align-items:center;gap:.5rem;font-size:.75rem;color:var(--gallery-muted)}
+.detail-toolbar{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:1rem}.detail-toolbar>button{display:flex;align-items:center;gap:.5rem;font-size:.75rem;color:var(--gallery-muted)}
 .detail-layout,.detail-loading{display:grid;grid-template-columns:minmax(0,1fr) 19rem;gap:1.3rem;align-items:start}
 .detail-viewer-column{min-width:0;overflow:hidden;border:1px solid var(--gallery-line);border-radius:.5rem;background:var(--gallery-viewer-canvas)}
 .detail-image-stage{position:relative;height:min(68dvh,55rem);min-height:15rem}
+.detail-immersive-action{position:absolute;top:.85rem;right:.85rem;z-index:3;gap:.45rem;padding:.65rem 1rem;border-radius:.6rem;font-size:.85rem;font-weight:600;box-shadow:0 .25rem 1rem #0003}
 .detail-image-viewport{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:pan-y}
 .detail-image-viewport img{display:block;flex:none;max-width:none;max-height:none;object-fit:contain;user-select:none;-webkit-user-drag:none}
 .detail-image-viewport.can-pan{cursor:grab;touch-action:none}.detail-image-viewport.dragging{cursor:grabbing}
@@ -326,7 +329,7 @@ async function download(format: "webp" | "jpg" = "webp"){
 .detail-image-loading{position:absolute;top:1rem;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:.4rem;padding:.35rem .65rem;border-radius:2rem;background:#111720cc;color:white;font-size:.7rem}
 .detail-viewer-tools{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:.65rem;padding:.5rem .65rem;border-top:1px solid var(--gallery-line);background:var(--gallery-panel)}
 .detail-viewer-title{display:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.75rem;color:var(--gallery-muted)}
-.detail-zoom-controls,.detail-fit-controls{display:flex;align-items:center;gap:.15rem}.detail-fit-controls{border-left:1px solid var(--gallery-line);padding-left:.6rem}
+.detail-zoom-controls,.detail-fit-controls{display:flex;align-items:center;gap:.15rem}.detail-fit-controls{padding-left:.35rem}
 .detail-zoom-value{min-width:3.1rem;text-align:center;font-size:.7rem;font-variant-numeric:tabular-nums}.detail-zoom-slider{width:clamp(4rem,9vw,8rem);accent-color:var(--gallery-accent);cursor:pointer}
 .detail-viewer-error{padding:.5rem .8rem;font-size:.75rem;color:var(--ui-error)}
 .detail-viewer-column:fullscreen{display:flex;flex-direction:column;width:100%;height:100dvh;max-width:none;border:0;border-radius:0;background:var(--gallery-viewer-canvas);color:var(--gallery-ink)}

@@ -85,9 +85,11 @@ function updateTarget(itemID: string, value: unknown) {
         class="grid gap-3 px-3 py-3 lg:grid-cols-[minmax(0,1fr)_minmax(14rem,22rem)_auto] lg:items-center"
         data-tag-proposal-row
       >
-        <p class="min-w-0 truncate font-medium text-highlighted">
-          {{ item.inputValue }}
-        </p>
+        <div class="min-w-0">
+          <p class="truncate font-medium text-highlighted">{{ item.inputValue }}</p>
+          <NuxtLink v-if="item.imageId" :to="`/images/${item.imageId}`" target="_blank" class="mt-1 block truncate text-xs text-primary">{{ item.imageTitle || '查看图片' }} ↗</NuxtLink>
+          <p class="mt-1 text-xs text-muted">{{ item.submissionId ? '投稿标签' : item.proposerKind === 'guest' ? '游客补充' : '用户补充' }}<span v-if="item.proposerId"> · {{ item.proposerId }}</span></p>
+        </div>
         <USelect
           :model-value="targets[item.id] || createNewValue"
           :items="approvalOptions"
@@ -120,7 +122,7 @@ function updateTarget(itemID: string, value: unknown) {
       v-else
       icon="i-tabler-tag-off"
       title="没有待审标签"
-      description="新的投稿标签会显示在这里。"
+      description="投稿标签和用户补充的标签会显示在这里。"
     />
   </section>
 </template>

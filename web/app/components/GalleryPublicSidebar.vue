@@ -3,7 +3,6 @@ import type { GallerySavedFilter } from "~/types/presentation";
 defineEmits<{ navigate: [] }>();
 const site = useGallerySiteSettings();
 const route = useRoute();
-const colorMode = useColorMode();
 const { loggedIn } = useAuth();
 const { items: savedFilters, error, refresh, remove } = useGallerySavedFilters();
 const deleteError = ref("");
@@ -54,7 +53,6 @@ watch(loggedIn, () => void refresh());
       </div>
       <p v-if="!savedFilters.length && !error" class="sidebar-empty">{{ loggedIn ? '保存常用组合，下次直接找到。' : '登录后保存常用筛选。' }}</p>
     </div>
-    <div class="sidebar-footer"><NuxtLink to="/manage" aria-label="图库管理"><UIcon name="i-tabler-settings" /></NuxtLink><button type="button" aria-label="切换明暗主题" @click="colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'"><UIcon name="i-tabler-moon-stars" /></button></div>
   </div>
 </template>
 
@@ -63,6 +61,6 @@ watch(loggedIn, () => void refresh());
 :global(.dark) .public-sidebar{background:radial-gradient(ellipse at 0 100%,var(--gallery-accent-soft),transparent 62%),var(--gallery-panel)}
 .public-sidebar.has-background{--gallery-ink:#f4f1e9;--gallery-muted:#b7bec8;--gallery-accent:#f1f5f9;--gallery-accent-soft:#ffffff14;--gallery-line:#ffffff30;color:#f4f1e9}:global(.dark) .public-sidebar.has-background{--gallery-accent:#e7c68e;--gallery-accent-soft:#342f27}.public-brand{display:flex;align-items:center;gap:.65rem;min-width:0;padding:.15rem .45rem 1.5rem}.brand-symbol{display:block;width:2.25rem;height:2.25rem;flex-shrink:0}.brand-copy{display:flex;flex-direction:column;gap:.25rem;min-width:0}.brand-wordmark{font-family:var(--font-sans);font-size:1.4rem;font-weight:650;line-height:1;letter-spacing:-.055em;color:var(--gallery-ink)}.brand-copy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.57rem;line-height:1.4;letter-spacing:.1em;color:var(--gallery-muted)}
 .public-navigation{display:grid;gap:.25rem}.public-navigation>a{display:flex;gap:.75rem;align-items:center;padding:.7rem .8rem;border:1px solid transparent;border-radius:.4rem;font-size:.78rem}.public-navigation>a.active{border-color:color-mix(in srgb,var(--gallery-accent) 38%,transparent);color:var(--gallery-accent);background:var(--gallery-accent-soft)}.public-navigation>a:hover{background:var(--gallery-accent-soft)}.public-navigation .iconify{font-size:1.05rem;flex-shrink:0}
-.sidebar-saved{border-top:1px solid var(--gallery-line);margin-top:1.5rem;padding:.9rem .5rem;min-height:0;overflow:auto}.sidebar-section-heading{display:flex;justify-content:space-between;align-items:center;font-size:.72rem;color:var(--gallery-muted);margin-bottom:.7rem}.sidebar-section-heading a{display:grid;place-items:center;width:1.75rem;height:1.75rem;color:var(--gallery-accent)}.sidebar-empty{font-size:.68rem;line-height:1.8;color:var(--gallery-muted)}.saved-filter-row{display:flex;align-items:center;gap:.2rem}.saved-filter-row>a{display:flex;align-items:center;gap:.5rem;flex:1;min-width:0;font-size:.72rem;padding:.6rem 0}.saved-filter-row>a span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sidebar-footer{margin-top:auto;padding:.8rem .6rem 0;display:flex;gap:1rem;color:var(--gallery-muted)}.sidebar-footer a,.sidebar-footer button{display:grid;place-items:center;min-width:1.75rem;min-height:1.75rem;cursor:pointer}
-@media(pointer:coarse){.sidebar-footer a,.sidebar-footer button,.sidebar-section-heading a{min-width:2.75rem;min-height:2.75rem}}
+.sidebar-saved{border-top:1px solid var(--gallery-line);margin-top:1.5rem;padding:.9rem .5rem;min-height:0;overflow:auto}.sidebar-section-heading{display:flex;justify-content:space-between;align-items:center;font-size:.72rem;color:var(--gallery-muted);margin-bottom:.7rem}.sidebar-section-heading a{display:grid;place-items:center;width:1.75rem;height:1.75rem;color:var(--gallery-accent)}.sidebar-empty{font-size:.68rem;line-height:1.8;color:var(--gallery-muted)}.saved-filter-row{display:flex;align-items:center;gap:.2rem}.saved-filter-row>a{display:flex;align-items:center;gap:.5rem;flex:1;min-width:0;font-size:.72rem;padding:.6rem 0}.saved-filter-row>a span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(pointer:coarse){.sidebar-section-heading a{min-width:2.75rem;min-height:2.75rem}}
 </style>

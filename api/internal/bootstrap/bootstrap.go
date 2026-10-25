@@ -12,6 +12,9 @@ import (
 //go:embed site.sql
 var siteSQL string
 
+//go:embed tag_presets.sql
+var tagPresetsSQL string
+
 type Execer interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)
 }
@@ -20,7 +23,7 @@ func Apply(ctx context.Context, executor Execer) error {
 	if executor == nil {
 		return fmt.Errorf("gallery bootstrap executor is nil")
 	}
-	if _, err := executor.ExecContext(ctx, siteSQL); err != nil {
+	if _, err := executor.ExecContext(ctx, siteSQL+"\n"+tagPresetsSQL); err != nil {
 		return fmt.Errorf("apply Gallery site bootstrap: %w", err)
 	}
 	return nil

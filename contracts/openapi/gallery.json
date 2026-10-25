@@ -2299,6 +2299,40 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.api.v1.ProposeImageTagsReq": {
+        "properties": {
+          "imageId": {
+            "format": "string",
+            "type": "string"
+          },
+          "tags": {
+            "format": "[]string",
+            "items": {
+              "format": "string",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "imageId",
+          "tags"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.ProposeImageTagsRes": {
+        "properties": {
+          "items": {
+            "format": "[]model.ClassificationTagProposal",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationTagProposal",
+              "description": ""
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.api.v1.RemoveFavoriteReq": {
         "properties": {
           "imageId": {
@@ -2615,6 +2649,29 @@
           "policy": {
             "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.AuthorizationPolicyView",
             "description": ""
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.TagSuggestionsReq": {
+        "properties": {
+          "q": {
+            "format": "string",
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.api.v1.TagSuggestionsRes": {
+        "properties": {
+          "items": {
+            "format": "[]model.TagCandidate",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.TagCandidate",
+              "description": ""
+            },
+            "type": "array"
           }
         },
         "type": "object"
@@ -3775,11 +3832,27 @@
             "format": "string",
             "type": "string"
           },
+          "imageId": {
+            "format": "string",
+            "type": "string"
+          },
+          "imageTitle": {
+            "format": "string",
+            "type": "string"
+          },
           "inputValue": {
             "format": "string",
             "type": "string"
           },
           "lookupKey": {
+            "format": "string",
+            "type": "string"
+          },
+          "proposerId": {
+            "format": "string",
+            "type": "string"
+          },
+          "proposerKind": {
             "format": "string",
             "type": "string"
           },
@@ -7612,6 +7685,60 @@
         ]
       }
     },
+    "/api/v1/gallery/images/{imageId}/tag-proposals": {
+      "post": {
+        "parameters": [
+          {
+            "in": "path",
+            "name": "imageId",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "tags": {
+                    "format": "[]string",
+                    "items": {
+                      "format": "string",
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "tags"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.ProposeImageTagsRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Suggest tags for a public image; changes require moderator approval",
+        "tags": [
+          "Gallery tags"
+        ]
+      }
+    },
     "/api/v1/gallery/me": {
       "get": {
         "responses": {
@@ -8058,6 +8185,37 @@
         "summary": "Submit one uploaded image",
         "tags": [
           "Gallery submissions"
+        ]
+      }
+    },
+    "/api/v1/gallery/tag-suggestions": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.TagSuggestionsRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Suggest active canonical tags, including unused preset tags",
+        "tags": [
+          "Gallery tags"
         ]
       }
     },

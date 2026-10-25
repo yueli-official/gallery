@@ -38,6 +38,8 @@ type Store interface {
 	ClassificationGovernanceImpacts(context.Context, []classification.ImpactRequest) ([]classification.ReferenceImpact, string, error)
 	ExecuteClassificationGovernance(context.Context, string, classification.GovernFactRequest, classification.GovernancePlan) (uint64, error)
 	ClassificationTags(context.Context, model.ClassificationTagCursor, int) ([]model.ClassificationTag, bool, error)
+	TagSuggestions(context.Context, string, int) ([]model.TagCandidate, error)
+	ProposeImageTags(context.Context, model.Subject, string, []classification.TagLookupRequest) ([]model.ClassificationTagProposal, error)
 	ClassificationTagProposals(context.Context, string, int, int) ([]model.ClassificationTagProposal, int, error)
 	ReviewClassificationTagProposal(context.Context, string, string, model.ClassificationTagProposalReviewInput) (*model.ClassificationTagProposal, bool, error)
 	RandomCandidates(context.Context, int) ([]model.ImageCard, error)
@@ -1350,6 +1352,9 @@ func (s *Service) ClassificationTagProposals(ctx context.Context, status string,
 	if values == nil {
 		values = []model.ClassificationTagProposal{}
 	}
+	for i := range values {
+		publicTagProposal(&values[i])
+	}
 	return values, total, err
 }
 
@@ -1382,6 +1387,7 @@ func (s *Service) ReviewClassificationTagProposal(ctx context.Context, operator,
 	if catalogChanged {
 		s.invalidateClassificationCatalog()
 	}
+	publicTagProposal(value)
 	return value, nil
 }
 

@@ -279,6 +279,10 @@ export interface GalleryClassificationTagPage {
 export interface GalleryClassificationTagProposal {
   id: string;
   submissionId: string;
+  imageId: string;
+  imageTitle: string;
+  proposerId: string;
+  proposerKind: "user" | "guest";
   inputValue: string;
   lookupKey: string;
   status: "pending" | "approved" | "rejected";
