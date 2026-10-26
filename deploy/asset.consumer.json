@@ -7,7 +7,11 @@
     { "kind": "oauth-client", "subject": "gallery-main-web" },
     { "kind": "service-client", "subject": "gallery-asset-svc" }
   ],
-  "referenceLifecycle": {"complete": false, "strategy": "outbox", "coverage": "源码候选：投稿、审核图片、分类视觉与站点背景在业务事务中登记；临时上传由草稿保护；撤稿清除投稿引用、隐藏保留原图、删除解除图片及关联投稿引用；公开规格发布和撤销跟随同一持久任务重试。旧快照停止后须显式初始化，固定制品和真实运行验收尚未完成。"},
+  "referenceLifecycle": {
+    "complete": true,
+    "strategy": "outbox",
+    "coverage": "对象级事务引用、草稿保护、持久后台投递和空间级同步已完成固定制品及真实生命周期验收；普通启动不扫描业务数据。"
+  },
   "profiles": [
     {
       "key": "gallery-submission",
