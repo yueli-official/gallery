@@ -3,6 +3,7 @@ package gallery
 import (
 	"context"
 	"encoding/json"
+	"github.com/yueli-official/gallery/api/internal/assetreferences"
 	"reflect"
 	"strconv"
 	"testing"
@@ -91,6 +92,16 @@ func (port *submissionProcessingAssetPort) PublishImage(_ context.Context, asset
 	port.publishedAssetID = assetID
 	port.publishedImageID = imageID
 	return nil
+}
+
+func (port *submissionProcessingAssetPort) UnpublishImage(context.Context, string, string) error {
+	return nil
+}
+func (store *publicationReconciliationStore) SynchronizeImagePublication(ctx context.Context, item model.ImagePublicationCandidate, port assetreferences.PublicationPort) error {
+	if err := port.PublishImage(ctx, item.AssetID, item.ID, item.Title); err != nil {
+		return err
+	}
+	return store.MarkImagePublicRenditionReady(ctx, item.ID)
 }
 
 func TestProcessQueuedSubmissionPersistsAssetFactsForReviewAndDedup(t *testing.T) {
@@ -437,7 +448,7 @@ func (f *fakeStore) RecordEvent(context.Context, model.Subject, string, model.Ev
 	return nil
 }
 
-func TestApprovedSubmissionPublishesAssetBeforeImageBecomesPubliclyEligible(t *testing.T) {
+func TestApprovedSubmissionDefersPublicationToDurableDelivery(t *testing.T) {
 	store := &fakeStore{submission: &model.Submission{
 		ID: "019817c8-0000-7000-8300-000000000099", AssetID: "asset-1", ImageID: "image-1",
 		Title: "Approved", ReviewState: "approved", Outcome: "published",
@@ -450,10 +461,10 @@ func TestApprovedSubmissionPublishesAssetBeforeImageBecomesPubliclyEligible(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if value.ImageID != "image-1" || assets.publishedAssetID != "asset-1" || assets.publishedImageID != "image-1" {
+	if value.ImageID != "image-1" || assets.publishedAssetID != "" || assets.publishedImageID != "" {
 		t.Fatalf("submission = %#v, published asset/image = %q/%q", value, assets.publishedAssetID, assets.publishedImageID)
 	}
-	if store.publicRenditionReadyID != "image-1" {
+	if store.publicRenditionReadyID != "" {
 		t.Fatalf("ready image = %q", store.publicRenditionReadyID)
 	}
 }
@@ -1316,8 +1327,8 @@ func TestImagePublicationGuardsAndPreparesDelivery(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if !store.adminImageUpdateSeen.PublicationReady || assets.publishedAssetID != testFacetID {
-					t.Fatal("publication must prepare actual delivery")
+				if store.adminImageUpdateSeen.PublicationReady || assets.publishedAssetID != "" || store.adminImageUpdateSeen.PublicationState != "published" {
+					t.Fatal("publication must be queued with the mutation, without an unguarded RPC")
 				}
 			} else {
 				if err == nil || assets.publishedAssetID != "" || store.adminImageUpdateSeen.PublicationState != "" {

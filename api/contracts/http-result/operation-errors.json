@@ -920,6 +920,94 @@
       "gallery.not_initialized",
       "gallery.not_found",
       "gallery.rate_limited"
+    ],
+    "GET /api/v1/manage/asset-references": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "common.unauthorized",
+      "gallery.authorization_unavailable",
+      "gallery.forbidden",
+      "gallery.not_found",
+      "gallery.conflict",
+      "gallery.upstream_failed"
+    ],
+    "GET /api/v1/manage/asset-references/history": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "common.unauthorized",
+      "gallery.authorization_unavailable",
+      "gallery.forbidden",
+      "gallery.not_found",
+      "gallery.conflict",
+      "gallery.upstream_failed"
+    ],
+    "GET /api/v1/manage/asset-references/attempts": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "common.unauthorized",
+      "gallery.authorization_unavailable",
+      "gallery.forbidden",
+      "gallery.not_found",
+      "gallery.conflict",
+      "gallery.upstream_failed"
+    ],
+    "POST /api/v1/manage/asset-references/sync": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "common.unauthorized",
+      "gallery.authorization_unavailable",
+      "gallery.forbidden",
+      "gallery.not_found",
+      "gallery.conflict",
+      "gallery.upstream_failed"
+    ],
+    "POST /api/v1/manage/asset-references/retry": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "common.unauthorized",
+      "gallery.authorization_unavailable",
+      "gallery.forbidden",
+      "gallery.not_found",
+      "gallery.conflict",
+      "gallery.upstream_failed"
+    ],
+    "POST /api/v1/manage/asset-references/sync-runs": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "common.unauthorized",
+      "gallery.authorization_unavailable",
+      "gallery.forbidden",
+      "gallery.not_found",
+      "gallery.conflict",
+      "gallery.upstream_failed"
+    ],
+    "GET /api/v1/manage/asset-references/sync-runs": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "common.unauthorized",
+      "gallery.authorization_unavailable",
+      "gallery.forbidden",
+      "gallery.not_found",
+      "gallery.conflict",
+      "gallery.upstream_failed"
+    ],
+    "GET /api/v1/manage/asset-references/sync-runs/items": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "common.unauthorized",
+      "gallery.authorization_unavailable",
+      "gallery.forbidden",
+      "gallery.not_found",
+      "gallery.conflict",
+      "gallery.upstream_failed"
     ]
   }
 }

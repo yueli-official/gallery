@@ -1,0 +1,1 @@
+ALTER TABLE gallery_classification_presentation DROP COLUMN updated_at;

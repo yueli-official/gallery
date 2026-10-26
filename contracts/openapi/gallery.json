@@ -5,6 +5,689 @@
         "properties": {},
         "type": "object"
       },
+      "github.com.yueli-official.asset.referencesync.Delivery": {
+        "properties": {
+          "actor": {
+            "format": "string",
+            "type": "string"
+          },
+          "attempt": {
+            "format": "int",
+            "type": "integer"
+          },
+          "finishedAt": {
+            "format": "*time.Time",
+            "type": "string"
+          },
+          "id": {
+            "format": "string",
+            "type": "string"
+          },
+          "lastError": {
+            "format": "string",
+            "type": "string"
+          },
+          "origin": {
+            "format": "string",
+            "type": "string"
+          },
+          "requestedAt": {
+            "format": "time.Time",
+            "type": "string"
+          },
+          "startedAt": {
+            "format": "*time.Time",
+            "type": "string"
+          },
+          "status": {
+            "format": "string",
+            "type": "string"
+          },
+          "version": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.InitializationRun": {
+        "properties": {
+          "actor": {
+            "format": "string",
+            "type": "string"
+          },
+          "cleared": {
+            "format": "int",
+            "type": "integer"
+          },
+          "finishedAt": {
+            "format": "*time.Time",
+            "type": "string"
+          },
+          "id": {
+            "format": "string",
+            "type": "string"
+          },
+          "lastError": {
+            "format": "string",
+            "type": "string"
+          },
+          "owners": {
+            "format": "int",
+            "type": "integer"
+          },
+          "startedAt": {
+            "format": "time.Time",
+            "type": "string"
+          },
+          "status": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.OwnerStatus": {
+        "properties": {
+          "appliedVersion": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "attempt": {
+            "format": "int",
+            "type": "integer"
+          },
+          "jobId": {
+            "format": "string",
+            "type": "string"
+          },
+          "label": {
+            "format": "string",
+            "type": "string"
+          },
+          "lastError": {
+            "format": "string",
+            "type": "string"
+          },
+          "refId": {
+            "format": "string",
+            "type": "string"
+          },
+          "refType": {
+            "format": "string",
+            "type": "string"
+          },
+          "referenceCount": {
+            "format": "int",
+            "type": "integer"
+          },
+          "requestedAt": {
+            "format": "*time.Time",
+            "type": "string"
+          },
+          "sourceUpdatedAt": {
+            "format": "*time.Time",
+            "type": "string"
+          },
+          "status": {
+            "format": "string",
+            "type": "string"
+          },
+          "syncedAt": {
+            "format": "*time.Time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "time.Time",
+            "type": "string"
+          },
+          "url": {
+            "format": "string",
+            "type": "string"
+          },
+          "version": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.SyncRun": {
+        "properties": {
+          "actor": {
+            "format": "string",
+            "type": "string"
+          },
+          "failed": {
+            "format": "int",
+            "type": "integer"
+          },
+          "finishedAt": {
+            "format": "*time.Time",
+            "type": "string"
+          },
+          "id": {
+            "format": "string",
+            "type": "string"
+          },
+          "lastError": {
+            "format": "string",
+            "type": "string"
+          },
+          "mode": {
+            "format": "referencesync.SyncMode",
+            "type": "string"
+          },
+          "prepared": {
+            "format": "int",
+            "type": "integer"
+          },
+          "queued": {
+            "format": "int",
+            "type": "integer"
+          },
+          "skipped": {
+            "format": "int",
+            "type": "integer"
+          },
+          "startedAt": {
+            "format": "time.Time",
+            "type": "string"
+          },
+          "status": {
+            "format": "string",
+            "type": "string"
+          },
+          "succeeded": {
+            "format": "int",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.SyncRunItem": {
+        "properties": {
+          "jobId": {
+            "format": "string",
+            "type": "string"
+          },
+          "label": {
+            "format": "string",
+            "type": "string"
+          },
+          "lastError": {
+            "format": "string",
+            "type": "string"
+          },
+          "refId": {
+            "format": "string",
+            "type": "string"
+          },
+          "refType": {
+            "format": "string",
+            "type": "string"
+          },
+          "status": {
+            "format": "string",
+            "type": "string"
+          },
+          "version": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncAttemptsReq": {
+        "properties": {
+          "jobId": {
+            "format": "string",
+            "maxLength": 36,
+            "type": "string"
+          },
+          "refId": {
+            "format": "string",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "refType": {
+            "format": "string",
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "refType",
+          "refId",
+          "jobId"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncAttemptsRes": {
+        "properties": {
+          "items": {
+            "format": "[]work.Attempt",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.foundation.go.work.Attempt",
+              "description": ""
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncHistoryReq": {
+        "properties": {
+          "page": {
+            "format": "int",
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "refId": {
+            "format": "string",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "refType": {
+            "format": "string",
+            "maxLength": 64,
+            "type": "string"
+          },
+          "size": {
+            "format": "int",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "refType",
+          "refId"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncHistoryRes": {
+        "properties": {
+          "items": {
+            "format": "[]referencesync.Delivery",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.asset.referencesync.Delivery",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int",
+            "type": "integer"
+          },
+          "size": {
+            "format": "int",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncResyncReq": {
+        "properties": {
+          "refId": {
+            "format": "string",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "refType": {
+            "format": "string",
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "refType",
+          "refId"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncResyncRes": {
+        "properties": {
+          "id": {
+            "format": "string",
+            "type": "string"
+          },
+          "status": {
+            "format": "string",
+            "type": "string"
+          },
+          "version": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncRetryReq": {
+        "properties": {
+          "refId": {
+            "format": "string",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "refType": {
+            "format": "string",
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "refType",
+          "refId"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncRetryRes": {
+        "properties": {
+          "id": {
+            "format": "string",
+            "type": "string"
+          },
+          "status": {
+            "format": "string",
+            "type": "string"
+          },
+          "version": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncRunItemsReq": {
+        "properties": {
+          "page": {
+            "format": "int",
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "runId": {
+            "format": "string",
+            "maxLength": 36,
+            "type": "string"
+          },
+          "size": {
+            "format": "int",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "runId"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncRunItemsRes": {
+        "properties": {
+          "items": {
+            "format": "[]referencesync.SyncRunItem",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.asset.referencesync.SyncRunItem",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int",
+            "type": "integer"
+          },
+          "size": {
+            "format": "int",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncRunsReq": {
+        "properties": {
+          "page": {
+            "format": "int",
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "size": {
+            "format": "int",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncRunsRes": {
+        "properties": {
+          "items": {
+            "format": "[]referencesync.SyncRun",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.asset.referencesync.SyncRun",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int",
+            "type": "integer"
+          },
+          "size": {
+            "format": "int",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncStartRunReq": {
+        "properties": {
+          "mode": {
+            "enum": [
+              "pending",
+              "force"
+            ],
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncStartRunRes": {
+        "properties": {
+          "actor": {
+            "format": "string",
+            "type": "string"
+          },
+          "failed": {
+            "format": "int",
+            "type": "integer"
+          },
+          "finishedAt": {
+            "format": "*time.Time",
+            "type": "string"
+          },
+          "id": {
+            "format": "string",
+            "type": "string"
+          },
+          "lastError": {
+            "format": "string",
+            "type": "string"
+          },
+          "mode": {
+            "format": "referencesync.SyncMode",
+            "type": "string"
+          },
+          "prepared": {
+            "format": "int",
+            "type": "integer"
+          },
+          "queued": {
+            "format": "int",
+            "type": "integer"
+          },
+          "skipped": {
+            "format": "int",
+            "type": "integer"
+          },
+          "startedAt": {
+            "format": "time.Time",
+            "type": "string"
+          },
+          "status": {
+            "format": "string",
+            "type": "string"
+          },
+          "succeeded": {
+            "format": "int",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncStatusReq": {
+        "properties": {
+          "hasAssets": {
+            "enum": [
+              "yes",
+              "no"
+            ],
+            "format": "string",
+            "type": "string"
+          },
+          "page": {
+            "format": "int",
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "refType": {
+            "format": "string",
+            "maxLength": 64,
+            "type": "string"
+          },
+          "search": {
+            "format": "string",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "size": {
+            "format": "int",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sourceAfter": {
+            "format": "string",
+            "maxLength": 40,
+            "type": "string"
+          },
+          "sourceBefore": {
+            "format": "string",
+            "maxLength": 40,
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "synced",
+              "pending",
+              "failed",
+              "running",
+              "retrying",
+              "queued",
+              "paused",
+              "cancelled",
+              "unknown"
+            ],
+            "format": "string",
+            "type": "string"
+          },
+          "syncedAfter": {
+            "format": "string",
+            "maxLength": 40,
+            "type": "string"
+          },
+          "syncedBefore": {
+            "format": "string",
+            "maxLength": 40,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncStatusRes": {
+        "properties": {
+          "failed": {
+            "format": "int",
+            "type": "integer"
+          },
+          "initializations": {
+            "format": "[]referencesync.InitializationRun",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.asset.referencesync.InitializationRun",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "items": {
+            "format": "[]referencesync.OwnerStatus",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.asset.referencesync.OwnerStatus",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "page": {
+            "format": "int",
+            "type": "integer"
+          },
+          "pending": {
+            "format": "int",
+            "type": "integer"
+          },
+          "registered": {
+            "format": "int",
+            "type": "integer"
+          },
+          "size": {
+            "format": "int",
+            "type": "integer"
+          },
+          "total": {
+            "format": "int",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.foundation.go.auth.PersonalPermission": {
         "properties": {
           "description": {
@@ -95,6 +778,39 @@
             "type": "object"
           },
           "pointer": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.foundation.go.work.Attempt": {
+        "properties": {
+          "error": {
+            "format": "string",
+            "type": "string"
+          },
+          "finishedAt": {
+            "format": "*time.Time",
+            "type": "string"
+          },
+          "jobId": {
+            "format": "work.JobID",
+            "type": "string"
+          },
+          "number": {
+            "format": "int",
+            "type": "integer"
+          },
+          "outcome": {
+            "format": "work.AttemptOutcome",
+            "type": "string"
+          },
+          "startedAt": {
+            "format": "time.Time",
+            "type": "string"
+          },
+          "workerId": {
             "format": "string",
             "type": "string"
           }
@@ -8248,6 +8964,409 @@
         "summary": "Read current user capabilities for the Identity token catalog",
         "tags": [
           "authorization"
+        ]
+      }
+    },
+    "/api/v1/manage/asset-references": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "schema": {
+              "format": "int",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refType",
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "enum": [
+                "synced",
+                "pending",
+                "failed",
+                "running",
+                "retrying",
+                "queued",
+                "paused",
+                "cancelled",
+                "unknown"
+              ],
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "hasAssets",
+            "schema": {
+              "enum": [
+                "yes",
+                "no"
+              ],
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sourceAfter",
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sourceBefore",
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "syncedAfter",
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "syncedBefore",
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncStatusRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "List reference delivery state",
+        "tags": [
+          "asset-references"
+        ]
+      }
+    },
+    "/api/v1/manage/asset-references/attempts": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "refType",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refId",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "jobId",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncAttemptsRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Read reference delivery attempts",
+        "tags": [
+          "asset-references"
+        ]
+      }
+    },
+    "/api/v1/manage/asset-references/history": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "refType",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refId",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "schema": {
+              "format": "int",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncHistoryRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Read object reference delivery history",
+        "tags": [
+          "asset-references"
+        ]
+      }
+    },
+    "/api/v1/manage/asset-references/retry": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncRetryReq",
+                "description": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncRetryRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Retry failed reference delivery",
+        "tags": [
+          "asset-references"
+        ]
+      }
+    },
+    "/api/v1/manage/asset-references/sync": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncResyncReq",
+                "description": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncResyncRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Queue the latest references for one selected object",
+        "tags": [
+          "asset-references"
+        ]
+      }
+    },
+    "/api/v1/manage/asset-references/sync-runs": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "schema": {
+              "format": "int",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncRunsRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Read global reference synchronization progress and history",
+        "tags": [
+          "asset-references"
+        ]
+      },
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncStartRunReq",
+                "description": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncStartRunRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Start namespace-wide durable reference synchronization",
+        "tags": [
+          "asset-references"
+        ]
+      }
+    },
+    "/api/v1/manage/asset-references/sync-runs/items": {
+      "get": {
+        "parameters": [
+          {
+            "in": "query",
+            "name": "runId",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "format": "int",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "schema": {
+              "format": "int",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncRunItemsRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Read objects and results in a reference synchronization run",
+        "tags": [
+          "asset-references"
         ]
       }
     },

@@ -164,3 +164,5 @@ corepack pnpm exec playwright test --config test/e2e/playwright.config.ts --list
 可通过 `GALLERY_E2E_SUITE` 选择 `journeys`、`visual`、`accessibility` 或
 `performance`；默认运行 `all`。实际执行会写入 `web/test-results/e2e`，视觉基准由
 `web/test/e2e/screenshots` 自持。
+
+资源引用、新建素材和解引用操作见[资源引用生命周期](docs/asset-reference-lifecycle.md)。

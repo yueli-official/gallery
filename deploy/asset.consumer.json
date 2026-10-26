@@ -7,7 +7,7 @@
     { "kind": "oauth-client", "subject": "gallery-main-web" },
     { "kind": "service-client", "subject": "gallery-asset-svc" }
   ],
-  "referenceLifecycle": {"complete": true, "strategy": "snapshot", "coverage": "启动及每15秒对账投稿、图片与分类/维度封面；替换、清空或删除分类后撤销旧封面引用；撤稿撤销投稿关系，隐藏图片仍保留；删除图片撤销业务引用并重试撤销公开派生图授权，不自动删除文件。"},
+  "referenceLifecycle": {"complete": false, "strategy": "outbox", "coverage": "源码候选：投稿、审核图片、分类视觉与站点背景在业务事务中登记；临时上传由草稿保护；撤稿清除投稿引用、隐藏保留原图、删除解除图片及关联投稿引用；公开规格发布和撤销跟随同一持久任务重试。旧快照停止后须显式初始化，固定制品和真实运行验收尚未完成。"},
   "profiles": [
     {
       "key": "gallery-submission",

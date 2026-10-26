@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { AssetVisualAssetField } from "@yueli/asset-nuxt/components";
+import { AssetVisualAssetField,AssetDraftNotice } from "@yueli/asset-nuxt/components";
 import type { GalleryPresentationRule } from "~/types/presentation";
 
 const model = defineModel<GalleryPresentationRule>({ required: true });
 const props = defineProps<{ disabled?: boolean }>();
 const emit = defineEmits<{ busy: [value: boolean] }>();
-const { uploadPrepared } = useGalleryAssetUpload();
+const { uploadPrepared,draft } = useGalleryAssetUpload(`gallery-visual:${useId()}`);
 const file = shallowRef<File | null>(null);
 const previewUrl = ref("");
 const processing = ref(false);
@@ -68,6 +68,7 @@ defineExpose({ prepare });
 
 <template>
   <div class="space-y-3">
+    <AssetDraftNotice :expires-at="draft.expiresAt.value" :reset-required="draft.resetRequired.value" :disabled="processing || uploading" @restart="draft.restart" />
     <UFormField label="展示方式">
       <USelect v-model="model.mode" :items="[{label:'图标',value:'icon'},{label:'封面',value:'image'}]" :disabled="disabled || processing || uploading" class="w-full" />
     </UFormField>

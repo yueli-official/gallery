@@ -1,6 +1,7 @@
 import { failureFromProblemResponse } from "@yueli/http-runtime";
 import type { GalleryUploadedAsset } from "~/types/gallery";
 import { assetUploadURL } from "@yueli/asset-nuxt/upload";
+import { useAssetDraftSession } from "@yueli/asset-nuxt/references";
 
 interface UploadInit {
   uploadUrl: string;
@@ -8,9 +9,10 @@ interface UploadInit {
   uploadHeaders?: Record<string, string>;
 }
 
-export function useGalleryAssetUpload() {
+export function useGalleryAssetUpload(draftKey = "gallery-media-editor") {
   const { call } = useAssetApi();
   const { assetNamespace } = useSiteRuntime();
+  const draft=useAssetDraftSession(call,draftKey);
 
   function put(
     url: string,
@@ -88,6 +90,7 @@ export function useGalleryAssetUpload() {
   // The shared image workbench already produces normalized, metadata-free
   // WebP. Preserve its output instead of encoding it a second time.
   async function uploadPrepared(file: File, onProgress?: (value: number) => void) {
+    const session=await draft.ensure();
     const init = await call<UploadInit>("/api/v1/assets/upload-init", {
       method: "POST",
       body: {
@@ -108,12 +111,12 @@ export function useGalleryAssetUpload() {
       "/api/v1/assets/finalize",
       {
         method: "POST",
-        body: { uploadToken: init.uploadToken },
+        body: { uploadToken: init.uploadToken,draftSessionId:session.id },
       },
     );
     onProgress?.(100);
     return finalized.asset;
   }
 
-  return { upload, uploadPrepared };
+  return { upload, uploadPrepared,draft };
 }

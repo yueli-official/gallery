@@ -16,6 +16,7 @@ import (
 	"github.com/gogf/gf/v2/errors/gerror"
 	"github.com/gogf/gf/v2/os/gtime"
 	"github.com/lib/pq"
+	"github.com/yueli-official/asset/referencesync"
 	"github.com/yueli-official/foundation/go/webhook"
 	"github.com/yueli-official/foundation/go/work"
 	workpostgres "github.com/yueli-official/foundation/go/work/postgres"
@@ -28,9 +29,11 @@ import (
 )
 
 type PG struct {
-	db       gdb.DB
-	work     *workpostgres.Adapter
-	webhooks TransactionalWebhookPublisher
+	references   *referencesync.Module
+	mediaOrigins []string
+	db           gdb.DB
+	work         *workpostgres.Adapter
+	webhooks     TransactionalWebhookPublisher
 }
 
 type TransactionalWebhookPublisher interface {
@@ -292,7 +295,7 @@ SELECT id, ?, ?, ?, NOW() FROM gallery_categories WHERE slug = ?`,
 }
 
 func (p *PG) UpdateSiteSettings(ctx context.Context, input model.SiteSettingsUpdateInput) (*model.SiteSettings, error) {
-	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+	err := p.siteReferences(ctx, input, func(ctx context.Context, tx gdb.TX) error {
 		tx = tx.Ctx(ctx)
 		randomBatchSize := 24
 		for _, section := range input.HomeSections {
@@ -1274,6 +1277,7 @@ WHERE rank <= ?`
 }
 
 func (p *PG) CreateSubmission(ctx context.Context, subject model.Subject, input model.SubmissionInput, review string) (*model.Submission, error) {
+	id := newIdentifier()
 	const query = `
 INSERT INTO gallery_submissions (
     id, subject_kind, subject_id, asset_id, title, description, source_url, alt_text, review_state
@@ -1284,7 +1288,7 @@ RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
           alt_text, processing_state, review_state, safety_state,
           outcome, failure_code, review_note, created_at, updated_at`
 	var value *model.Submission
-	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+	err := p.createReferences(ctx, []referencesync.ObjectSet{p.referenceSet("gallery-submission-image", id, input.Title, "/submissions/"+id, input.AssetID)}, func(ctx context.Context, tx gdb.TX) error {
 		tx = tx.Ctx(ctx)
 		catalog, err := tx.GetOne(`
 SELECT revision
@@ -1314,7 +1318,7 @@ SELECT EXISTS (
 		if len(input.Classification.TagCreations) != 0 {
 			return galleryerr.NotInitialized("classification_tag_creation")
 		}
-		record, err := tx.GetOne(query, newIdentifier(), subject.Kind, subject.ID, input.AssetID, input.Title, input.Description,
+		record, err := tx.GetOne(query, id, subject.Kind, subject.ID, input.AssetID, input.Title, input.Description,
 			input.SourceURL, input.AltText, review)
 		if err != nil {
 			return gerror.Wrap(err, "insert gallery submission")
@@ -1413,8 +1417,23 @@ ORDER BY submission.created_at DESC, submission.id DESC LIMIT ? OFFSET ?`
 }
 
 func (p *PG) WithdrawSubmission(ctx context.Context, subject model.Subject, id string) (*model.Submission, error) {
+	current, err := p.db.GetOne(ctx, `SELECT COALESCE(image_id::text,'') AS image_id FROM gallery_submissions WHERE id=?::uuid`, id)
+	if err != nil {
+		return nil, err
+	}
+	keys := []referencesync.OwnerKey{{RefType: "gallery-submission-image", RefID: id}}
+	if current["image_id"].String() != "" {
+		keys = append(keys, referencesync.OwnerKey{RefType: "gallery-image", RefID: current["image_id"].String()})
+	}
 	var value *model.Submission
-	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+	err = p.changeReferences(ctx, keys, func(sets []referencesync.ObjectSet) ([]referencesync.ObjectSet, error) {
+		for i := range sets {
+			if sets[i].RefType == "gallery-submission-image" {
+				sets[i].Assets = []referencesync.ObjectAsset{}
+			}
+		}
+		return sets, nil
+	}, func(ctx context.Context, tx gdb.TX) error {
 		tx = tx.Ctx(ctx)
 		record, err := tx.GetOne(`
 UPDATE gallery_submissions
@@ -1431,6 +1450,9 @@ RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
 			return gerror.Wrap(err, "withdraw gallery submission")
 		}
 		value, err = recordAs[model.Submission](record)
+		if value != nil && value.ImageID != current["image_id"].String() {
+			return referencesync.ErrOwnerChanged
+		}
 		if err != nil || value == nil || value.ImageID == "" {
 			return err
 		}
@@ -1690,7 +1712,10 @@ func (p *PG) SetImagePrimaryCategory(ctx context.Context, imageID, categoryID st
 }
 
 func (p *PG) UpdateAdminImage(ctx context.Context, id string, input model.AdminImageUpdateInput) (*model.AdminImage, error) {
-	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+	err := p.changeReferences(ctx, []referencesync.OwnerKey{{RefType: "gallery-image", RefID: id}}, func(sets []referencesync.ObjectSet) ([]referencesync.ObjectSet, error) {
+		sets[0].Label = input.Title
+		return sets, nil
+	}, func(ctx context.Context, tx gdb.TX) error {
 		tx = tx.Ctx(ctx)
 		if input.PublicationState == "hidden" {
 			if err := lockUnusedPresentationImage(tx, id); err != nil {
@@ -1701,15 +1726,14 @@ func (p *PG) UpdateAdminImage(ctx context.Context, id string, input model.AdminI
 UPDATE gallery_images
 SET title = ?, description = ?, alt_text = ?, source_url = NULLIF(?, ''), updated_at = NOW(),
  publication_state = COALESCE(NULLIF(?, ''), publication_state),
- public_rendition_ready = public_rendition_ready OR ?,
  published_at = CASE WHEN ? = 'published' THEN COALESCE(published_at, NOW()) ELSE published_at END,
  hidden_at = CASE WHEN ? = 'hidden' THEN NOW() WHEN ? = 'published' THEN NULL ELSE hidden_at END
 WHERE id = ?::uuid AND updated_at = ?::timestamptz AND publication_state <> 'deleted'
   AND review_state IN ('approved', 'not_required')
-  AND (? <> 'published' OR (processing_state = 'ready' AND safety_state = 'safe' AND (public_rendition_ready OR ?)))
+  AND (? <> 'published' OR (processing_state = 'ready' AND safety_state = 'safe'))
 RETURNING id`, input.Title, input.Description, input.AltText, input.SourceURL,
-			input.PublicationState, input.PublicationReady, input.PublicationState, input.PublicationState, input.PublicationState,
-			id, input.ExpectedUpdatedAt, input.PublicationState, input.PublicationReady)
+			input.PublicationState, input.PublicationState, input.PublicationState, input.PublicationState,
+			id, input.ExpectedUpdatedAt, input.PublicationState)
 		if err != nil {
 			return gerror.Wrap(err, "update admin gallery image")
 		}
@@ -1790,7 +1814,10 @@ VALUES (?::uuid, ?::uuid, 'takedown', 'resolved', 'operator', ?, '管理员在�
 }
 
 func (p *PG) DeleteAdminImage(ctx context.Context, operator, id, expectedUpdatedAt string) error {
-	return p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+	return p.changeReferences(ctx, []referencesync.OwnerKey{{RefType: "gallery-image", RefID: id}}, func(sets []referencesync.ObjectSet) ([]referencesync.ObjectSet, error) {
+		sets[0].Assets = []referencesync.ObjectAsset{}
+		return sets, nil
+	}, func(ctx context.Context, tx gdb.TX) error {
 		if err := lockUnusedPresentationImage(tx.Ctx(ctx), id); err != nil {
 			return err
 		}
@@ -1815,6 +1842,15 @@ SELECT ?::uuid, id, 'takedown', 'resolved', 'operator', ?, '管理员删除图�
 		}
 		if rows == 0 {
 			return galleryerr.Conflict("image_version")
+		}
+		linked, err := tx.GetAll(`SELECT id::text FROM gallery_submissions WHERE image_id=?::uuid ORDER BY id FOR UPDATE`, id)
+		if err != nil {
+			return err
+		}
+		for _, row := range linked {
+			if err = p.clearReferencesTx(ctx, tx, "gallery-submission-image", row["id"].String()); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -1868,8 +1904,12 @@ ORDER BY ` + orders[input.SortBy][input.SortOrder] + ` LIMIT ? OFFSET ?`
 }
 
 func (p *PG) ReviewSubmission(ctx context.Context, operator, id string, input model.SubmissionReviewInput) (*model.Submission, error) {
+	plan, err := p.planReviewReferences(ctx, id, input.Decision)
+	if err != nil {
+		return nil, err
+	}
 	var value *model.Submission
-	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+	err = p.reviewReferences(ctx, id, plan, func(ctx context.Context, tx gdb.TX) error {
 		tx = tx.Ctx(ctx)
 		catalog, err := tx.GetOne(`
 SELECT id
@@ -1900,7 +1940,10 @@ FROM gallery_submissions WHERE id = ?::uuid FOR UPDATE`, id).Scan(&current); err
 			return gerror.Wrap(err, "lock gallery submission review")
 		}
 		if current == nil {
-			return nil
+			return referencesync.ErrOwnerChanged
+		}
+		if current.UpdatedAt == nil || !current.UpdatedAt.Time.Equal(plan.updatedAt) {
+			return referencesync.ErrOwnerChanged
 		}
 		if current.ReviewState != "pending" || current.Outcome != "pending" {
 			if input.Decision == "approve" && current.ReviewState == "approved" && current.Outcome == "published" && current.ImageID != "" {
@@ -1946,6 +1989,20 @@ LIMIT 1`, id)
 			return gerror.Wrap(err, "find exact gallery duplicate")
 		}
 		duplicateID := duplicateValue.String()
+		if duplicateID != "" {
+			image, err := tx.GetOne(`SELECT asset_id::text,title,deleted_at IS NOT NULL OR publication_state='deleted' AS deleted FROM gallery_images WHERE id=?::uuid FOR UPDATE`, duplicateID)
+			if err != nil {
+				return err
+			}
+			if len(image) == 0 || image["deleted"].Bool() {
+				return galleryerr.Conflict("image_deleted")
+			}
+			if duplicateID != plan.imageID || image["asset_id"].String() != plan.imageAsset || image["title"].String() != plan.imageTitle {
+				return referencesync.ErrOwnerChanged
+			}
+		} else if !plan.newImage {
+			return referencesync.ErrOwnerChanged
+		}
 		imageID := duplicateID
 		outcome := "duplicate"
 		if imageID == "" {
@@ -1958,7 +2015,7 @@ INSERT INTO gallery_images (
 SELECT ?::uuid, asset_id, id, title, description, source_url, alt_text, width, height,
        dominant_color, 'ready', 'approved', 'published', 'safe', FALSE, exact_sha256, pdq_hash, NOW()
 FROM gallery_submissions WHERE id = ?::uuid
-RETURNING id::text AS id`, newIdentifier(), id)
+RETURNING id::text AS id`, plan.imageID, id)
 			if err != nil {
 				return gerror.Wrap(err, "publish approved gallery submission")
 			}
@@ -2060,7 +2117,7 @@ LIMIT ?`, args...).Scan(&values); err != nil {
 }
 
 func (p *PG) HideImage(ctx context.Context, operator, id, reason string) error {
-	return p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+	return p.changeReferences(ctx, []referencesync.OwnerKey{{RefType: "gallery-image", RefID: id}}, unchangedReferences, func(ctx context.Context, tx gdb.TX) error {
 		if err := lockUnusedPresentationImage(tx.Ctx(ctx), id); err != nil {
 			return err
 		}

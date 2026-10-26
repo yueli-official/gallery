@@ -102,7 +102,7 @@ func writeClassificationVisual(tx gdb.TX, kind, id string, visual *model.Classif
 	}
 	_, err = tx.Exec(`INSERT INTO gallery_classification_presentation(kind,node_id,mode,icon,image_id,asset_id)
 	VALUES(?,?::uuid,?,?,NULLIF(?, '')::uuid,NULLIF(?, '')::uuid)
-	ON CONFLICT(kind,node_id) DO UPDATE SET mode=EXCLUDED.mode,icon=EXCLUDED.icon,image_id=EXCLUDED.image_id,asset_id=EXCLUDED.asset_id`, kind, id, visual.Mode, visual.Icon, visual.ImageID, assetID)
+	ON CONFLICT(kind,node_id) DO UPDATE SET mode=EXCLUDED.mode,icon=EXCLUDED.icon,image_id=EXCLUDED.image_id,asset_id=EXCLUDED.asset_id,updated_at=NOW()`, kind, id, visual.Mode, visual.Icon, visual.ImageID, assetID)
 	return err
 }
 

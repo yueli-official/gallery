@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/yueli-official/asset/referencesync"
 	"github.com/yueli-official/gallery/api/internal/assetreferences"
 	"os"
 	"time"
@@ -112,6 +111,13 @@ func main() {
 		panic(err)
 	}
 	store := dao.NewPG(g.DB(), workAdapter)
+	refModule, refRunner, err := assetreferences.New(ctx, workDB)
+	if err != nil {
+		panic(err)
+	}
+	if _, err = store.WithAssetReferences(refModule, g.Cfg().MustGet(ctx, "gallery.siteUrl").String(), os.Getenv("ASSET_PUBLIC_ORIGIN")); err != nil {
+		panic(err)
+	}
 	var webhookRuntime *runtime.WebhookRuntime
 	if g.Cfg().MustGet(ctx, "gallery.webhook.enabled").Bool() {
 		masterKey, err := runtime.DecodeWebhookMasterKey(
@@ -211,8 +217,11 @@ func main() {
 	}
 	processorCtx, stopProcessor := context.WithCancel(context.Background())
 	defer stopProcessor()
-	refClient := &referencesync.Client{BaseURL: assetCfg.BaseURL, Token: assetPort.ServiceToken}
-	go assetreferences.Run(processorCtx, workDB, refClient, appconfig.AssetNamespace(ctx), func(err error) { g.Log().Warning(ctx, "asset reference reconciliation:", err) }, os.Getenv("ASSET_PUBLIC_ORIGIN"))
+	go func() {
+		if err := refRunner.Run(processorCtx); err != nil && !errors.Is(err, context.Canceled) {
+			g.Log().Error(ctx, "asset reference worker stopped:", err)
+		}
+	}()
 
 	go runSubmissionProcessor(processorCtx, service)
 	workerID := "gallery-worker"
@@ -260,7 +269,8 @@ func main() {
 		}
 	}
 	server.Configure(httpServer, server.Deps{
-		Gallery: service, Verifier: verifier, PersonalVerifier: personalVerifier,
+		AssetReferences: refModule,
+		Gallery:         service, Verifier: verifier, PersonalVerifier: personalVerifier,
 		PersonalSite: personalToken.SiteID, Authorization: authorizationService, Comments: comments,
 	})
 	g.Log().Info(ctx, "gallery service starting")
@@ -270,16 +280,7 @@ func main() {
 func runSubmissionProcessor(ctx context.Context, service *galleryservice.Service) {
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
-	nextPublicationSweep := time.Time{}
 	for {
-		if time.Now().After(nextPublicationSweep) {
-			if _, err := service.ReconcilePublishedImages(ctx, 100); err != nil && ctx.Err() == nil {
-				g.Log().Warning(ctx, "gallery public rendition reconciliation failed", "error", err)
-				nextPublicationSweep = time.Now().Add(30 * time.Second)
-			} else {
-				nextPublicationSweep = time.Now().Add(10 * time.Minute)
-			}
-		}
 		processed, err := service.ProcessQueuedSubmissions(ctx, 8)
 		if err != nil && ctx.Err() == nil {
 			g.Log().Warning(ctx, "gallery submission processing batch failed", "error", err)

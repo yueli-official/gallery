@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/yueli-official/asset/referencesync"
+	"github.com/yueli-official/foundation/go/identifier"
+	"github.com/yueli-official/gallery/api/internal/assetreferences"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -24,8 +27,31 @@ import (
 )
 
 type galleryPG18Fixture struct {
-	SQL   *sql.DB
-	Store *dao.PG
+	SQL        *sql.DB
+	Store      *dao.PG
+	References *referencesync.Module
+}
+
+type referenceRemote struct{}
+
+func (referenceRemote) PrepareObject(_ context.Context, _ string, set referencesync.ObjectSet) (referencesync.ObjectSet, error) {
+	set.Handoff = &referencesync.Handoff{SessionID: identifier.MustNew().String(), Ticket: identifier.MustNew().String()}
+	return set, nil
+}
+func (referenceRemote) AbortHandoff(context.Context, referencesync.Handoff) error { return nil }
+func (referenceRemote) ReplaceObject(_ context.Context, set referencesync.ObjectSet) (referencesync.ObjectResult, error) {
+	return referencesync.ObjectResult{Version: set.Version, References: len(set.Assets), Applied: true}, nil
+}
+
+type publicationPort struct{ published, revoked int }
+
+func (p *publicationPort) PublishImage(context.Context, string, string, string) error {
+	p.published++
+	return nil
+}
+func (p *publicationPort) UnpublishImage(context.Context, string, string) error {
+	p.revoked++
+	return nil
 }
 
 func newGalleryPG18Fixture(t *testing.T) galleryPG18Fixture {
@@ -84,7 +110,15 @@ func newGalleryPG18Fixture(t *testing.T) galleryPG18Fixture {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = databaseHandle.Close(context.Background()) })
-	return galleryPG18Fixture{SQL: sqlDB, Store: dao.NewPG(databaseHandle)}
+	module, _, err := referencesync.NewPostgres(context.Background(), sqlDB, "gallery:asset-references", referenceRemote{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := dao.NewPG(databaseHandle).WithAssetReferences(module, "https://gallery.example.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return galleryPG18Fixture{SQL: sqlDB, Store: store, References: module}
 }
 
 func TestPostgreSQL18ContextualCategoryCountsPreserveOtherFacetsAndCountDistinctImages(t *testing.T) {
@@ -910,12 +944,20 @@ func TestPostgreSQL18ImagePublicationAndHideAreAtomic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if published.PublicationState != "published" || !published.PublicRenditionReady {
-		t.Fatal("image was not published")
+	if published.PublicationState != "published" || published.PublicRenditionReady {
+		t.Fatal("image must wait for durable publication")
 	}
 	public, err := f.Store.Image(ctx, id, "")
+	if err != nil || public != nil {
+		t.Fatalf("unconfirmed image publicly eligible: %v", err)
+	}
+	port := &publicationPort{}
+	if err = assetreferences.SynchronizePublication(ctx, f.SQL, port, id); err != nil {
+		t.Fatal(err)
+	}
+	public, err = f.Store.Image(ctx, id, "")
 	if err != nil || public == nil {
-		t.Fatalf("published image missing: %v", err)
+		t.Fatalf("confirmed publication missing: %v", err)
 	}
 	if _, err = f.Store.UpdateAdminImage(ctx, id, input); err == nil {
 		t.Fatal("stale publication accepted")
@@ -926,6 +968,12 @@ func TestPostgreSQL18ImagePublicationAndHideAreAtomic(t *testing.T) {
 	hidden, err := f.Store.UpdateAdminImage(ctx, id, input)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if err = assetreferences.SynchronizePublication(ctx, f.SQL, port, id); err != nil {
+		t.Fatal(err)
+	}
+	if port.published != 1 || port.revoked != 1 {
+		t.Fatal("publication effects not serialized")
 	}
 	public, err = f.Store.Image(ctx, id, "")
 	if err != nil || public != nil {
@@ -949,5 +997,83 @@ func TestPostgreSQL18ImagePublicationAndHideAreAtomic(t *testing.T) {
 		if err != nil || got.Title == input.Title || got.PublicationState != "hidden" {
 			t.Fatal("rejected publication partially updated metadata", err)
 		}
+	}
+}
+
+func TestPostgreSQL18SubmissionReferenceLifecycle(t *testing.T) {
+	f := newGalleryPG18Fixture(t)
+	ctx := context.Background()
+	if _, err := f.SQL.Exec(`INSERT INTO gallery_classification_catalogs(id,catalog_key) VALUES ('01990000-0000-7000-8000-000000000001','gallery')`); err != nil {
+		t.Fatal(err)
+	}
+	input := model.SubmissionInput{AssetID: "01990000-0000-7000-8500-000000000001", Title: "Reference lifecycle", AltText: "Lifecycle"}
+	input.Classification.CatalogRevision = 1
+	subject := model.Subject{Kind: "user", ID: "reference-integration"}
+	submission, err := f.Store.CreateSubmission(ctx, subject, input, "pending")
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := func(kind, id string, want int) {
+		t.Helper()
+		var size int
+		if err := f.SQL.QueryRow(`SELECT jsonb_array_length(payload->'assets') FROM asset_reference_intents WHERE instance_key='gallery:asset-references' AND ref_type=$1 AND ref_id=$2`, kind, id).Scan(&size); err != nil || size != want {
+			t.Fatalf("%s members=%d want=%d: %v", kind, size, want, err)
+		}
+	}
+	count("gallery-submission-image", submission.ID, 1)
+	if _, err = f.SQL.Exec(`UPDATE gallery_submissions SET processing_state='ready',width=512,height=512,safety_state='safe',public_rendition_ready=TRUE,exact_sha256=decode(repeat('ab',32),'hex'),updated_at=NOW() WHERE id=$1`, submission.ID); err != nil {
+		t.Fatal(err)
+	}
+	reviewed, err := f.Store.ReviewSubmission(ctx, "operator", submission.ID, model.SubmissionReviewInput{Decision: "approve"})
+	if err != nil || reviewed == nil || reviewed.ImageID == "" {
+		t.Fatalf("review: %+v %v", reviewed, err)
+	}
+	count("gallery-image", reviewed.ImageID, 1)
+	port := &publicationPort{}
+	if err = assetreferences.SynchronizePublication(ctx, f.SQL, port, reviewed.ImageID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.Store.WithdrawSubmission(ctx, subject, submission.ID); err != nil {
+		t.Fatal(err)
+	}
+	count("gallery-submission-image", submission.ID, 0)
+	count("gallery-image", reviewed.ImageID, 1)
+	if err = assetreferences.SynchronizePublication(ctx, f.SQL, port, reviewed.ImageID); err != nil {
+		t.Fatal(err)
+	}
+	image, err := f.Store.AdminImage(ctx, reviewed.ImageID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = f.Store.DeleteAdminImage(ctx, "operator", reviewed.ImageID, image.UpdatedAt.Format(time.RFC3339Nano)); err != nil {
+		t.Fatal(err)
+	}
+	count("gallery-image", reviewed.ImageID, 0)
+	count("gallery-submission-image", submission.ID, 0)
+	if err = assetreferences.SynchronizePublication(ctx, f.SQL, port, reviewed.ImageID); err != nil {
+		t.Fatal(err)
+	}
+	visual := &model.ClassificationPresentation{Mode: "image", AssetID: "01990000-0000-7000-8500-000000000002"}
+	node, err := f.Store.CreateClassificationIdentity(ctx, "operator", model.ClassificationIdentityCreateInput{Kind: "category", Name: "Cover", Slug: "reference-cover", Visual: visual})
+	if err != nil {
+		t.Fatal(err)
+	}
+	count("gallery-classification-cover", "category:"+node.ID, 1)
+	if _, err = f.Store.UpdateClassificationIdentity(ctx, "operator", node.ID, model.ClassificationIdentityUpdateInput{Kind: "category", Name: "Renamed", Slug: "reference-cover"}); err != nil {
+		t.Fatal(err)
+	}
+	count("gallery-classification-cover", "category:"+node.ID, 1)
+	source, err := assetreferences.ObjectSource("https://gallery.example.test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := f.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	set, err := source.ReadReferenceObject(ctx, tx, referencesync.OwnerKey{RefType: "gallery-classification-cover", RefID: "category:" + node.ID})
+	if err != nil || set.Label != "Renamed" || len(set.Assets) != 1 {
+		t.Fatalf("native classification lookup: %+v %v", set, err)
 	}
 }

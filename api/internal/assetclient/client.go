@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/yueli-official/asset/referencesync"
 	"net/http"
 	"net/url"
 	"strings"
@@ -74,6 +75,11 @@ func (c *HTTP) PublishImage(ctx context.Context, assetID, imageID, title string)
 	return c.referenceRequest(ctx, http.MethodPost, c.baseURL+"/api/v1/assets/"+url.PathEscape(strings.TrimSpace(assetID))+"/publications", map[string]any{
 		"siteKey": c.siteKey, "refId": imageID, "refLabel": title, "refUrl": "/images/" + strings.TrimSpace(imageID),
 	})
+}
+
+func (c *HTTP) UnpublishImage(ctx context.Context, assetID, imageID string) error {
+	client := referencesync.Client{BaseURL: c.baseURL, Token: c.ServiceToken, HTTP: c.http}
+	return client.Remove(ctx, c.siteKey, "asset-rendition-publication", referencesync.Reference{AssetID: assetID, RefID: imageID})
 }
 
 func (c *HTTP) PrepareSubmission(ctx context.Context, assetID string) (SubmissionAssetFacts, error) {

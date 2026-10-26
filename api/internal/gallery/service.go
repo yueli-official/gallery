@@ -18,6 +18,7 @@ import (
 
 	"github.com/yueli-official/foundation/go/classification"
 	"github.com/yueli-official/foundation/go/identifier"
+	"github.com/yueli-official/gallery/api/internal/assetreferences"
 	"github.com/yueli-official/gallery/api/internal/collection"
 	"github.com/yueli-official/gallery/api/internal/galleryabuse"
 	"github.com/yueli-official/gallery/api/internal/galleryerr"
@@ -114,6 +115,7 @@ type AssetReferencePort interface {
 	UnregisterSubmission(context.Context, string, string, string) error
 	PrepareSubmission(context.Context, string) (model.SubmissionAssetFacts, error)
 	PublishImage(context.Context, string, string, string) error
+	UnpublishImage(context.Context, string, string) error
 }
 
 type SubmissionProcessingStore interface {
@@ -124,6 +126,7 @@ type SubmissionProcessingStore interface {
 
 type PublicationReconciliationStore interface {
 	PublishedImageCandidates(context.Context, string, int) ([]model.ImagePublicationCandidate, error)
+	SynchronizeImagePublication(context.Context, model.ImagePublicationCandidate, assetreferences.PublicationPort) error
 }
 
 type GuestClaimStore interface {
@@ -227,10 +230,7 @@ func (s *Service) ReconcilePublishedImages(ctx context.Context, pageSize int) (i
 			return processed, err
 		}
 		for _, item := range items {
-			if err := s.assets.PublishImage(ctx, item.AssetID, item.ID, item.Title); err != nil {
-				return processed, err
-			}
-			if err := s.store.MarkImagePublicRenditionReady(ctx, item.ID); err != nil {
+			if err := store.SynchronizeImagePublication(ctx, item, s.assets); err != nil {
 				return processed, err
 			}
 			processed++
@@ -1968,10 +1968,6 @@ func (s *Service) UpdateAdminImage(ctx context.Context, rawID string, input mode
 				if s.assets == nil {
 					return nil, galleryerr.InvalidState("image", "public_rendition_unavailable")
 				}
-				if err := s.assets.PublishImage(ctx, current.AssetID, current.ID, input.Title); err != nil {
-					return nil, err
-				}
-				input.PublicationReady = true
 			}
 		}
 	}
@@ -2175,14 +2171,6 @@ func (s *Service) ReviewSubmission(ctx context.Context, operator, rawID string, 
 	}
 	if value == nil {
 		return nil, galleryerr.InvalidState("submission", "not_reviewable")
-	}
-	if input.Decision == "approve" && value.Outcome == "published" && value.ImageID != "" && s.assets != nil {
-		if err := s.assets.PublishImage(ctx, value.AssetID, value.ImageID, value.Title); err != nil {
-			return nil, err
-		}
-		if err := s.store.MarkImagePublicRenditionReady(ctx, value.ImageID); err != nil {
-			return nil, err
-		}
 	}
 	normalizeSubmission(value)
 	return value, nil

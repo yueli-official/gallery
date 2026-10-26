@@ -214,8 +214,24 @@ FOR UPDATE`)
 			return galleryerr.Conflict("classification_impact")
 		}
 		for _, step := range plan.Steps {
+			before, err := tx.GetAll(`SELECT ?::text AS kind,?::text AS node_id UNION SELECT 'facet_value',id::text FROM gallery_facet_values WHERE ?='facet' AND facet_id=?::uuid`, string(step.IdentityKind), step.SourceID, string(step.IdentityKind), step.SourceID)
+			if err != nil {
+				return err
+			}
 			if err := executeClassificationGovernanceStep(ctx, tx, step); err != nil {
 				return err
+			}
+			for _, row := range before {
+				kind, id := row["kind"].String(), row["node_id"].String()
+				exists, err := tx.GetValue(`SELECT EXISTS(SELECT 1 FROM gallery_classification_presentation WHERE kind=? AND node_id=?::uuid)`, kind, id)
+				if err != nil {
+					return err
+				}
+				if !exists.Bool() {
+					if err = p.clearReferencesTx(ctx, tx, "gallery-classification-cover", kind+":"+id); err != nil {
+						return err
+					}
+				}
 			}
 		}
 		revisionRecord, err := tx.GetOne(`
@@ -253,7 +269,7 @@ RETURNING revision`, catalog["id"].String(), plan.ExpectedCatalogRevision)
 
 func (p *PG) CreateClassificationIdentity(ctx context.Context, operator string, input model.ClassificationIdentityCreateInput) (*model.ClassificationIdentityCreateResult, error) {
 	result := &model.ClassificationIdentityCreateResult{ID: newIdentifier()}
-	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+	err := p.classificationReferences(ctx, input.Kind, result.ID, input.Name, input.Visual, func(ctx context.Context, tx gdb.TX) error {
 		tx = tx.Ctx(ctx)
 		catalog, err := tx.GetOne(`
 SELECT id::text AS id, revision
@@ -390,7 +406,7 @@ RETURNING revision`, catalogID, catalog["revision"].Uint64())
 
 func (p *PG) UpdateClassificationIdentity(ctx context.Context, operator, id string, input model.ClassificationIdentityUpdateInput) (*model.ClassificationIdentityCreateResult, error) {
 	result := &model.ClassificationIdentityCreateResult{ID: id}
-	err := p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+	err := p.classificationReferences(ctx, input.Kind, id, input.Name, input.Visual, func(ctx context.Context, tx gdb.TX) error {
 		tx = tx.Ctx(ctx)
 		catalog, err := tx.GetOne(`
 SELECT id::text AS id, revision

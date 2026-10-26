@@ -9,7 +9,6 @@ import (
 	"testing"
 )
 
-// Real PostgreSQL query tests use transaction-local tables only; no production data is touched.
 func TestCommittedUsageLifecycle(t *testing.T) {
 	dsn := os.Getenv("REFERENCE_TEST_DATABASE_URL")
 	if dsn == "" {
@@ -26,64 +25,34 @@ func TestCommittedUsageLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tx.Rollback()
-	exec := func(query string) {
+	_, err = tx.Exec(`CREATE TEMP TABLE gallery_images(id uuid PRIMARY KEY,title text,asset_id uuid,publication_state text,deleted_at timestamptz,updated_at timestamptz DEFAULT NOW());
+ INSERT INTO gallery_images(id,title,asset_id,publication_state) VALUES('019c1000-0000-7000-8100-000000000001','Image','019c1000-0000-7000-8100-000000000002','published')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := ObjectSource()
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := referencesync.OwnerKey{RefType: "gallery-image", RefID: "019c1000-0000-7000-8100-000000000001"}
+	read := func(want int) {
 		t.Helper()
-		if _, err := tx.ExecContext(ctx, query); err != nil {
-			t.Fatal(err)
+		set, err := source.ReadReferenceObject(ctx, tx, key)
+		if err != nil || len(set.Assets) != want {
+			t.Fatalf("owner=%+v err=%v", set, err)
 		}
 	}
-	exec(`CREATE TEMP TABLE gallery_images(id text,title text,asset_id text,publication_state text,deleted_at timestamptz) ON COMMIT DROP; CREATE TEMP TABLE gallery_submissions(id text,title text,asset_id text,image_id text,outcome text) ON COMMIT DROP;INSERT INTO gallery_images VALUES ('a','A','KeyA','published',NULL),('b','B','KeyA','hidden',NULL)`)
-	read := func(want int) []referencesync.Reference {
-		t.Helper()
-		snapshots, err := Source()(ctx, tx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, s := range snapshots {
-			if s.RefType == "gallery-image" {
-				if len(s.References) != want {
-					t.Fatalf("references=%d want=%d", len(s.References), want)
-				}
-				return s.References
-			}
-		}
-		t.Fatal("snapshot missing")
-		return nil
-	}
-	read(2)
-	read(2) // Backfill and repeat keep two independent users of the same asset.
-	exec(`UPDATE gallery_images SET publication_state='deleted',deleted_at=now() WHERE id='a'`)
 	read(1)
-	exec(`UPDATE gallery_images SET publication_state='published',deleted_at=NULL WHERE id='a'`)
-	read(2)
-	exec(`UPDATE gallery_images SET asset_id='KeyB' WHERE id='a'`)
-	for _, ref := range read(2) {
-		if ref.RefID == "a" && ref.AssetID != "KeyB" && ref.MediaKey != "KeyB" {
-			t.Fatalf("replacement retained old asset: %+v", ref)
-		}
+	if _, err = tx.Exec(`UPDATE gallery_images SET publication_state='hidden'`); err != nil {
+		t.Fatal(err)
 	}
-
-	check := func(kind string, want int) {
-		t.Helper()
-		snapshots, err := Source()(ctx, tx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, snapshot := range snapshots {
-			if snapshot.RefType == kind {
-				if len(snapshot.References) != want {
-					t.Fatalf("%s count=%d want=%d", kind, len(snapshot.References), want)
-				}
-				return
-			}
-		}
-		t.Fatalf("missing %s", kind)
+	read(1)
+	if _, err = tx.Exec(`UPDATE gallery_images SET publication_state='deleted',deleted_at=NOW()`); err != nil {
+		t.Fatal(err)
 	}
-
-	exec(`INSERT INTO gallery_submissions VALUES ('pending','Pending','PendingAsset',NULL,'pending'),('withdrawn','Withdrawn','Unused',NULL,'withdrawn'),('linked','Linked','KeyA','b','accepted')`)
-	check("gallery-submission-image", 2)
-	exec(`UPDATE gallery_submissions SET outcome='withdrawn' WHERE id='pending'`)
-	check("gallery-submission-image", 1)
-	exec(`UPDATE gallery_images SET publication_state='deleted',deleted_at=now() WHERE id='b'`)
-	check("gallery-submission-image", 0)
+	read(0)
+	if _, err = tx.Exec(`UPDATE gallery_images SET publication_state='published',deleted_at=NULL`); err != nil {
+		t.Fatal(err)
+	}
+	read(1)
 }

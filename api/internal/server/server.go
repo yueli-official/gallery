@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/gogf/gf/v2/net/ghttp"
+	"github.com/yueli-official/asset/referencesync"
 
 	foundationauth "github.com/yueli-official/foundation/go/auth"
 	goframeauth "github.com/yueli-official/foundation/go/goframe/auth"
@@ -13,6 +14,7 @@ import (
 )
 
 type Deps struct {
+	AssetReferences  *referencesync.Module
 	Gallery          *galleryservice.Service
 	Verifier         *foundationauth.Verifier
 	PersonalVerifier *foundationauth.PersonalTokenVerifier
@@ -73,6 +75,7 @@ func Configure(s *ghttp.Server, deps Deps) {
 			}
 			group.Bind(controller.NewWorkflow(deps.Gallery))
 			group.Bind(controller.NewAdmin(deps.Gallery))
+			group.Bind(controller.NewReferenceSync(deps.AssetReferences))
 			group.Bind(controller.NewMe())
 			group.Bind(controller.NewAuthorization())
 			group.Bind(controller.NewPersonalPermissions(deps.PersonalSite, deps.Authorization))

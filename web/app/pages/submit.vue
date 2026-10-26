@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import {AssetDraftNotice} from '@yueli/asset-nuxt/components';
 import type { GallerySubmission, GallerySubmissionOptions } from "~/types/gallery";
 import type { GallerySubmissionEditor } from "~/types/submission-editor";
 import { GALLERY_UPLOAD_ACCEPT, GALLERY_UPLOAD_BATCH_LIMIT, GALLERY_UPLOAD_FORMAT_LABEL, galleryUploadAnimationError, galleryUploadFileError } from "~/utils/galleryUpload";
@@ -9,7 +10,7 @@ type QueueStatus = "ready" | "uploading" | "submitting" | "completed" | "duplica
 interface QueueItem extends GallerySubmissionEditor { id:string; file:File; previewUrl:string; customized:boolean; status:QueueStatus;progress:number;error:string;assetId:string;submission?:GallerySubmission }
 const { loggedIn, login } = useAuth();
 const { call } = useGalleryApi();
-const { upload } = useGalleryAssetUpload();
+const { upload,draft } = useGalleryAssetUpload('gallery-submission-queue');
 const { data: options, error: optionsError, refresh: refreshOptions } = await useFetch<GallerySubmissionOptions>("/api/gallery/submission-options");
 const queue = ref<QueueItem[]>([]);
 const defaults = ref<GallerySubmissionEditor>({ title:"",description:"",sourceUrl:"",primaryCategoryId:"",sceneValueIds:[],tags:"",facetValues:{} });
@@ -60,6 +61,7 @@ useSeoMeta({title:"投稿图片 · 月离图库",robots:"noindex,follow"});
   <header class="submission-heading"><div><h1>投稿图片</h1><p>选择图片，整理信息，再提交到图库。</p></div><span>{{ queue.length ? '② 整理信息' : '① 选择图片' }}</span></header>
   <UAlert v-if="optionsError" color="error" title="分类选项加载失败" class="mb-4"><template #actions><UButton label="重试" @click="refreshOptions()" /></template></UAlert>
   <p class="submission-help">上传后保存为高质量 WebP，最长边 4096 像素，不放大小图，不保留原文件。</p>
+  <AssetDraftNotice :expires-at="draft.expiresAt.value" :reset-required="draft.resetRequired.value" :disabled="running" @restart="draft.restart" />
   <div class="submission-workspace">
    <section class="submission-queue">
     <div class="submission-drop" @dragover.prevent @drop.prevent="drop"><UIcon name="i-tabler-photo-plus" /><div><p>将图片拖到这里，或选择文件</p><small>{{ GALLERY_UPLOAD_FORMAT_LABEL }} · 每批最多 {{ GALLERY_UPLOAD_BATCH_LIMIT }} 张 · 单张不超过 20 MiB</small></div><UButton label="选择图片" icon="i-tabler-folder-open" variant="outline" :disabled="running||queue.length>=GALLERY_UPLOAD_BATCH_LIMIT" @click="fileInput?.click()" /><input ref="fileInput" type="file" multiple :accept="GALLERY_UPLOAD_ACCEPT" :disabled="running" class="sr-only" aria-label="选择投稿图片" @change="chooseFiles" /></div>

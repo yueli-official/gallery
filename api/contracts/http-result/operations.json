@@ -779,6 +779,111 @@
       ]
     },
     {
+      "id": "gallery.get.api.v1.manage.asset-references",
+      "method": "GET",
+      "path": "/api/v1/manage/asset-references",
+      "success": {
+        "status": 200,
+        "kind": "page",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncStatusRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "common.unauthorized",
+        "gallery.authorization_unavailable",
+        "gallery.forbidden",
+        "gallery.not_found",
+        "gallery.conflict",
+        "gallery.upstream_failed"
+      ]
+    },
+    {
+      "id": "gallery.get.api.v1.manage.asset-references.attempts",
+      "method": "GET",
+      "path": "/api/v1/manage/asset-references/attempts",
+      "success": {
+        "status": 200,
+        "kind": "collection",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncAttemptsRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "common.unauthorized",
+        "gallery.authorization_unavailable",
+        "gallery.forbidden",
+        "gallery.not_found",
+        "gallery.conflict",
+        "gallery.upstream_failed"
+      ]
+    },
+    {
+      "id": "gallery.get.api.v1.manage.asset-references.history",
+      "method": "GET",
+      "path": "/api/v1/manage/asset-references/history",
+      "success": {
+        "status": 200,
+        "kind": "page",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncHistoryRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "common.unauthorized",
+        "gallery.authorization_unavailable",
+        "gallery.forbidden",
+        "gallery.not_found",
+        "gallery.conflict",
+        "gallery.upstream_failed"
+      ]
+    },
+    {
+      "id": "gallery.get.api.v1.manage.asset-references.sync-runs",
+      "method": "GET",
+      "path": "/api/v1/manage/asset-references/sync-runs",
+      "success": {
+        "status": 200,
+        "kind": "page",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncRunsRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "common.unauthorized",
+        "gallery.authorization_unavailable",
+        "gallery.forbidden",
+        "gallery.not_found",
+        "gallery.conflict",
+        "gallery.upstream_failed"
+      ]
+    },
+    {
+      "id": "gallery.get.api.v1.manage.asset-references.sync-runs.items",
+      "method": "GET",
+      "path": "/api/v1/manage/asset-references/sync-runs/items",
+      "success": {
+        "status": 200,
+        "kind": "page",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncRunItemsRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "common.unauthorized",
+        "gallery.authorization_unavailable",
+        "gallery.forbidden",
+        "gallery.not_found",
+        "gallery.conflict",
+        "gallery.upstream_failed"
+      ]
+    },
+    {
       "id": "gallery.patch.api.v1.gallery.admin.classification.identities.by-identityId",
       "method": "PATCH",
       "path": "/api/v1/gallery/admin/classification/identities/{identityId}",
@@ -1620,6 +1725,69 @@
         "gallery.abuse_unavailable",
         "gallery.abuse_attempt_replayed",
         "common.unauthorized"
+      ]
+    },
+    {
+      "id": "gallery.post.api.v1.manage.asset-references.retry",
+      "method": "POST",
+      "path": "/api/v1/manage/asset-references/retry",
+      "success": {
+        "status": 202,
+        "kind": "operation",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncRetryRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "common.unauthorized",
+        "gallery.authorization_unavailable",
+        "gallery.forbidden",
+        "gallery.not_found",
+        "gallery.conflict",
+        "gallery.upstream_failed"
+      ]
+    },
+    {
+      "id": "gallery.post.api.v1.manage.asset-references.sync",
+      "method": "POST",
+      "path": "/api/v1/manage/asset-references/sync",
+      "success": {
+        "status": 202,
+        "kind": "operation",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncResyncRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "common.unauthorized",
+        "gallery.authorization_unavailable",
+        "gallery.forbidden",
+        "gallery.not_found",
+        "gallery.conflict",
+        "gallery.upstream_failed"
+      ]
+    },
+    {
+      "id": "gallery.post.api.v1.manage.asset-references.sync-runs",
+      "method": "POST",
+      "path": "/api/v1/manage/asset-references/sync-runs",
+      "success": {
+        "status": 202,
+        "kind": "operation",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.asset.referencesync.goframe.ReferenceSyncStartRunRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "common.unauthorized",
+        "gallery.authorization_unavailable",
+        "gallery.forbidden",
+        "gallery.not_found",
+        "gallery.conflict",
+        "gallery.upstream_failed"
       ]
     },
     {
