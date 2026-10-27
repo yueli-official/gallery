@@ -174,7 +174,7 @@ const batchItems = computed(() =>
         ],
 );
 const batchRunning = ref(false);
-const batchResult = ref<{ success: number; failed: number }>();
+const batchResult = ref<{ success: number; failed: number; message: string }>();
 const deleteTarget = shallowRef<GalleryAdminComment>();
 const deleteOpen = ref(false);
 
@@ -230,7 +230,8 @@ async function setStatus(
     if (workflow.isSelected(id)) workflow.toggleKey(id);
     if (refreshAfter) await reload();
     return true;
-  } catch {
+  } catch (error) {
+    toast.add({ title: "评论未能更新", description: galleryFailureMessage(error, "请核对当前状态后重试。"), color: "error" });
     return false;
   } finally {
     busy.value = "";
@@ -263,9 +264,8 @@ async function emptyTrash() {
           }),
         ),
       );
-      if (outcomes.some((outcome) => outcome.status === "rejected")) {
-        throw new Error("部分评论未能永久删除");
-      }
+      const failure = outcomes.find((outcome) => outcome.status === "rejected");
+      if (failure?.status === "rejected") throw failure.reason;
       if (result.items.length < 100) break;
     }
     clearSelection();
@@ -287,23 +287,18 @@ async function applyBatch() {
   if (!batchAction.value || !selectedIds.value.length || batchRunning.value)
     return;
   const ids = [...selectedIds.value];
+  const action = batchAction.value;
   batchRunning.value = true;
-  const results = await Promise.all(
-    ids.map(async (id) => ({
-      id,
-      success: await setStatus(
-        id,
-        batchAction.value as GalleryCommentStatus,
-        false,
-      ),
-    })),
-  );
-  const failed = results.filter((result) => !result.success).map((result) => result.id);
-  batchResult.value = { success: results.length - failed.length, failed: failed.length };
-  replaceSelection(failed);
-  batchAction.value = "";
-  await reload();
-  batchRunning.value = false;
+  batchResult.value = undefined;
+  try {
+    const results = await Promise.allSettled(ids.map(id => call(`/admin/comments/${encodeURIComponent(id)}`, { method: "PATCH", body: { status: action } })));
+    const failed = ids.filter((_, index) => results[index]?.status === "rejected");
+    const reasons = results.flatMap(result => result.status === "rejected" ? [galleryFailureMessage(result.reason, "评论未能更新，请核对当前状态后重试。")] : []);
+    batchResult.value = { success: results.length - failed.length, failed: failed.length, message: [...new Set(reasons)].join(" ") };
+    replaceSelection(failed);
+    batchAction.value = "";
+    await reload();
+  } finally { batchRunning.value = false; }
 }
 
 function askDelete(comment: GalleryAdminComment) {
@@ -513,7 +508,7 @@ const moderationActions: CommentModerationCollectionActions = {
       :class="batchResult.failed ? 'text-warning' : 'text-success'"
       role="status"
     >
-      <span>已处理 {{ batchResult.success }} 条评论<span v-if="batchResult.failed">，{{ batchResult.failed }} 条失败</span></span>
+      <span>已处理 {{ batchResult.success }} 条评论<span v-if="batchResult.failed">，{{ batchResult.failed }} 条失败并保留选择。{{ batchResult.message }}</span></span>
       <UButton icon="i-tabler-x" color="neutral" variant="ghost" size="xs" square aria-label="关闭批量结果" @click="batchResult = undefined" />
     </div>
 
