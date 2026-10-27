@@ -73,8 +73,8 @@ defineExpose({ prepare });
       <USelect v-model="model.mode" :items="[{label:'图标',value:'icon'},{label:'封面',value:'image'}]" :disabled="disabled || processing || uploading" class="w-full" />
     </UFormField>
     <AssetVisualAssetField ref="field" v-model:icon="icon" title="图标与封面" :image-url="imageUrl" :preview-url="previewUrl" :file="file"
-      profile-key="gallery-submission" :image-options="{ aspectRatio: 1, maxOutputSide: 1024, outputType: 'image/webp', allowAnimation: false }"
-      image-spec="WebP · 最长边 1024px" :disabled="disabled" :error="error" :uploading="uploading" :progress="progress"
+      profile-key="gallery-submission" :image-options="{ fixedOutputSize: { width: 512, height: 512 }, outputType: 'image/webp', outputQuality: 95, allowAnimation: false }"
+      image-spec="512 × 512 px · WebP · 固定 1:1" :disabled="disabled" :error="error" :uploading="uploading" :progress="progress"
       @processed="prepared" @clear-image="clearImage" @processing="processing = $event" />
   </div>
 </template>

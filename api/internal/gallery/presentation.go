@@ -107,8 +107,8 @@ func (s *Service) validateClassificationVisual(ctx context.Context, value *model
 		if err != nil {
 			return err
 		}
-		if value.ImageID == "" && (facts.Width > 1024 || facts.Height > 1024) {
-			return galleryerr.Validation("visual/assetId", "cover longest edge must not exceed 1024 pixels")
+		if value.ImageID == "" && (facts.Width != 512 || facts.Height != 512 || facts.Mime != "image/webp") {
+			return galleryerr.Validation("visual/assetId", "cover must be 512 × 512 pixels in WebP format")
 		}
 	}
 	if value.Mode == "image" && value.AssetID == "" && value.ImageID == "" {
