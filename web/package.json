@@ -4,7 +4,7 @@
     "@fontsource-variable/space-grotesk": "5.2.10",
     "@iconify-json/tabler": "1.2.35",
     "@nuxt/ui": "4.9.0",
-    "@yueli/asset-nuxt": "file:vendor/yueli-asset-nuxt-0.6.1-preview.20261027.single-image.1.tgz",
+    "@yueli/asset-nuxt": "file:vendor/yueli-asset-nuxt-0.7.0-preview.20261028.previews.1.tgz",
     "@yueli/http-runtime": "file:vendor/yueli-http-runtime-0.2.2.tgz",
     "@yueli/identity-nuxt": "file:vendor/yueli-identity-nuxt-0.2.4-preview.20261027.references.1.tgz",
     "@yueli/nuxt-runtime": "file:vendor/yueli-nuxt-runtime-0.1.5-preview.20261016.dependency-baseline.1.tgz",

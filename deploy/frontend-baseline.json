@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "baselineSha256": "d002b269afaec11df518e8090dfdcca49bab6f1e1b81f85a16097c60026aec15",
+  "baselineSha256": "b896e8efe51b901bf8877e580cfa0af10de62e8ebe0aac6d2573584ad98f63e5",
   "packages": {
     "@yueli/asset-nuxt": {
       "repository": "asset",
-      "version": "0.6.1-preview.20261027.single-image.1",
-      "sha256": "cdf3aeccee7e4a9a98288750c9a55214b02d8ad0edbb2b3694edb12b86f40443"
+      "version": "0.7.0-preview.20261028.previews.1",
+      "sha256": "c40768b86d02803172f115ca921c7b79de948cd03848631605d0347963722cdc"
     },
     "@yueli/content-nuxt": {
       "repository": "foundation",
