@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { AdminRowActions } from "@yueli/ui/admin";
+import { classificationFamilies } from "~/utils/classification-tree";
 import type {
   GalleryClassificationCatalogFacet,
   GalleryClassificationCatalogNode,
@@ -17,7 +18,7 @@ defineProps<{
 }>();
 const emit = defineEmits<{
   action: [operation: Operation, kind: IdentityKind, item: ManagedIdentity];
-  createValue: [facet: GalleryClassificationCatalogFacet];
+  createValue: [facet: GalleryClassificationCatalogFacet, parentId?: string];
   edit: [kind: IdentityKind, item: ManagedIdentity];
 }>();
 
@@ -156,12 +157,12 @@ function valueMore(item: GalleryClassificationCatalogNode) {
           </div>
         </header>
         <article
-          v-for="value in facet.values"
+          v-for="value in classificationFamilies(facet.values).flatMap(family => [family.root, ...family.children])"
           :key="value.id"
           class="grid min-h-12 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-3 border-t border-default px-3 py-2"
           data-classification-row
         >
-          <div class="min-w-0 pl-4">
+          <div class="min-w-0" :class="value.parentId ? 'pl-8' : 'pl-4'">
             <div class="flex items-center gap-2">
               <GalleryClassificationVisual :visual="value.visual" />
               <span class="text-sm font-medium text-highlighted">{{
@@ -177,12 +178,15 @@ function valueMore(item: GalleryClassificationCatalogNode) {
             </div>
           </div>
           <p class="min-w-0 truncate text-xs text-muted">{{ value.slug }}</p>
-          <AdminRowActions
-            v-if="canGovern"
-            :items="valueMore(value)"
-            :label="`更多维度值操作：${value.name}`"
-            presentation="overflow"
-          />
+          <div class="flex items-center gap-1">
+            <UButton v-if="canGovern && facet.slug === 'work' && !value.parentId && value.status === 'active'" label="新增角色" icon="i-tabler-plus" color="neutral" variant="ghost" size="xs" @click="emit('createValue', facet, value.id)" />
+            <AdminRowActions
+              v-if="canGovern"
+              :items="valueMore(value)"
+              :label="`更多维度值操作：${value.name}`"
+              presentation="overflow"
+            />
+          </div>
         </article>
       </section>
     </div>

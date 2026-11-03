@@ -192,7 +192,8 @@ function facetKey(facetSlug: string, valueSlug: string) {
           :placeholder="`查找${group.name}`"
           :aria-label="`查找${group.name}选项`"
         />
-        <div class="space-y-0.5">
+        <GalleryWorkChoices v-if="group.slug === 'work'" :nodes="group.values" :search="facetSearch[group.slug]" :selected-ids="group.values.filter(node => selectedFacets.includes(facetKey(group.slug, node.slug))).map(node => node.id)" counts @select="emit('toggleFacet', facetKey(group.slug, $event.slug))" />
+        <div v-else class="space-y-0.5">
           <label
             v-for="value in filteredValues(group)"
             :key="value.id"

@@ -2,6 +2,7 @@
 import { ManagePage, TabbedSurface } from "@yueli/ui/admin";
 import { SkeletonList } from "~/utils/manageComponents";
 import { classificationMutationErrorMessage } from "~/utils/classificationMutation";
+import { classificationFamilies, classificationPath } from "~/utils/classification-tree";
 import type { GalleryPresentationRule } from "~/types/presentation";
 import type {
   GalleryClassificationCatalog,
@@ -162,7 +163,7 @@ const visibleFacets = computed(() =>
     .map((facet) => ({
       ...facet,
       values: query.value
-        ? facet.values.filter((value) => matches(value.name, value.slug))
+        ? classificationFamilies(facet.values, query.value).flatMap(family => [family.root, ...family.children])
         : facet.values,
     })),
 );
@@ -208,7 +209,9 @@ const createTitle = computed(() =>
       : createKind.value === "facet"
         ? "维度"
         : createKind.value === "facet_value"
-          ? "维度值"
+          ? catalog.value.facets.find(facet => facet.id === createFacetID.value)?.slug === "work"
+            ? createForm.parentId === "__root__" ? "作品" : "角色"
+            : "维度值"
           : "标签"
   }`,
 );
@@ -226,7 +229,7 @@ const createParentItems = computed(() => {
       ...root,
       ...catalog.value.categories
         .filter((item) => item.status !== "replaced")
-        .map((item) => ({ label: item.name, value: item.id })),
+        .map((item) => ({ label: classificationPath(item, catalog.value.categories), value: item.id })),
     ];
   }
   if (createKind.value === "facet_value") {
@@ -234,10 +237,10 @@ const createParentItems = computed(() => {
       (item) => item.id === createFacetID.value,
     );
     return [
-      ...root,
+      ...(facet?.slug === "work" ? [{ label: "新作品（顶级）", value: "__root__" }] : root),
       ...(facet?.values || [])
-        .filter((item) => item.status !== "replaced")
-        .map((item) => ({ label: item.name, value: item.id })),
+        .filter((item) => item.status !== "replaced" && (facet?.slug !== "work" || !item.parentId))
+        .map((item) => ({ label: classificationPath(item, facet?.values || []), value: item.id })),
     ];
   }
   return root;
@@ -246,13 +249,14 @@ const createParentItems = computed(() => {
 function openCreateIdentity(
   kind: "category" | "facet" | "facet_value" | "tag",
   facetID = "",
+  parentID = "__root__",
 ) {
   identityFormMode.value = "create";
   editingIdentityID.value = "";
   createKind.value = kind;
   createFacetID.value = facetID;
   createError.value = "";
-  Object.assign(createForm, { name: "", slug: "", parentId: "__root__" });
+  Object.assign(createForm, { name: "", slug: "", parentId: parentID });
   visualDraft.value = defaultVisual(kind);
   createOpen.value = true;
 }
@@ -263,13 +267,13 @@ function openEditIdentity(kind: IdentityKind, item: ManagedIdentity) {
   identityFormMode.value = "edit";
   editingIdentityID.value = item.id;
   createKind.value = kind as "category" | "facet" | "facet_value" | "tag";
-  createFacetID.value = "";
+  createFacetID.value = kind === "facet_value" ? owningFacet(item.id)?.id || "" : "";
   createError.value = "";
   visualDraft.value = item.visual ? structuredClone(toRaw(item.visual)) : defaultVisual(createKind.value, item.id);
   Object.assign(createForm, {
     name: item.name,
     slug: item.slug,
-    parentId: "__root__",
+    parentId: "parentId" in item ? item.parentId || "__root__" : "__root__",
   });
   createOpen.value = true;
 }
@@ -652,7 +656,7 @@ async function reviewTagProposal(
             :facets="visibleFacets"
             :can-govern="canGovern"
             @action="handleIdentityAction"
-            @create-value="openCreateIdentity('facet_value', $event.id)"
+            @create-value="(facet, parentId) => openCreateIdentity('facet_value', facet.id, parentId)"
             @edit="openEditIdentity"
           />
           <ClassificationProposalPanel
@@ -703,7 +707,7 @@ async function reviewTagProposal(
           </UFormField>
           <UFormField
             v-if="identityFormMode === 'create' && !['facet', 'tag'].includes(createKind)"
-            :label="createKind === 'category' ? '上级分类' : '上级维度值'"
+            :label="createKind === 'category' ? '上级分类' : catalog.facets.find(facet => facet.id === createFacetID)?.slug === 'work' ? '所属作品' : '上级维度值'"
           >
             <USelect
               v-model="createForm.parentId"

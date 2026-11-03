@@ -23,86 +23,43 @@ INSERT INTO gallery_classification_catalogs (id, catalog_key, revision)
 		VALUES ('019817c8-0000-7000-8000-000000000002', 'gallery', 1)
 		ON CONFLICT (catalog_key) DO NOTHING;
 
-INSERT INTO gallery_categories (
-			id, catalog_id, slug, name, description, status, editorial_position, first_activated_at
-		)
-		VALUES
-		('019817c8-0000-7000-8300-000000000001', '019817c8-0000-7000-8000-000000000002', 'wallpaper', '壁纸', '适合桌面、手机与其他屏幕展示的图片。', 'active', 10, NOW()),
-		('019817c8-0000-7000-8300-000000000002', '019817c8-0000-7000-8000-000000000002', 'illustration', '插画', '数字或传统绘制的视觉作品。', 'active', 20, NOW()),
-		('019817c8-0000-7000-8300-000000000003', '019817c8-0000-7000-8000-000000000002', 'photography', '摄影', '通过摄影媒介形成的图像。', 'active', 30, NOW())
-		ON CONFLICT (catalog_id, slug) DO NOTHING;
-
-INSERT INTO gallery_facets (
-			id, catalog_id, slug, name, description, status, editorial_position, first_activated_at
-		)
-		VALUES
-		('019817c8-0000-7000-8100-000000000001', '019817c8-0000-7000-8000-000000000002', 'scene', '场景', '图片呈现的主体与环境。', 'active', 10, NOW()),
-		('019817c8-0000-7000-8100-000000000002', '019817c8-0000-7000-8000-000000000002', 'orientation', '方向', '图片的横竖与方形比例。', 'active', 20, NOW()),
-		('019817c8-0000-7000-8100-000000000003', '019817c8-0000-7000-8000-000000000002', 'style', '风格', '运营维护的视觉风格。', 'active', 30, NOW())
-		ON CONFLICT (catalog_id, slug) DO NOTHING;
-
-INSERT INTO gallery_facet_values (
-			id, catalog_id, facet_id, parent_id, slug, name, description, status, editorial_position, first_activated_at
-		)
-		VALUES
-		('019817c8-0000-7000-8200-000000000001', '019817c8-0000-7000-8000-000000000002', '019817c8-0000-7000-8100-000000000001', NULL, 'people', '人物', '人物、角色与肖像。', 'active', 10, NOW()),
-		('019817c8-0000-7000-8200-000000000002', '019817c8-0000-7000-8000-000000000002', '019817c8-0000-7000-8100-000000000001', NULL, 'nature', '自然', '自然环境与自然现象。', 'active', 20, NOW()),
-		('019817c8-0000-7000-8200-000000000003', '019817c8-0000-7000-8000-000000000002', '019817c8-0000-7000-8100-000000000001', '019817c8-0000-7000-8200-000000000002', 'landscape', '风景', '山川、海洋、森林与天空。', 'active', 10, NOW()),
-		('019817c8-0000-7000-8200-000000000004', '019817c8-0000-7000-8000-000000000002', '019817c8-0000-7000-8100-000000000001', NULL, 'animals', '动物', '动物与生物。', 'active', 30, NOW()),
-		('019817c8-0000-7000-8200-000000000005', '019817c8-0000-7000-8000-000000000002', '019817c8-0000-7000-8100-000000000001', NULL, 'architecture', '建筑', '建筑、室内与空间。', 'active', 40, NOW()),
-		('019817c8-0000-7000-8200-000000000006', '019817c8-0000-7000-8000-000000000002', '019817c8-0000-7000-8100-000000000001', NULL, 'objects', '静物', '物品、食物与日常细节。', 'active', 50, NOW()),
-		('019817c8-0000-7000-8200-000000000007', '019817c8-0000-7000-8000-000000000002', '019817c8-0000-7000-8100-000000000001', NULL, 'abstract', '抽象', '非具象与实验视觉。', 'active', 60, NOW()),
-		('019817c8-0000-7000-8200-000000000011', '019817c8-0000-7000-8000-000000000002', '019817c8-0000-7000-8100-000000000002', NULL, 'landscape', '横图', '宽度大于高度。', 'active', 10, NOW()),
-		('019817c8-0000-7000-8200-000000000012', '019817c8-0000-7000-8000-000000000002', '019817c8-0000-7000-8100-000000000002', NULL, 'portrait', '竖图', '高度大于宽度。', 'active', 20, NOW()),
-		('019817c8-0000-7000-8200-000000000013', '019817c8-0000-7000-8000-000000000002', '019817c8-0000-7000-8100-000000000002', NULL, 'square', '方图', '宽高接近。', 'active', 30, NOW()),
-		('019817c8-0000-7000-8200-000000000021', '019817c8-0000-7000-8000-000000000002', '019817c8-0000-7000-8100-000000000003', NULL, 'minimal', '极简', '克制元素与清晰构成。', 'active', 10, NOW()),
-		('019817c8-0000-7000-8200-000000000022', '019817c8-0000-7000-8000-000000000002', '019817c8-0000-7000-8100-000000000003', NULL, 'retro', '复古', '历史媒介与旧印刷语言。', 'active', 20, NOW())
-		ON CONFLICT (catalog_id, facet_id, slug) DO NOTHING;
-
-INSERT INTO gallery_classification_policy_profiles (
-			catalog_id, policy_key, schema_version, policy_revision, document
-		)
-		VALUES (
-			'019817c8-0000-7000-8000-000000000002',
-			'gallery.image.public',
-			1,
-			1,
-			'{
-				"category": {
-					"minAssignments": 1,
-					"maxAssignments": 3,
-					"requirePrimary": true,
-					"leafOnly": false,
-					"maxDepth": 0
-				},
-				"facets": [
-					{"facetId": "019817c8-0000-7000-8100-000000000001", "minValues": 1, "maxValues": 2, "leafOnly": false, "maxDepth": 0},
-					{"facetId": "019817c8-0000-7000-8100-000000000002", "minValues": 0, "maxValues": 1, "leafOnly": true, "maxDepth": 1},
-					{"facetId": "019817c8-0000-7000-8100-000000000003", "minValues": 0, "maxValues": 3, "leafOnly": true, "maxDepth": 1}
-				],
-				"tags": {"unknown": "propose"},
-				"discovery": {"defaultSort": "editorial"}
-			}'::jsonb
-		)
-		ON CONFLICT (catalog_id, policy_key) DO NOTHING;
-
-
--- Product-owned, optional dimensions. Values are configured by administrators;
--- existing images are not assigned fictional work/character relationships.
-INSERT INTO gallery_facets(id,catalog_id,slug,name,status,editorial_position,first_activated_at)
-SELECT v.id::uuid,c.id,v.slug,v.name,'active',v.position,NOW()
-FROM gallery_classification_catalogs c CROSS JOIN (VALUES
-('019c1000-0000-7000-8100-000000000001','work','作品',40),
-('019c1000-0000-7000-8100-000000000002','character','角色',50),
-('019c1000-0000-7000-8100-000000000003','purpose','用途',60)
-) AS v(id,slug,name,position) WHERE c.catalog_key='gallery'
+-- Content subject is independent from format, medium, and pixel dimensions.
+INSERT INTO gallery_categories
+    (id,catalog_id,slug,name,description,status,editorial_position,first_activated_at)
+VALUES
+('019d25a0-0000-7000-8300-000000000001','019817c8-0000-7000-8000-000000000002','game','游戏','游戏作品、角色与相关创作。','active',10,NOW()),
+('019d25a0-0000-7000-8300-000000000002','019817c8-0000-7000-8000-000000000002','anime','动漫','动画、漫画作品及其角色创作。','active',20,NOW()),
+('019d25a0-0000-7000-8300-000000000003','019817c8-0000-7000-8000-000000000002','original','原创','原创角色与不依附现有作品的创作。','active',30,NOW())
 ON CONFLICT (catalog_id,slug) DO NOTHING;
-UPDATE gallery_classification_policy_profiles p
-SET document=jsonb_set(document,'{facets}',(p.document->'facets') ||
-COALESCE((SELECT jsonb_agg(jsonb_build_object('facetId',f.id::text,'minValues',0,'maxValues',16,'leafOnly',false,'maxDepth',0))
-FROM gallery_facets f WHERE f.catalog_id=p.catalog_id AND f.slug IN ('work','character','purpose')
-AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(p.document->'facets') rule WHERE rule->>'facetId'=f.id::text)),'[]'::jsonb)),
-policy_revision=policy_revision+1
-WHERE p.policy_key='gallery.image.public'
-AND EXISTS(SELECT 1 FROM gallery_facets f WHERE f.catalog_id=p.catalog_id AND f.slug IN ('work','character','purpose')
-AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements(p.document->'facets') rule WHERE rule->>'facetId'=f.id::text));
+
+-- Work roots own their character children. File orientation
+-- and resolution are computed from media facts, never duplicated as facets.
+INSERT INTO gallery_facets
+    (id,catalog_id,slug,name,description,status,editorial_position,first_activated_at)
+VALUES
+('019c1000-0000-7000-8100-000000000001','019817c8-0000-7000-8000-000000000002','work','作品与角色','按主要所属作品或系列组织角色；联动不改变归属。','active',10,NOW())
+ON CONFLICT (catalog_id,slug) DO NOTHING;
+
+INSERT INTO gallery_facet_values
+    (id,catalog_id,facet_id,slug,name,status,editorial_position,first_activated_at)
+SELECT v.id::uuid,f.catalog_id,f.id,v.slug,v.name,'active',v.position,NOW()
+FROM gallery_facets f CROSS JOIN (VALUES
+('019e2300-0000-7000-8200-000000000001','independent-characters','独立角色',10000),
+('019e2300-0000-7000-8200-000000000002','unassigned-characters','待归属角色',10001)
+) AS v(id,slug,name,position)
+WHERE f.catalog_id='019817c8-0000-7000-8000-000000000002' AND f.slug='work'
+ON CONFLICT (catalog_id,facet_id,slug) DO NOTHING;
+
+INSERT INTO gallery_classification_policy_profiles
+    (catalog_id,policy_key,schema_version,policy_revision,document)
+VALUES (
+'019817c8-0000-7000-8000-000000000002','gallery.image.public',1,1,
+'{
+  "category":{"minAssignments":1,"maxAssignments":3,"requirePrimary":true,"leafOnly":false,"maxDepth":0},
+  "facets":[
+    {"facetId":"019c1000-0000-7000-8100-000000000001","minValues":0,"maxValues":32,"leafOnly":false,"maxDepth":0}
+  ],
+  "tags":{"unknown":"propose"},
+  "discovery":{"defaultSort":"editorial"}
+}'::jsonb)
+ON CONFLICT (catalog_id,policy_key) DO NOTHING;

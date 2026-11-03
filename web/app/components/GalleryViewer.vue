@@ -217,9 +217,9 @@ const { data: classificationOptions } = await useFetch<import("~/types/gallery")
 const assignedGroups = computed(() => (classificationOptions.value?.facets || []).map(group => ({ group, values: group.values.filter(node => image.value?.facets.some(item => item.facetId === group.id && item.valueId === node.id)) })).filter(item => item.values.length));
 const category = computed(() => classificationOptions.value?.categories.find(node => node.slug === image.value?.primaryCategorySlug));
 const relatedBrowse = computed(() => {
-  for (const slug of ["character", "work"]) {
+  for (const slug of ["work"]) {
     const assignment = assignedGroups.value.find(item => item.group.slug === slug);
-    const value = assignment?.values[0];
+    const value = assignment?.values.find(node => node.parentId) || assignment?.values[0];
     if (assignment && value) return { label: `更多${value.name}图片`, to: { path: "/images", query: { facets: `${assignment.group.slug}:${value.slug}` } } };
   }
   if (category.value) return { label: `更多${category.value.name}图片`, to: { path: "/images", query: { categories: category.value.slug } } };

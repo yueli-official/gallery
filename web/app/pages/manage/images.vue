@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { compactCollectionClasses, imageManagePageClasses } from "~/utils/compact-collection-layout";
+import { classificationPath } from "~/utils/classification-tree";
 import type { FailureFeedback } from "@yueli/http-runtime";
 const editFailure = ref<FailureFeedback | null>(null);
 import { galleryAdminMutationErrorMessage } from "~/utils/galleryAdminErrors";
@@ -268,7 +269,7 @@ const facetOptions = computed(() => [
   { label: "全部维度", value: ALL },
   ...(options.value?.facets || []).flatMap((group) =>
     group.values.map((item) => ({
-      label: `${group.name} · ${item.name}`,
+      label: `${group.name} · ${classificationPath(item, group.values)}`,
       value: item.id,
     })),
   ),
@@ -462,7 +463,7 @@ const editForm = reactive({
   altText: "",
   sourceUrl: "",
   primaryCategoryId: ALL,
-  facetValueIds: {} as Record<string, string>,
+  facetValueIds: {} as Record<string, string[]>,
   tagIds: [] as string[],
 });
 function hydrateEditForm(item: GalleryAdminImage) {
@@ -477,14 +478,18 @@ function hydrateEditForm(item: GalleryAdminImage) {
     altText: item.altText,
     sourceUrl: item.sourceUrl,
     primaryCategoryId: item.primaryCategoryId || ALL,
-    facetValueIds: Object.fromEntries(
-      (item.facets || []).map((assignment) => [
-        assignment.facetId,
-        assignment.valueId,
-      ]),
-    ),
+    facetValueIds: (item.facets || []).reduce<Record<string, string[]>>((groups, assignment) => {
+      (groups[assignment.facetId] ||= []).push(assignment.valueId);
+      return groups;
+    }, {}),
     tagIds: (item.tags || []).map((tag) => tag.id),
   });
+}
+
+function toggleEditFacet(group: GallerySubmissionOptions["facets"][number], id: string) {
+  const current = editForm.facetValueIds[group.id] || [];
+  const next = current.includes(id) ? current.filter(value => value !== id) : group.maxValues === 1 ? [id] : [...current, id];
+  if (next.length <= group.maxValues) editForm.facetValueIds[group.id] = next;
 }
 
 function closeEdit() {
@@ -549,9 +554,7 @@ async function saveEdit() {
         sourceUrl: editForm.sourceUrl,
         classification: {
           primaryCategoryId: editForm.primaryCategoryId,
-          facetValueIds: Object.values(editForm.facetValueIds).filter(
-            (value) => value && value !== ALL,
-          ),
+          facetValueIds: Object.values(editForm.facetValueIds).flat(),
           tagIds: editForm.tagIds,
         },
       },
@@ -1187,12 +1190,15 @@ function applyHeaderSort(by: string, order: ImageSortOrder) {
               :key="group.id"
               :label="group.name"
             >
-              <USelect
+              <GalleryWorkChoices v-if="group.slug === 'work'" :nodes="group.values" :selected-ids="editForm.facetValueIds[group.id] || []" @select="toggleEditFacet(group, $event.id)" />
+              <USelectMenu
+                v-else
                 v-model="editForm.facetValueIds[group.id]"
+                multiple
+                placeholder="未设置"
                 :items="[
-                  { label: '未设置', value: ALL },
                   ...group.values.map((item) => ({
-                    label: item.name,
+                    label: classificationPath(item, group.values),
                     value: item.id,
                   })),
                 ]"
