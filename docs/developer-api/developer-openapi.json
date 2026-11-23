@@ -102,6 +102,10 @@
             "format": "string",
             "type": "string"
           },
+          "imagePublicId": {
+            "format": "string",
+            "type": "string"
+          },
           "imageTitle": {
             "format": "string",
             "type": "string"
@@ -297,6 +301,10 @@
           "slug": {
             "format": "string",
             "type": "string"
+          },
+          "visual": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationPresentation",
+            "description": ""
           }
         },
         "type": "object"
@@ -541,6 +549,14 @@
           "site": {
             "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.SiteSettings",
             "description": ""
+          },
+          "spotlight": {
+            "format": "[]model.SpotlightCharacter",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.SpotlightCharacter",
+              "description": ""
+            },
+            "type": "array"
           },
           "tags": {
             "format": "[]model.TagCandidate",
@@ -1045,6 +1061,10 @@
       },
       "github.com.yueli-official.gallery.api.api.v1.UpdateAdminSiteSettingsReq": {
         "properties": {
+          "appearance": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.GalleryAppearance",
+            "description": ""
+          },
           "description": {
             "format": "string",
             "type": "string"
@@ -1130,6 +1150,10 @@
             "format": "*gtime.Time",
             "type": "string"
           },
+          "delivery": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.MediaDelivery",
+            "description": ""
+          },
           "description": {
             "format": "string",
             "type": "string"
@@ -1171,6 +1195,10 @@
             "type": "string"
           },
           "processingState": {
+            "format": "string",
+            "type": "string"
+          },
+          "publicId": {
             "format": "string",
             "type": "string"
           },
@@ -1330,6 +1358,10 @@
             "format": "string",
             "type": "string"
           },
+          "publicId": {
+            "format": "string",
+            "type": "string"
+          },
           "title": {
             "format": "string",
             "type": "string"
@@ -1410,9 +1442,17 @@
             "format": "string",
             "type": "string"
           },
+          "imagePublicId": {
+            "format": "string",
+            "type": "string"
+          },
           "kind": {
             "format": "string",
             "type": "string"
+          },
+          "proposedMetadata": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ImageMetadataCorrectionInput",
+            "description": ""
           },
           "proposedSourceUrl": {
             "format": "string",
@@ -1499,6 +1539,10 @@
               "description": ""
             },
             "type": "array"
+          },
+          "visual": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationPresentation",
+            "description": ""
           }
         },
         "type": "object"
@@ -1532,6 +1576,10 @@
           "status": {
             "format": "string",
             "type": "string"
+          },
+          "visual": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationPresentation",
+            "description": ""
           }
         },
         "type": "object"
@@ -1583,6 +1631,14 @@
           "id": {
             "format": "string",
             "type": "string"
+          },
+          "maxValues": {
+            "format": "int",
+            "type": "integer"
+          },
+          "minValues": {
+            "format": "int",
+            "type": "integer"
           },
           "name": {
             "format": "string",
@@ -1788,6 +1844,18 @@
             "format": "int64",
             "type": "integer"
           },
+          "coverAccent": {
+            "format": "string",
+            "type": "string"
+          },
+          "coverThumbUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "coverUrl": {
+            "format": "string",
+            "type": "string"
+          },
           "id": {
             "format": "string",
             "type": "string"
@@ -1805,6 +1873,39 @@
             "type": "boolean"
           },
           "slug": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.internal.model.ClassificationPresentation": {
+        "properties": {
+          "assetId": {
+            "format": "string",
+            "type": "string"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.MediaDelivery",
+            "description": ""
+          },
+          "icon": {
+            "format": "string",
+            "type": "string"
+          },
+          "imageId": {
+            "format": "string",
+            "type": "string"
+          },
+          "kind": {
+            "format": "string",
+            "type": "string"
+          },
+          "mode": {
+            "format": "string",
+            "type": "string"
+          },
+          "nodeId": {
             "format": "string",
             "type": "string"
           }
@@ -1840,6 +1941,10 @@
           "status": {
             "format": "string",
             "type": "string"
+          },
+          "visual": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationPresentation",
+            "description": ""
           }
         },
         "type": "object"
@@ -1854,11 +1959,31 @@
             "format": "string",
             "type": "string"
           },
+          "imageId": {
+            "format": "string",
+            "type": "string"
+          },
+          "imagePublicId": {
+            "format": "string",
+            "type": "string"
+          },
+          "imageTitle": {
+            "format": "string",
+            "type": "string"
+          },
           "inputValue": {
             "format": "string",
             "type": "string"
           },
           "lookupKey": {
+            "format": "string",
+            "type": "string"
+          },
+          "proposerId": {
+            "format": "string",
+            "type": "string"
+          },
+          "proposerKind": {
             "format": "string",
             "type": "string"
           },
@@ -1894,6 +2019,10 @@
           "coverColor": {
             "format": "string",
             "type": "string"
+          },
+          "coverDelivery": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.MediaDelivery",
+            "description": ""
           },
           "coverHeight": {
             "format": "int",
@@ -1979,6 +2108,10 @@
           "coverColor": {
             "format": "string",
             "type": "string"
+          },
+          "coverDelivery": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.MediaDelivery",
+            "description": ""
           },
           "coverHeight": {
             "format": "int",
@@ -2101,6 +2234,23 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.internal.model.GalleryAppearance": {
+        "properties": {
+          "classification": {
+            "format": "[]model.ClassificationPresentation",
+            "items": {
+              "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationPresentation",
+              "description": ""
+            },
+            "type": "array"
+          },
+          "sidebar": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.SidebarAppearance",
+            "description": ""
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.internal.model.HomeSectionSettings": {
         "properties": {
           "actionLabel": {
@@ -2140,6 +2290,10 @@
             "format": "string",
             "type": "string"
           },
+          "delivery": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.MediaDelivery",
+            "description": ""
+          },
           "dominantColor": {
             "format": "string",
             "type": "string"
@@ -2164,6 +2318,10 @@
             "format": "string",
             "type": "string"
           },
+          "publicId": {
+            "format": "string",
+            "type": "string"
+          },
           "publishedAt": {
             "format": "*gtime.Time",
             "type": "string"
@@ -2183,6 +2341,23 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.internal.model.ImageClassificationCorrectionInput": {
+        "properties": {
+          "facetValueIds": {
+            "format": "[]string",
+            "items": {
+              "format": "string",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "primaryCategoryId": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.internal.model.ImageDetail": {
         "properties": {
           "altText": {
@@ -2192,6 +2367,10 @@
           "assetId": {
             "format": "string",
             "type": "string"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.MediaDelivery",
+            "description": ""
           },
           "description": {
             "format": "string",
@@ -2241,6 +2420,10 @@
             "format": "string",
             "type": "string"
           },
+          "publicId": {
+            "format": "string",
+            "type": "string"
+          },
           "publishedAt": {
             "format": "*gtime.Time",
             "type": "string"
@@ -2268,6 +2451,56 @@
           "width": {
             "format": "int",
             "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.internal.model.ImageMetadataCorrectionInput": {
+        "properties": {
+          "altText": {
+            "format": "*string",
+            "type": "string"
+          },
+          "classification": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ImageClassificationCorrectionInput",
+            "description": ""
+          },
+          "description": {
+            "format": "*string",
+            "type": "string"
+          },
+          "expectedImageUpdatedAt": {
+            "format": "string",
+            "type": "string"
+          },
+          "sourceUrl": {
+            "format": "*string",
+            "type": "string"
+          },
+          "title": {
+            "format": "*string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "github.com.yueli-official.gallery.api.internal.model.MediaDelivery": {
+        "properties": {
+          "expiresAt": {
+            "format": "string",
+            "type": "string"
+          },
+          "mode": {
+            "format": "string",
+            "type": "string"
+          },
+          "renditions": {
+            "additionalProperties": {
+              "format": "string",
+              "type": "string"
+            },
+            "format": "map[string]string",
+            "type": "object"
           }
         },
         "type": "object"
@@ -2320,6 +2553,10 @@
             "format": "string",
             "type": "string"
           },
+          "delivery": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.MediaDelivery",
+            "description": ""
+          },
           "dominantColor": {
             "format": "string",
             "type": "string"
@@ -2341,6 +2578,10 @@
             "type": "string"
           },
           "primaryCategorySlug": {
+            "format": "string",
+            "type": "string"
+          },
+          "publicId": {
             "format": "string",
             "type": "string"
           },
@@ -2384,8 +2625,37 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.internal.model.SidebarAppearance": {
+        "properties": {
+          "assetId": {
+            "format": "string",
+            "type": "string"
+          },
+          "delivery": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.MediaDelivery",
+            "description": ""
+          },
+          "imageId": {
+            "format": "string",
+            "type": "string"
+          },
+          "mode": {
+            "format": "string",
+            "type": "string"
+          },
+          "overlay": {
+            "format": "float64",
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.internal.model.SiteSettings": {
         "properties": {
+          "appearance": {
+            "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.GalleryAppearance",
+            "description": ""
+          },
           "description": {
             "format": "string",
             "type": "string"
@@ -2425,6 +2695,51 @@
         },
         "type": "object"
       },
+      "github.com.yueli-official.gallery.api.internal.model.SpotlightCharacter": {
+        "properties": {
+          "accent": {
+            "format": "string",
+            "type": "string"
+          },
+          "enabled": {
+            "format": "bool",
+            "type": "boolean"
+          },
+          "faction": {
+            "format": "string",
+            "type": "string"
+          },
+          "id": {
+            "format": "string",
+            "type": "string"
+          },
+          "imageUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "name": {
+            "format": "string",
+            "type": "string"
+          },
+          "position": {
+            "format": "int",
+            "type": "integer"
+          },
+          "series": {
+            "format": "string",
+            "type": "string"
+          },
+          "thumbUrl": {
+            "format": "string",
+            "type": "string"
+          },
+          "wash": {
+            "format": "string",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "github.com.yueli-official.gallery.api.internal.model.Submission": {
         "properties": {
           "altText": {
@@ -2452,6 +2767,10 @@
             "type": "string"
           },
           "imageId": {
+            "format": "string",
+            "type": "string"
+          },
+          "imagePublicId": {
             "format": "string",
             "type": "string"
           },
@@ -2658,6 +2977,10 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "applyMetadata": {
+                    "format": "bool",
+                    "type": "boolean"
+                  },
                   "expectedUpdatedAt": {
                     "format": "string",
                     "type": "string"
@@ -2898,6 +3221,10 @@
                   "slug": {
                     "format": "string",
                     "type": "string"
+                  },
+                  "visual": {
+                    "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.internal.model.ClassificationPresentation",
+                    "description": ""
                   }
                 },
                 "type": "object"
@@ -2924,7 +3251,7 @@
             "DeveloperToken": []
           }
         ],
-        "summary": "Update the name and slug of a classification identity",
+        "summary": "Update classification identity fields, icon and cover",
         "tags": [
           "Gallery admin"
         ],
@@ -4642,6 +4969,30 @@
         "parameters": [
           {
             "in": "query",
+            "name": "orientation",
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "minLongEdge",
+            "schema": {
+              "format": "int",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "matchAll",
+            "schema": {
+              "format": "bool",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
             "name": "q",
             "schema": {
               "format": "string",
@@ -4721,6 +5072,49 @@
           }
         ],
         "summary": "List eligible public images with page-based filtering",
+        "tags": [
+          "Gallery images"
+        ],
+        "x-yueli-pat-scope-any-of": [
+          []
+        ]
+      }
+    },
+    "/api/v1/gallery/images/by-key/{key}": {
+      "get": {
+        "operationId": "get_api_v1_gallery_images_by_key_key",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "format": "string",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.GetImageRes",
+                  "description": ""
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {},
+          {
+            "DeveloperSite": [],
+            "DeveloperToken": []
+          }
+        ],
+        "summary": "Get an image by its eight-character public URL key",
         "tags": [
           "Gallery images"
         ],
@@ -5470,5 +5864,5 @@
     }
   },
   "x-yueli-deployment-status": "unknown",
-  "x-yueli-source-digest": "32c4f2b2df7f44d1dcbf476603b226f6eb331146a9c4612cbdd80e2a4185213f"
+  "x-yueli-source-digest": "992b799b1e2125ec05ecfe98e3c6c77bf077aab3eb0484053eeb0ce45813d9f8"
 }

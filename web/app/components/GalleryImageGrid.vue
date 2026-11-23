@@ -5,7 +5,7 @@ const props = withDefaults(defineProps<{ items: GalleryImageCard[]; priority?: b
 <template>
   <div class="gallery-image-grid" :class="{ 'is-grid': view === 'grid', 'is-related': view === 'related' }">
     <article v-for="(image,index) in items" :key="image.id" class="gallery-image-card group">
-      <NuxtLink :to="`/images/${encodeURIComponent(image.id)}`" class="gallery-image-link">
+      <NuxtLink :to="`/images/${encodeURIComponent(image.publicId)}`" class="gallery-image-link">
         <img v-bind="galleryImageSources(image, 'masonry', Boolean(priority && index < 6))" :alt="image.altText || image.title" :width="image.width" :height="image.height" />
         <span v-if="ranked" class="image-rank" :class="{ 'is-podium': index < 3 }">{{ String(index + 1).padStart(2, "0") }}</span>
         <div class="image-caption"><component :is="props.headingLevel || 'h2'">{{ image.title }}</component><p><span v-if="image.primaryCategory" class="image-category">{{ image.primaryCategory }}</span><span>{{ image.width }} × {{ image.height }}</span></p></div>

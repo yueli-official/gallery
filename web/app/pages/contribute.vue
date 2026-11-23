@@ -105,8 +105,7 @@ async function withdraw() {
             申请参与图库运营
           </h1>
           <p class="mt-2 text-sm leading-6 text-muted">
-            普通用户可以申请本站内容运营者或其他开放角色。批准后只能使用管理员为该角色配置的能力，
-            不会获得其他站点或用户中心的管理员身份。
+            申请通过后，角色权限仅在图库生效。
           </p>
         </div>
       </div>
@@ -125,8 +124,7 @@ async function withdraw() {
           v-if="pendingApplication"
           color="warning"
           icon="i-tabler-clock"
-          title="已有待处理申请"
-          :description="`申请角色：${pendingApplication.role}。管理员处理前无需重复提交。`"
+          title="申请等待审核"
         />
         <UButton
           v-if="pendingApplication"
@@ -174,7 +172,6 @@ async function withdraw() {
           color="neutral"
           icon="i-tabler-user-off"
           title="当前没有可申请角色"
-          description="管理员可以在本站权限设置中开放角色申请来源。"
         />
         <UAlert
           v-if="message"

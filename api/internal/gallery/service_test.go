@@ -88,7 +88,7 @@ func (port *submissionProcessingAssetPort) PrepareSubmission(_ context.Context, 
 	return port.facts, nil
 }
 
-func (port *submissionProcessingAssetPort) PublishImage(_ context.Context, assetID, imageID, _ string) error {
+func (port *submissionProcessingAssetPort) PublishImage(_ context.Context, assetID, imageID, _, _ string) error {
 	port.publishedAssetID = assetID
 	port.publishedImageID = imageID
 	return nil
@@ -98,7 +98,7 @@ func (port *submissionProcessingAssetPort) UnpublishImage(context.Context, strin
 	return nil
 }
 func (store *publicationReconciliationStore) SynchronizeImagePublication(ctx context.Context, item model.ImagePublicationCandidate, port assetreferences.PublicationPort) error {
-	if err := port.PublishImage(ctx, item.AssetID, item.ID, item.Title); err != nil {
+	if err := port.PublishImage(ctx, item.AssetID, item.ID, item.Title, "testKey1"); err != nil {
 		return err
 	}
 	return store.MarkImagePublicRenditionReady(ctx, item.ID)
@@ -1357,3 +1357,5 @@ func TestBulkPublishKeepsPerItemFailuresAndUsesPublicationGuards(t *testing.T) {
 		t.Fatal("batch bypassed review")
 	}
 }
+
+func (f *fakeStore) Case(context.Context, string) (*model.Case, error) { return nil, nil }

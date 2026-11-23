@@ -28,6 +28,7 @@ export interface GalleryMetrics {
 }
 
 export interface GalleryImageCard {
+  publicId: string;
 	 delivery?: GalleryMediaDelivery;
   id: string;
   assetId: string;
@@ -62,6 +63,15 @@ export interface GalleryImage extends GalleryImageCard {
   tags: string[];
   facets: GalleryFacetAssignment[];
   favorited: boolean;
+}
+
+export interface GalleryImageMetadataCorrection {
+  expectedImageUpdatedAt: string;
+  title?: string;
+  description?: string;
+  altText?: string;
+  sourceUrl?: string;
+  classification?: { primaryCategoryId: string; facetValueIds: string[] };
 }
 
 export interface GalleryRelatedImageReason {
@@ -279,6 +289,7 @@ export interface GalleryClassificationTagPage {
 export interface GalleryClassificationTagProposal {
   id: string;
   submissionId: string;
+  imagePublicId: string;
   imageId: string;
   imageTitle: string;
   proposerId: string;
@@ -326,6 +337,7 @@ export interface GalleryCollectionDetail extends GalleryCollection {
 export interface GallerySubmission {
   id: string;
   assetId: string;
+  imagePublicId: string;
   imageId: string;
   title: string;
   description: string;
@@ -359,12 +371,15 @@ export interface GalleryRanking {
 }
 
 export interface GalleryCase {
+  proposedMetadata?: GalleryImageMetadataCorrection;
   id: string;
+  imagePublicId: string;
   imageId: string;
   submissionId: string;
   kind:
     | "report"
     | "source_correction"
+    | "metadata_correction"
     | "safety_uncertain"
     | "near_duplicate"
     | "takedown";
@@ -423,6 +438,7 @@ export interface GalleryCommentPage {
 export interface GalleryAdminComment {
   imageAssetId?: string;
   id: string;
+  imagePublicId: string;
   imageId: string;
   imageTitle: string;
   parentId?: string;
@@ -452,6 +468,7 @@ export interface GalleryAdminTrafficPoint {
 }
 
 export interface GalleryAdminTrafficImage {
+  publicId: string;
   id: string;
   title: string;
   views: number;

@@ -49,8 +49,8 @@ const withdrawing = ref("");
 const outcomeItems = [
   { label: "全部结果", value: "all" },
   { label: "进行中", value: "pending" },
-  { label: "审核通过（已发布）", value: "published" },
-  { label: "审核通过（重复收录）", value: "duplicate" },
+  { label: "审核通过", value: "published" },
+  { label: "重复", value: "duplicate" },
   { label: "审核未通过", value: "rejected" },
   { label: "处理失败", value: "failed" },
   { label: "已撤回", value: "withdrawn" },
@@ -69,21 +69,22 @@ const reviewItems = [
   { label: "审核通过", value: "approved" },
   { label: "审核未通过", value: "rejected" },
 ];
-function submissionSummary(submission: GallerySubmission) {
-  if (submission.reviewNote) return submission.reviewNote;
-  if (submission.failureCode) return ({
-    unsupported_format: "文件格式不受支持，请更换图片后重试",
-    animated_image: "暂不支持动画图片，请使用静态图片",
-    derive_failed: "公开图片生成失败，请重新投稿",
-    processing_failed: "图片处理失败，请重新投稿",
-    safety_unavailable: "内容检查暂时不可用，请稍后重试",
-  } as Record<string, string>)[submission.failureCode] || "图片处理失败，请重新投稿";
-  if (submission.outcome === "duplicate") return "重复内容已收录到现有图片";
-  if (submission.outcome === "published") return "已发布到图片目录";
-  if (submissionStatus(submission) === "处理中") return "正在读取图片并生成预览，完成后进入等待审核";
-  if (submissionStatus(submission) === "等待审核") return "媒体处理完成，等待管理员审核";
-  return "";
-}
+const failureDetails: Readonly<Record<string, string>> = {
+  unsupported_format: "请换用 JPEG、PNG 或 WebP 图片。",
+  animated_image: "请换用静态图片。",
+  derive_failed: "图片未能发布，请重新投稿。",
+  safety_unavailable: "内容检查暂时不可用，请稍后重新投稿。",
+};
+const entries = computed(() => data.value.items.map((submission) => {
+  const duplicate = submission.outcome === "duplicate";
+  const failed = submission.outcome === "failed";
+  const status = duplicate ? "重复" : failed ? "处理失败" : submissionStatus(submission);
+  const color = duplicate ? "neutral" : failed ? "error" : submissionStatusColor(submission);
+  const explanation = status === "审核未通过" ? submission.reviewNote.trim()
+    : status === "处理失败" ? (failureDetails[submission.failureCode] ?? "请重新投稿。")
+    : "";
+  return { submission, status, color, explanation };
+}));
 
 function setQuery(
   key: "outcome" | "processingState" | "reviewState",
@@ -131,11 +132,7 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
 
 <template>
   <GalleryPublicPage class="submissions-page">
-    <GalleryArchiveHero
-      kicker="月离图库 / SUBMISSIONS"
-      title="我的投稿"
-      description="跟踪每张图片的处理、审核与最终结果，失败原因会保留在对应记录中。"
-    >
+    <GalleryArchiveHero title="我的投稿">
       <template #actions>
         <UButton to="/submit" icon="i-tabler-library-plus" label="批量投稿" />
       </template>
@@ -147,11 +144,11 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
       color="neutral"
       variant="subtle"
       icon="i-tabler-clock-shield"
-      title="正在查看此浏览器的临时投稿"
-      description="临时身份保留 30 天。登录后会自动把这些投稿转入你的账号。"
+      title="游客投稿可在此浏览器管理 30 天"
+      description="登录后会关联到你的账号。"
     >
       <template #actions>
-        <UButton label="登录并长期保留" @click="void login()" />
+        <UButton label="登录并关联投稿" @click="void login()" />
       </template>
     </UAlert>
 
@@ -212,7 +209,7 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
       class="submissions-list"
     >
       <article
-        v-for="submission in data.items"
+        v-for="{ submission, status, color, explanation } in entries"
         :key="submission.id"
         class="grid gap-4 border-b border-default py-5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start"
       >
@@ -222,23 +219,22 @@ useSeoMeta({ title: "我的投稿", robots: "noindex,nofollow" });
               {{ submission.title }}
             </h2>
             <UBadge
-              :color="submissionStatusColor(submission)"
+              :color="color"
               variant="soft"
-              :label="submissionStatus(submission)"
+              :label="status"
             />
           </div>
-          <p v-if="submissionSummary(submission)" class="mt-2 flex items-center gap-1.5 text-xs text-muted">
-            <UIcon name="i-tabler-progress-check" class="size-4 shrink-0" />
-            {{ submissionSummary(submission) }}
-          </p>
           <p v-if="submission.createdAt" class="mt-3 text-xs text-dimmed">
             提交于 {{ new Date(submission.createdAt).toLocaleString("zh-CN") }}
           </p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap items-start gap-x-3 gap-y-2 sm:max-w-sm sm:justify-end">
+          <p v-if="explanation" class="min-w-0 break-words text-sm leading-7 text-error">
+            {{ explanation }}
+          </p>
           <UButton
             v-if="submission.imageId"
-            :to="`/images/${submission.imageId}`"
+            :to="`/images/${submission.imagePublicId}`"
             color="neutral"
             variant="outline"
             size="sm"

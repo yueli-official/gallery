@@ -167,6 +167,7 @@ var personalPublicReadPaths = []string{
 	"/api/v1/gallery/submission-options",
 	"/api/v1/gallery/images",
 	"/api/v1/gallery/images/{imageId}",
+	"/api/v1/gallery/images/by-key/{key}",
 	"/api/v1/gallery/images/{imageId}/related",
 	"/api/v1/gallery/images/{imageId}/comments",
 	"/api/v1/gallery/collections",

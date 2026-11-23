@@ -7,14 +7,18 @@ import type {
   GalleryRelatedImage,
 } from "~/types/gallery";
 
-definePageMeta({ key: "gallery-image-viewer" });
+definePageMeta({
+  key: "gallery-image-viewer",
+  validate: route => String(route.params.imageId).length === 8
+    || { statusCode: 404, statusMessage: "Image not found" },
+});
 
 const route = useRoute("/images/[imageId]");
 const router = useRouter();
 const imageId = computed(() => String(route.params.imageId));
 const { data, error, status, refresh } = await useFetch<{
   image: GalleryImage;
-}>(() => `/api/gallery/images/${encodeURIComponent(imageId.value)}`, { key: "gallery-image-detail", watch: [imageId] });
+}>(() => `/api/gallery/images/by-key/${encodeURIComponent(imageId.value)}`, { key: "gallery-image-detail", watch: [imageId] });
 useGalleryMediaRefresh(data, refresh);
 const {
   data: relatedData,
@@ -25,11 +29,11 @@ const {
   async () => {
     if (!data.value?.image) return { items: [] as GalleryRelatedImage[] };
     return await $fetch<{ items: GalleryRelatedImage[] }>(
-      `/api/gallery/images/${encodeURIComponent(imageId.value)}/related`,
+      `/api/gallery/images/${encodeURIComponent(data.value.image.id)}/related`,
       { query: { size: 10 } },
     );
   },
-  { watch: [imageId], immediate: Boolean(data.value?.image) },
+  { watch: [() => data.value?.image.id], immediate: Boolean(data.value?.image) },
 );
 useGalleryMediaRefresh(relatedData, refreshRelated);
 
@@ -45,7 +49,7 @@ if (import.meta.server && error.value) {
 
 const image = computed(() => data.value?.image);
 const related = computed(() => relatedData.value?.items || []);
-const navigationSession = useGalleryViewerNavigation(imageId.value);
+const navigationSession = useGalleryViewerNavigation(data.value?.image.id || "");
 const sequence = computed({
   get: () => navigationSession.value.sequence,
   set: (value) => {
@@ -233,13 +237,15 @@ useHead(() =>
 );
 
 function closeViewer(): void {
-  navigationSession.value = createViewerNavigationSession(imageId.value);
+  navigationSession.value = createViewerNavigationSession(image.value?.id || "");
   void router.replace(closeTarget.value);
 }
 
 function navigate(targetId: string): void {
   sequence.value = moveViewerSequence(sequence.value, targetId);
-  void router.replace(`/images/${encodeURIComponent(targetId)}`);
+  const target = candidateMap.value.get(targetId);
+  if (!target) return;
+  void router.replace(`/images/${encodeURIComponent(target.publicId)}`);
 }
 
 function retry(): void {
@@ -248,7 +254,7 @@ function retry(): void {
 
 onBeforeRouteLeave((to) => {
   if (/^\/images\/[^/]+/.test(to.path)) return;
-  navigationSession.value = createViewerNavigationSession(imageId.value);
+  navigationSession.value = createViewerNavigationSession(image.value?.id || "");
 });
 </script>
 

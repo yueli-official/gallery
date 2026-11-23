@@ -9,8 +9,9 @@ const route = useRoute();
 const { brand } = useSiteRuntime();
 const { can, isAdministrator } = useGalleryMe();
 const sidebarOpen = ref(false);
+const imageEditorImmersive = useState("gallery-image-editor-immersive", () => false);
 const immersive = computed(() =>
-  /^\/manage\/collections\/[^/]+$/.test(route.path),
+  /^\/manage\/collections\/[^/]+$/.test(route.path) || (/^\/manage\/images\/[^/]+$/.test(route.path) && imageEditorImmersive.value),
 );
 
 const currentLabel = computed(() => {

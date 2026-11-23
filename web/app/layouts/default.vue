@@ -1,4 +1,12 @@
 <script setup lang="ts">
+import { MobileBottomNav, type MobileBottomNavItem } from "@yueli/ui/navigation/mobile-bottom-nav";
+const route = useRoute();
+useGallerySavedFilters().trackFilters();
+const mobileNavigation = computed<MobileBottomNavItem[]>(() => [
+  { id: "home", label: "首页", icon: "i-tabler-home", to: "/", active: route.path === "/" },
+  { id: "submit", label: "投稿", icon: "i-tabler-square-plus", to: "/submit", active: route.path === "/submit" },
+  { id: "account", label: "我的", icon: "i-tabler-user", to: "/me", active: route.path === "/me" },
+]);
 import type { GallerySite } from "~/types/gallery";
 const gallerySite = useGallerySiteSettings();
 const { data: response, refresh: refreshSite } = await useFetch<{ site: GallerySite }>("/api/gallery/site", { key: "gallery-public-site-settings" });
@@ -25,12 +33,16 @@ useHead({ bodyAttrs: { class: "gallery-public-active" } });
         <UButton class="gallery-mobile-menu" icon="i-tabler-menu-2" color="neutral" variant="ghost" aria-label="打开导航" @click="void (mobileOpen = true)" />
         <GalleryGlobalSearch compact :placeholder="gallerySite?.searchPlaceholder" />
         <div class="gallery-workspace-actions">
-          <UButton icon="i-tabler-moon-stars" color="neutral" variant="ghost" aria-label="切换明暗主题" title="切换明暗主题" @click="toggleTheme" />
-          <ConsumerAccountControl :context-actions="actions" />
+          <div class="hidden items-center gap-2 md:flex">
+            <UButton icon="i-tabler-moon-stars" color="neutral" variant="ghost" aria-label="切换明暗主题" title="切换明暗主题" @click="toggleTheme" />
+            <ConsumerAccountControl :context-actions="actions" />
+          </div>
+          <YSiteLauncher />
         </div>
       </header>
       <main id="public-main" tabindex="-1" class="gallery-workspace-main"><slot /></main>
     </div>
+    <MobileBottomNav :items="mobileNavigation" label="移动主导航" />
     <USlideover v-model:open="mobileOpen" side="left" title="图库导航" :ui="{ content: 'max-w-64', body: 'p-0' }">
       <template #body><GalleryPublicSidebar @navigate="mobileOpen = false" /></template>
     </USlideover>

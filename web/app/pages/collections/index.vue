@@ -11,9 +11,7 @@ useSeoMeta({ title: "专题集合", description: "由运营方整理的公开图
 <template>
   <GalleryPublicPage class="collections-page">
     <GalleryArchiveHero
-      kicker="月离图库 / COLLECTION ARCHIVE"
       title="专题集合"
-      description="围绕一个主题重新整理图片，让浏览更有方向。"
       :count="data?.items.length"
       count-label="个专题"
     />
@@ -75,7 +73,6 @@ useSeoMeta({ title: "专题集合", description: "由运营方整理的公开图
       v-else
       icon="i-tabler-folders"
       title="还没有公开专题"
-      description="运营整理的主题集合会出现在这里。"
     />
   </GalleryPublicPage>
 </template>

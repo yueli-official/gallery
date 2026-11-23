@@ -58,6 +58,12 @@ type GetImageRes struct {
 	Image model.ImageDetail `json:"image"`
 }
 
+type GetImageByKeyReq struct {
+	g.Meta `path:"/api/v1/gallery/images/by-key/{key}" method:"GET" tags:"Gallery images" summary:"Get an image by its eight-character public URL key"`
+	Key    string `p:"key" v:"required"`
+}
+type GetImageByKeyRes = GetImageRes
+
 type ListRelatedImagesReq struct {
 	g.Meta  `path:"/api/v1/gallery/images/{imageId}/related" method:"GET" tags:"Gallery images" summary:"List explainable related public images"`
 	ImageID string `p:"imageId" v:"required"`

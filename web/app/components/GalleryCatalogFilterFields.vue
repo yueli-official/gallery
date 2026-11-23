@@ -184,7 +184,7 @@ function facetKey(facetSlug: string, valueSlug: string) {
           >
         </div>
         <UInput
-          v-if="group.values.length > 8"
+          v-if="group.slug !== 'image-features' && group.values.length > 8"
           v-model="facetSearch[group.slug]"
           class="mb-2"
           size="sm"
@@ -192,7 +192,8 @@ function facetKey(facetSlug: string, valueSlug: string) {
           :placeholder="`查找${group.name}`"
           :aria-label="`查找${group.name}选项`"
         />
-        <GalleryWorkChoices v-if="group.slug === 'work'" :nodes="group.values" :search="facetSearch[group.slug]" :selected-ids="group.values.filter(node => selectedFacets.includes(facetKey(group.slug, node.slug))).map(node => node.id)" counts @select="emit('toggleFacet', facetKey(group.slug, $event.slug))" />
+        <GalleryFeatureChoices v-if="group.slug === 'image-features'" :nodes="group.values" :selected-ids="group.values.filter(node => selectedFacets.includes(facetKey(group.slug, node.slug))).map(node => node.id)" counts @select="emit('toggleFacet', facetKey(group.slug, $event.slug))" />
+        <GalleryWorkChoices v-else-if="group.slug === 'work'" :nodes="group.values" :search="facetSearch[group.slug]" :selected-ids="group.values.filter(node => selectedFacets.includes(facetKey(group.slug, node.slug))).map(node => node.id)" counts @select="emit('toggleFacet', facetKey(group.slug, $event.slug))" />
         <div v-else class="space-y-0.5">
           <label
             v-for="value in filteredValues(group)"

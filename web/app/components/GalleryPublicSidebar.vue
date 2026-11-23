@@ -3,9 +3,9 @@ import type { GallerySavedFilter } from "~/types/presentation";
 defineEmits<{ navigate: [] }>();
 const site = useGallerySiteSettings();
 const route = useRoute();
-const { loggedIn } = useAuth();
-const { items: savedFilters, error, refresh, remove } = useGallerySavedFilters();
+const { items: savedFilters, error, removeLocal, removeFromAccount } = useGallerySavedFilters();
 const deleteError = ref("");
+const saveLink = computed(() => ({ path: "/images", query: { ...(route.path === "/images" ? route.query : {}), save: "true" } }));
 const navigation = [
   { to: "/images", label: "全部图片", icon: "i-tabler-layout-grid" },
   { to: "/collections", label: "专题集合", icon: "i-tabler-folders" },
@@ -25,12 +25,15 @@ function link(item: GallerySavedFilter) {
   return { path: "/images", query: { q: q.q || undefined, categories: q.categories || undefined, facets: q.facets || undefined,
     tag: q.tag || undefined, matchAll: q.matchAll ? "true" : undefined, orientation: q.orientation || undefined, minLongEdge: q.minLongEdge || undefined } };
 }
-async function deleteFilter(id: string) {
+async function deleteFilter(item: GallerySavedFilter & { local: boolean }) {
   deleteError.value = "";
-  try { await remove(id); } catch (reason) { deleteError.value = galleryFailureMessage(reason, "筛选没有删除"); }
+  try {
+    if (item.local) removeLocal(item.id);
+    else await removeFromAccount(item.id);
+  } catch (reason) {
+    deleteError.value = item.local ? "无法从这个浏览器删除筛选。" : galleryFailureMessage(reason, "筛选没有删除");
+  }
 }
-onMounted(() => void refresh());
-watch(loggedIn, () => void refresh());
 </script>
 
 <template>
@@ -45,13 +48,12 @@ watch(loggedIn, () => void refresh());
       </NuxtLink>
     </nav>
     <div class="sidebar-saved">
-      <div class="sidebar-section-heading"><span>我的筛选</span><NuxtLink to="/images?save=true" aria-label="保存当前筛选" @click="$emit('navigate')"><UIcon name="i-tabler-plus" /></NuxtLink></div>
+      <div class="sidebar-section-heading"><span>我的筛选</span><NuxtLink :to="saveLink" aria-label="保存当前筛选" @click="$emit('navigate')"><UIcon name="i-tabler-plus" /></NuxtLink></div>
       <p v-if="error || deleteError" class="text-xs text-error" role="alert">{{ error || deleteError }}</p>
-      <div v-for="item in savedFilters" :key="item.id" class="saved-filter-row">
+      <div v-for="item in savedFilters" :key="`${item.local}:${item.id}`" class="saved-filter-row">
         <NuxtLink :to="link(item)" @click="$emit('navigate')"><UIcon name="i-tabler-bookmark" /><span>{{ item.name }}</span></NuxtLink>
-        <UButton icon="i-tabler-x" color="neutral" variant="ghost" size="xs" :aria-label="`删除筛选：${item.name}`" @click="deleteFilter(item.id)" />
+        <UButton icon="i-tabler-x" color="neutral" variant="ghost" size="xs" :aria-label="`删除筛选：${item.name}`" @click="deleteFilter(item)" />
       </div>
-      <p v-if="!savedFilters.length && !error" class="sidebar-empty">{{ loggedIn ? '保存常用组合，下次直接找到。' : '登录后保存常用筛选。' }}</p>
     </div>
   </div>
 </template>

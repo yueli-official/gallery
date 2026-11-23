@@ -30,6 +30,7 @@ import (
 	"github.com/yueli-official/gallery/api/internal/gallerycomments"
 	"github.com/yueli-official/gallery/api/internal/gallerywebhook"
 	"github.com/yueli-official/gallery/api/internal/identityclient"
+	"github.com/yueli-official/gallery/api/internal/imagekeys"
 	"github.com/yueli-official/gallery/api/internal/runtime"
 	"github.com/yueli-official/gallery/api/internal/server"
 )
@@ -78,6 +79,9 @@ func main() {
 		panic(err)
 	}
 	defer workDB.Close()
+	if err := imagekeys.Verify(ctx, workDB); err != nil {
+		panic(err)
+	}
 	bootstrapSubs := appconfig.BootstrapAdministratorSubs(ctx)
 	protected := make([]authorization.SubjectRef, 0, len(bootstrapSubs))
 	for _, sub := range bootstrapSubs {

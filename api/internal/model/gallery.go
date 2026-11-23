@@ -45,6 +45,7 @@ type Metrics struct {
 }
 
 type ImageCard struct {
+	PublicID            string         `json:"publicId" orm:"public_id"`
 	Delivery            *MediaDelivery `json:"delivery,omitempty" orm:"-"`
 	ID                  string         `json:"id" orm:"id"`
 	AssetID             string         `json:"assetId" orm:"asset_id"`
@@ -90,18 +91,19 @@ type RelatedImage struct {
 }
 
 type ImageQuery struct {
-	Orientation         string
-	MinLongEdge         int
-	MatchAll            bool
-	RequiredFacetGroups []ImageFacetMatchGroup
-	OmitFacetOwner      string
-	Search              string
-	Sort                string
-	Page                int
-	PageSize            int
-	CategoryRefs        []string
-	FacetRefs           []string
-	Tag                 string
+	Orientation           string
+	MinLongEdge           int
+	MatchAll              bool
+	RequiredFacetGroups   []ImageFacetMatchGroup
+	ConjunctiveFacetOwner string
+	OmitFacetOwner        string
+	Search                string
+	Sort                  string
+	Page                  int
+	PageSize              int
+	CategoryRefs          []string
+	FacetRefs             []string
+	Tag                   string
 }
 
 type ImageFacetMatchGroup struct {
@@ -166,15 +168,18 @@ type AdminImagePage struct {
 }
 
 type AdminImageUpdateInput struct {
-	PublicationState  string                         `json:"publicationState,omitempty"`
-	PublicationReady  bool                           `json:"-"`
-	Operator          string                         `json:"-"`
-	ExpectedUpdatedAt string                         `json:"expectedUpdatedAt"`
-	Title             string                         `json:"title"`
-	Description       string                         `json:"description"`
-	AltText           string                         `json:"altText"`
-	SourceURL         string                         `json:"sourceUrl"`
-	Classification    *AdminImageClassificationInput `json:"classification,omitempty"`
+	MetadataCaseID      string                         `json:"-"`
+	MetadataCaseVersion string                         `json:"-"`
+	MetadataCaseNote    string                         `json:"-"`
+	PublicationState    string                         `json:"publicationState,omitempty"`
+	PublicationReady    bool                           `json:"-"`
+	Operator            string                         `json:"-"`
+	ExpectedUpdatedAt   string                         `json:"expectedUpdatedAt"`
+	Title               string                         `json:"title"`
+	Description         string                         `json:"description"`
+	AltText             string                         `json:"altText"`
+	SourceURL           string                         `json:"sourceUrl"`
+	Classification      *AdminImageClassificationInput `json:"classification,omitempty"`
 }
 
 type AdminImageDeleteInput struct {
@@ -182,6 +187,7 @@ type AdminImageDeleteInput struct {
 }
 
 type AdminImageClassificationInput struct {
+	CatalogRevision   uint64   `json:"-"`
 	PrimaryCategoryID string   `json:"primaryCategoryId"`
 	FacetValueIDs     []string `json:"facetValueIds"`
 	TagIDs            []string `json:"tagIds"`
@@ -551,6 +557,7 @@ type ClassificationTagPage struct {
 }
 
 type ClassificationTagProposal struct {
+	ImagePublicID string      `json:"imagePublicId,omitempty" orm:"image_public_id"`
 	ID            string      `json:"id" orm:"id"`
 	SubmissionID  string      `json:"submissionId" orm:"submission_id"`
 	ImageID       string      `json:"imageId" orm:"image_id"`
@@ -571,6 +578,7 @@ type ClassificationTagProposalReviewInput struct {
 }
 
 type Submission struct {
+	ImagePublicID     string      `json:"imagePublicId,omitempty" orm:"image_public_id"`
 	ID                string      `json:"id" orm:"id"`
 	SubjectKind       string      `json:"-" orm:"subject_kind"`
 	SubjectID         string      `json:"-" orm:"subject_id"`
@@ -638,24 +646,28 @@ type BulkSubmissionReviewResult struct {
 }
 
 type CaseInput struct {
-	Kind              string `json:"kind"`
-	Reason            string `json:"reason"`
-	Description       string `json:"description"`
-	ProposedSourceURL string `json:"proposedSourceUrl"`
+	ProposedMetadata  *ImageMetadataCorrectionInput `json:"proposedMetadata,omitempty"`
+	Kind              string                        `json:"kind"`
+	Reason            string                        `json:"reason"`
+	Description       string                        `json:"description"`
+	ProposedSourceURL string                        `json:"proposedSourceUrl"`
 }
 
 type Case struct {
-	ID                string      `json:"id" orm:"id"`
-	ImageID           string      `json:"imageId" orm:"image_id"`
-	SubmissionID      string      `json:"submissionId" orm:"submission_id"`
-	Kind              string      `json:"kind" orm:"kind"`
-	Status            string      `json:"status" orm:"status"`
-	Reason            string      `json:"reason" orm:"reason"`
-	Description       string      `json:"description" orm:"description"`
-	ProposedSourceURL string      `json:"proposedSourceUrl" orm:"proposed_source_url"`
-	ResolutionNote    string      `json:"resolutionNote" orm:"resolution_note"`
-	CreatedAt         *gtime.Time `json:"createdAt" orm:"created_at"`
-	UpdatedAt         *time.Time  `json:"updatedAt" orm:"updated_at"`
+	ProposedMetadata     *ImageMetadataCorrectionInput `json:"proposedMetadata,omitempty" orm:"-"`
+	ProposedMetadataJSON string                        `json:"-" orm:"proposed_metadata_json"`
+	ImagePublicID        string                        `json:"imagePublicId,omitempty" orm:"image_public_id"`
+	ID                   string                        `json:"id" orm:"id"`
+	ImageID              string                        `json:"imageId" orm:"image_id"`
+	SubmissionID         string                        `json:"submissionId" orm:"submission_id"`
+	Kind                 string                        `json:"kind" orm:"kind"`
+	Status               string                        `json:"status" orm:"status"`
+	Reason               string                        `json:"reason" orm:"reason"`
+	Description          string                        `json:"description" orm:"description"`
+	ProposedSourceURL    string                        `json:"proposedSourceUrl" orm:"proposed_source_url"`
+	ResolutionNote       string                        `json:"resolutionNote" orm:"resolution_note"`
+	CreatedAt            *gtime.Time                   `json:"createdAt" orm:"created_at"`
+	UpdatedAt            *time.Time                    `json:"updatedAt" orm:"updated_at"`
 }
 
 type AdminCaseQuery struct {
@@ -677,9 +689,24 @@ type AdminCasePage struct {
 }
 
 type CaseResolutionInput struct {
+	ApplyMetadata     bool   `json:"applyMetadata,omitempty"`
 	ExpectedUpdatedAt string `json:"expectedUpdatedAt"`
 	Status            string `json:"status"`
 	Note              string `json:"note"`
+}
+
+type ImageMetadataCorrectionInput struct {
+	ExpectedImageUpdatedAt string                              `json:"expectedImageUpdatedAt"`
+	Title                  *string                             `json:"title,omitempty"`
+	Description            *string                             `json:"description,omitempty"`
+	AltText                *string                             `json:"altText,omitempty"`
+	SourceURL              *string                             `json:"sourceUrl,omitempty"`
+	Classification         *ImageClassificationCorrectionInput `json:"classification,omitempty"`
+}
+
+type ImageClassificationCorrectionInput struct {
+	PrimaryCategoryID string   `json:"primaryCategoryId"`
+	FacetValueIDs     []string `json:"facetValueIds"`
 }
 
 type EventInput struct {
@@ -716,6 +743,7 @@ type AdminTrafficPoint struct {
 }
 
 type AdminTrafficImage struct {
+	PublicID  string `json:"publicId" orm:"public_id"`
 	ID        string `json:"id" orm:"id"`
 	Title     string `json:"title" orm:"title"`
 	Views     int64  `json:"views" orm:"views"`

@@ -17,7 +17,8 @@ function toggle(group: GalleryFacet, id: string) {
   <UFormField :label="batch ? '默认标题（选填）' : '标题'" :required="!batch"><UInput v-model="model.title" maxlength="160" class="w-full" :placeholder="batch ? '留空时保留各自标题' : '图片标题'" /></UFormField>
   <UFormField label="分类" required><div class="submission-visual-options"><GalleryVisualChoice v-for="node in options?.categories || []" :key="node.id" kind="category" :node="node" :selected="model.primaryCategoryId === node.id" @select="model.primaryCategoryId = node.id" /></div></UFormField>
   <UFormField v-for="group in (options?.facets || []).filter(item => item.values.length && item.maxValues > 0)" :key="group.id" :label="group.name" :required="group.minValues > 0" :hint="group.maxValues > 1 ? `最多 ${group.maxValues} 项` : undefined">
-   <GalleryWorkChoices v-if="group.slug === 'work'" :nodes="group.values" :selected-ids="selected(group)" @select="toggle(group, $event.id)" />
+   <GalleryFeatureChoices v-if="group.slug === 'image-features'" :nodes="group.values" :selected-ids="selected(group)" @select="toggle(group, $event.id)" />
+   <GalleryWorkChoices v-else-if="group.slug === 'work'" :nodes="group.values" :selected-ids="selected(group)" @select="toggle(group, $event.id)" />
    <div v-else class="submission-visual-options"><GalleryVisualChoice v-for="node in group.values" :key="node.id" :node="node" :selected="selected(group).includes(node.id)" @select="toggle(group, node.id)" /></div>
    <p v-if="group.minValues > selected(group).length" class="mt-1 text-xs text-muted">至少选择 {{ group.minValues }} 项</p>
   </UFormField>

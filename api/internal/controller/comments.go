@@ -140,7 +140,7 @@ func adminCommentView(item gallerycomments.AdminComment) v1.AdminCommentView {
 	return v1.AdminCommentView{
 		ImageAssetID:     item.ImageAssetID,
 		ParentAuthorName: item.ParentAuthorName, ParentContent: item.ParentContent,
-		ID: comment.ID, ImageID: comment.ImageID, ImageTitle: item.ImageTitle,
+		ID: comment.ID, ImageID: comment.ImageID, ImagePublicID: item.ImagePublicID, ImageTitle: item.ImageTitle,
 		ParentID: comment.ParentID, AuthorName: comment.AuthorName,
 		AvatarURL: commentAvatarURL(comment.AvatarMediaKey), AuthorEmail: comment.AuthorEmail,
 		UserKey: comment.UserKey, Content: comment.Content, Status: string(comment.Status),

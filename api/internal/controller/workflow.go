@@ -456,6 +456,11 @@ func (c *Admin) ResolveCase(ctx context.Context, req *v1.ResolveCaseReq) (*v1.Re
 	if err != nil {
 		return nil, err
 	}
+	if req.ApplyMetadata {
+		if _, err := requireCapability(ctx, galleryauthz.CapabilityImageUpdate); err != nil {
+			return nil, err
+		}
+	}
 	value, err := c.service.ResolveCase(ctx, operator, req.CaseID, req.CaseResolutionInput)
 	if err != nil {
 		return nil, err

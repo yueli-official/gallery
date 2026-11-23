@@ -45,7 +45,7 @@ func (referenceRemote) ReplaceObject(_ context.Context, set referencesync.Object
 
 type publicationPort struct{ published, revoked int }
 
-func (p *publicationPort) PublishImage(context.Context, string, string, string) error {
+func (p *publicationPort) PublishImage(context.Context, string, string, string, string) error {
 	p.published++
 	return nil
 }

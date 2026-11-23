@@ -2,8 +2,8 @@
 import { CollectionPagination } from "@yueli/ui/collection/pattern";
 import type { GalleryImagePage } from "~/types/gallery";
 import type { GalleryCatalogSort, GalleryCatalogState } from "~/utils/catalog";
-import type { GallerySavedFilter } from "~/types/presentation";
 const route = useRoute();
+const router = useRouter();
 const catalog = useGalleryCatalogState();
 const { state, request, selectedCategories, selectedFacets, selectedTag } = catalog;
 const { data, status, error, refresh } = await useFetch<GalleryImagePage>("/api/gallery/images", { query: request });
@@ -17,9 +17,20 @@ const saveOpen = ref(Boolean(route.query.save));
 const saveName = ref("");
 const saving = ref(false);
 const saveError = ref("");
-const { loggedIn, login } = useAuth();
-const { call } = useGalleryApi();
-const { refresh: refreshSaved } = useGallerySavedFilters();
+const { canSaveToAccount, saveLocal, saveToAccount } = useGallerySavedFilters();
+const destination = ref<"local" | "account">("local");
+const destinations = [{ label: "此浏览器", value: "local" }, { label: "当前账号", value: "account" }];
+watch(() => route.query.save, value => { if (value === "true") saveOpen.value = true; });
+watch(saveOpen, open => {
+  if (open) return;
+  destination.value = "local";
+  saveError.value = "";
+  if (route.query.save) {
+    const query = { ...route.query };
+    delete query.save;
+    void router.replace({ query });
+  }
+});
 const sorts = [{ label:"最新收录",value:"newest" }, { label:"最早收录",value:"oldest" },{label:"标题 A–Z",value:"title_asc"}];
 const sortModel = computed({get: () => state.value.sort, set: (value: string) => void catalog.setSort(value as GalleryCatalogSort)});
 const refinements = computed(() => [
@@ -42,14 +53,23 @@ function remove(item: {kind:string;value:string}) {
  else void catalog.apply({ [item.kind]: undefined });
 }
 async function save() {
- if (!loggedIn.value) {await login();return;}
- if (!saveName.value.trim() || saving.value) return;
+ const name = saveName.value.trim();
+ if (!name || saving.value) return;
  saving.value=true;saveError.value="";
  const q=state.value;
+ const query = { q:q.q, categories:q.categories.join(","), facets:q.facets.join(","), tag:q.tag,
+   matchAll:Boolean(q.matchAll), orientation:q.orientation || "", minLongEdge:q.minLongEdge || 0 };
+ const account = destination.value === "account";
  try {
-  await call<{filter:GallerySavedFilter}>("/me/saved-filters",{method:"POST",body:{name:saveName.value.trim(),query:{q:q.q,categories:q.categories.join(","),facets:q.facets.join(","),tag:q.tag,matchAll:Boolean(q.matchAll),orientation:q.orientation || "",minLongEdge:q.minLongEdge || 0}}});
-  await refreshSaved();saveOpen.value=false;saveName.value="";
- } catch(reason) {saveError.value=galleryFailureMessage(reason,"筛选没有保存，请检查名称后重试");}
+  if (account) await saveToAccount(name, query);
+  else if (!saveLocal(name, query)) {
+    saveError.value = "这个浏览器里已有同名筛选。";
+    return;
+  }
+  saveOpen.value=false;saveName.value="";
+ } catch(reason) {
+  saveError.value = account ? galleryFailureMessage(reason,"无法将筛选保存到账号。") : "无法保存，请检查浏览器是否允许站点存储。";
+ }
  finally {saving.value=false;}
 }
 </script>
@@ -65,8 +85,16 @@ async function save() {
    <CollectionPagination v-if="data && data.total > data.size" :model-value="data.page" :total-pages="galleryPageCount(data)" @update:model-value="catalog.setPage" />
   </section>
   <aside v-if="filtersOpen" class="catalog-desktop-inspector" aria-label="图片筛选"><GalleryFilterInspector :categories="data?.categories || []" :facets="data?.facets || []" :tags="data?.tags || []" :selected-categories="selectedCategories" :selected-facets="selectedFacets" :selected-tag="selectedTag" :match-all="state.matchAll" :orientation="state.orientation" :min-long-edge="state.minLongEdge" @category="category" @facet="facet" @tag="tag" @technical="technical" @close="filtersOpen = false" /></aside>
-  <USlideover v-model:open="mobileOpen" title="图片筛选"><template #body><GalleryFilterInspector :categories="data?.categories || []" :facets="data?.facets || []" :tags="data?.tags || []" :selected-categories="selectedCategories" :selected-facets="selectedFacets" :selected-tag="selectedTag" :match-all="state.matchAll" :orientation="state.orientation" :min-long-edge="state.minLongEdge" @category="category" @facet="facet" @tag="tag" @technical="technical" @close="mobileOpen = false" /></template></USlideover>
-  <UModal v-model:open="saveOpen" title="保存常用筛选" description="保存条件组合，后续收录的图片也会出现在结果中。"><template #body><form id="gallery-save-filter" class="space-y-4" @submit.prevent="save"><UFormField label="名称" required :error="saveError"><UInput v-model="saveName" maxlength="60" placeholder="例如：喜欢的角色壁纸" class="w-full" autofocus /></UFormField></form></template><template #footer><UButton label="取消" color="neutral" variant="ghost" @click="void (saveOpen = false)" /><UButton form="gallery-save-filter" type="submit" :label="loggedIn ? '保存筛选' : '登录后保存'" :loading="saving" /></template></UModal>
+  <USlideover v-model:open="mobileOpen" title="图片筛选"><template #body><GalleryFilterInspector embedded :categories="data?.categories || []" :facets="data?.facets || []" :tags="data?.tags || []" :selected-categories="selectedCategories" :selected-facets="selectedFacets" :selected-tag="selectedTag" :match-all="state.matchAll" :orientation="state.orientation" :min-long-edge="state.minLongEdge" @category="category" @facet="facet" @tag="tag" @technical="technical" @close="mobileOpen = false" /></template></USlideover>
+  <UModal v-model:open="saveOpen" title="保存筛选" :description="canSaveToAccount ? undefined : '筛选保存在此浏览器。'">
+   <template #body>
+    <form id="gallery-save-filter" class="space-y-4" @submit.prevent="save">
+     <UFormField label="名称" required :error="saveError"><UInput v-model="saveName" maxlength="60" class="w-full" autofocus /></UFormField>
+     <UFormField v-if="canSaveToAccount" label="保存到"><USelect v-model="destination" :items="destinations" class="w-full" /></UFormField>
+    </form>
+   </template>
+   <template #footer><UButton label="取消" color="neutral" variant="ghost" @click="void (saveOpen = false)" /><UButton form="gallery-save-filter" type="submit" label="保存" :disabled="!saveName.trim() || (destination === 'account' && !canSaveToAccount)" :loading="saving" /></template>
+  </UModal>
  </div>
 </template>
 <style scoped>

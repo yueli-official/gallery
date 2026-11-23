@@ -8,7 +8,7 @@ import (
 )
 
 type PublicationPort interface {
-	PublishImage(context.Context, string, string, string) error
+	PublishImage(context.Context, string, string, string, string) error
 	UnpublishImage(context.Context, string, string) error
 }
 
@@ -23,9 +23,9 @@ func SynchronizePublication(ctx context.Context, db *sql.DB, port PublicationPor
 		return err
 	}
 	defer tx.Rollback()
-	var asset, title, state, processing, review, safety string
+	var asset, title, state, processing, review, safety, publicKey string
 	var ready, deleted bool
-	err = tx.QueryRowContext(ctx, `SELECT asset_id::text,title,publication_state,processing_state,review_state,safety_state,public_rendition_ready,deleted_at IS NOT NULL FROM gallery_images WHERE id=$1::uuid FOR UPDATE`, id).Scan(&asset, &title, &state, &processing, &review, &safety, &ready, &deleted)
+	err = tx.QueryRowContext(ctx, `SELECT public_id,asset_id::text,title,publication_state,processing_state,review_state,safety_state,public_rendition_ready,deleted_at IS NOT NULL FROM gallery_images WHERE id=$1::uuid FOR UPDATE`, id).Scan(&publicKey, &asset, &title, &state, &processing, &review, &safety, &ready, &deleted)
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func SynchronizePublication(ctx context.Context, db *sql.DB, port PublicationPor
 		if processing != "ready" || (review != "approved" && review != "not_required") || safety != "safe" {
 			return fmt.Errorf("gallery image is not publishable")
 		}
-		if err = port.PublishImage(ctx, asset, id, title); err != nil {
+		if err = port.PublishImage(ctx, asset, id, title, publicKey); err != nil {
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `UPDATE gallery_images SET public_rendition_ready=TRUE WHERE id=$1::uuid`, id)

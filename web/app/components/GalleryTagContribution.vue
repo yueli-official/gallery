@@ -5,7 +5,7 @@ import { getApiFailure } from "@yueli/http-runtime";
 const props = defineProps<{ imageId: string; tags: string[] }>();
 const { loggedIn } = useAuth();
 const { call } = useGalleryApi();
-const open = ref(false);
+const emit = defineEmits<{ submitted: [message: string]; cancel: []; pending: [value: boolean] }>();
 const menuOpen = ref(false);
 const selected = ref<string[]>([]);
 const search = ref("");
@@ -41,32 +41,19 @@ watch(search, () => {
   requestVersion++;
   suggestions.value = [];
   loading.value = false;
-  if (open.value && search.value.length <= 64) timer = setTimeout(loadSuggestions, 250);
-});
-watch(open, (value) => {
-  clearTimeout(timer);
-  requestVersion++;
-  menuOpen.value = false;
-  loading.value = false;
-  if (value) void loadSuggestions();
+  if (search.value.length <= 64) timer = setTimeout(loadSuggestions, 250);
 });
 watch(() => props.imageId, () => {
-  open.value = false;
   selected.value = [];
   search.value = "";
   result.value = "";
   error.value = "";
-});
+  void loadSuggestions();
+}, { immediate: true });
+watch(pending, value => emit("pending", value));
 onBeforeUnmount(() => { clearTimeout(timer); requestVersion++; });
 
-function start() {
-  selected.value = [];
-  search.value = "";
-  error.value = "";
-  open.value = true;
-}
-
-function close() { open.value = false; }
+function close() { emit("cancel"); }
 
 function selectionChanged() {
   menuOpen.value = false;
@@ -102,8 +89,8 @@ async function submit() {
     if (props.imageId !== imageId) return;
     const waiting = response.items.filter((item) => item.status === "pending").length;
     result.value = waiting ? `${waiting} 个标签待审核，通过后会显示在这里` : "这些标签已处理，无需重复提交";
-    open.value = false;
-  } catch (cause) {
+    emit("submitted", result.value);
+    } catch (cause) {
     if (props.imageId === imageId) error.value = !loggedIn.value && getApiFailure(cause)?.code === "gallery.rate_limited"
       ? "这次补充超出每分钟 10 个标签的额度，请减少数量或稍后再试"
       : galleryFailureMessage(cause, "标签未能提交，请稍后重试");
@@ -112,14 +99,10 @@ async function submit() {
 </script>
 
 <template>
-  <div>
-    <UButton icon="i-tabler-plus" label="补充标签" color="neutral" variant="ghost" size="xs" @click="start" />
-    <p v-if="result" class="mt-1 text-xs text-muted" role="status">{{ result }}</p>
-    <UModal v-model:open="open" title="补充标签" description="选择已有标签，也可以输入新词。审核通过后会显示在图片上。" :dismissible="!pending" :ui="{ content: 'divide-y-0 ring-0 shadow-xl', header: 'pb-0', body: 'pt-4' }">
-      <template #body>
         <form class="space-y-4" @submit.prevent="submit">
+          <p class="text-xs text-muted">发色、服饰等请在“图片信息”中选择，这里补充其他关键词。</p>
           <UFormField label="图片标签" :hint="loggedIn ? '一次最多 10 个' : '每分钟最多 10 个'" :error="error || undefined">
-            <UInputMenu v-model="selected" v-model:search-term="search" v-model:open="menuOpen" :items="options" :content="{ side: 'top' }" :ui="{ content: 'ring-0 shadow-lg', trailing: 'hidden', base: 'pe-3' }" variant="soft" multiple create-item="always" ignore-filter :loading="loading" :disabled="pending" class="w-full" placeholder="例如白发、白丝、双马尾" aria-label="补充图片标签" @create="add" @update:model-value="selectionChanged">
+            <UInputMenu v-model="selected" v-model:search-term="search" v-model:open="menuOpen" :items="options" :content="{ side: 'top' }" :ui="{ content: 'ring-0 shadow-lg', trailing: 'hidden', base: 'pe-3' }" variant="soft" multiple create-item="always" ignore-filter :loading="loading" :disabled="pending" class="w-full" placeholder="搜索已有标签或补充新词" aria-label="补充图片标签" @create="add" @update:model-value="selectionChanged">
               <template #create-item-label="{ item }">补充新词「{{ item }}」</template>
               <template #empty>没有匹配的标签，可以补充新词</template>
             </UInputMenu>
@@ -133,7 +116,4 @@ async function submit() {
             <UButton type="submit" label="提交审核" :loading="pending" :disabled="!selected.length && !search.trim()" />
           </div>
         </form>
-      </template>
-    </UModal>
-  </div>
 </template>

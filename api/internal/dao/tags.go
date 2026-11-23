@@ -51,7 +51,7 @@ func (p *PG) ClassificationTagProposals(ctx context.Context, status string, page
 	if err := p.db.Ctx(ctx).Raw(`
 SELECT p.id::text AS id, COALESCE(p.submission_id::text, '') AS submission_id,
        COALESCE(p.image_id::text, submission.image_id::text, '') AS image_id,
-       COALESCE(image.title, submission.title, '') AS image_title,
+       COALESCE(image.public_id, '') AS image_public_id, COALESCE(image.title, submission.title, '') AS image_title,
        COALESCE(NULLIF(p.proposer_id, ''), submission.subject_id, '') AS proposer_id,
        CASE WHEN p.image_id IS NOT NULL THEN p.proposer_kind ELSE submission.subject_kind END AS proposer_kind,
        p.input_value, p.lookup_key, p.status,

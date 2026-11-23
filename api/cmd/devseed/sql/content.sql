@@ -35,13 +35,13 @@ FROM generate_series(1, 12) AS i
 ON CONFLICT (catalog_id, lookup_key) DO UPDATE SET target_tag_id = EXCLUDED.target_tag_id, display_value = EXCLUDED.display_value;
 
 INSERT INTO gallery_images (
-    id, asset_id, title, description, source_url, alt_text, width, height,
+    id, public_id, asset_id, title, description, source_url, alt_text, width, height,
     dominant_color, processing_state, review_state, publication_state,
     safety_state, public_rendition_ready, published_at, hidden_at, deleted_at,
     created_at, updated_at
 )
 SELECT
-    ('019b1000-0000-7000-9000-' || lpad(i::text, 12, '0'))::uuid,
+    ('019b1000-0000-7000-9000-' || lpad(i::text, 12, '0'))::uuid, seed_key.public_id,
     ('019b0000-0000-7000-9000-' || lpad(i::text, 12, '0'))::uuid,
     (ARRAY['海岸晨光','山间薄雾','城市切片','安静建筑','夏日树影','夜色漫游','日常静物','远方公路'])[((i - 1) % 8) + 1] || ' ' || lpad(i::text, 3, '0'),
     '用于本地中型图库验收的确定性演示内容，第 ' || i || ' 张。',
@@ -60,6 +60,7 @@ SELECT
     TIMESTAMPTZ '2026-07-01 08:00:00+00' + (i || ' minutes')::interval,
     TIMESTAMPTZ '2026-07-01 08:00:00+00' + (i || ' minutes')::interval
 FROM generate_series(1, 128) AS i
+JOIN gallery_seed_image_keys seed_key ON seed_key.id=('019b1000-0000-7000-9000-'||lpad(i::text,12,'0'))::uuid
 ON CONFLICT (id) DO UPDATE SET
     title = EXCLUDED.title, description = EXCLUDED.description, source_url = EXCLUDED.source_url,
     alt_text = EXCLUDED.alt_text, dominant_color = EXCLUDED.dominant_color,
@@ -71,41 +72,13 @@ ON CONFLICT (id) DO UPDATE SET
 INSERT INTO gallery_image_category_assignments (image_id, category_id)
 SELECT
     ('019b1000-0000-7000-9000-' || lpad(i::text, 12, '0'))::uuid,
-    ('019817c8-0000-7000-8300-00000000000' || (((i - 1) % 3) + 1))::uuid
+    (SELECT id FROM gallery_categories WHERE slug=(ARRAY['game','anime','original'])[((i - 1) % 3) + 1])
 FROM generate_series(1, 128) AS i ON CONFLICT DO NOTHING;
 
 INSERT INTO gallery_image_primary_categories (image_id, category_id)
 SELECT image_id, category_id FROM gallery_image_category_assignments
 WHERE image_id::text LIKE '019b1000-0000-7000-9000-%'
 ON CONFLICT (image_id) DO UPDATE SET category_id = EXCLUDED.category_id;
-
-INSERT INTO gallery_image_facet_assignments (image_id, facet_value_id)
-SELECT
-    ('019b1000-0000-7000-9000-' || lpad(i::text, 12, '0'))::uuid,
-    '019817c8-0000-7000-8200-000000000011'::uuid
-FROM generate_series(1, 128) AS i ON CONFLICT DO NOTHING;
-
-INSERT INTO gallery_image_facet_assignments (image_id, facet_value_id)
-SELECT
-    ('019b1000-0000-7000-9000-' || lpad(i::text, 12, '0'))::uuid,
-    (ARRAY[
-        '019817c8-0000-7000-8200-000000000001'::uuid,
-        '019817c8-0000-7000-8200-000000000003'::uuid,
-        '019817c8-0000-7000-8200-000000000004'::uuid,
-        '019817c8-0000-7000-8200-000000000005'::uuid,
-        '019817c8-0000-7000-8200-000000000006'::uuid,
-        '019817c8-0000-7000-8200-000000000007'::uuid
-    ])[((i - 1) % 6) + 1]
-FROM generate_series(1, 128) AS i ON CONFLICT DO NOTHING;
-
-INSERT INTO gallery_image_facet_assignments (image_id, facet_value_id)
-SELECT
-    ('019b1000-0000-7000-9000-' || lpad(i::text, 12, '0'))::uuid,
-    (ARRAY[
-        '019817c8-0000-7000-8200-000000000021'::uuid,
-        '019817c8-0000-7000-8200-000000000022'::uuid
-    ])[((i - 1) % 2) + 1]
-FROM generate_series(1, 128) AS i ON CONFLICT DO NOTHING;
 
 INSERT INTO gallery_image_tag_assignments (image_id, tag_id)
 SELECT
@@ -258,10 +231,13 @@ ON CONFLICT (id) DO UPDATE SET
     updated_at = NOW();
 
 INSERT INTO gallery_category_covers (category_id, image_url, thumb_url, accent)
-VALUES
-    ('019817c8-0000-7000-8300-000000000001', '/spotlight/hoshino.webp', '/spotlight/hoshino-thumb.webp', '#ffd277'),
-    ('019817c8-0000-7000-8300-000000000002', '/spotlight/mika.webp', '/spotlight/mika-thumb.webp', '#ffb3e6'),
-    ('019817c8-0000-7000-8300-000000000003', '/home-editorial-panorama.webp', '/home-editorial-panorama.webp', '#7fd8ff')
+SELECT category.id, cover.image_url, cover.thumb_url, cover.accent
+FROM (VALUES
+    ('game', '/spotlight/hoshino.webp', '/spotlight/hoshino-thumb.webp', '#ffd277'),
+    ('anime', '/spotlight/mika.webp', '/spotlight/mika-thumb.webp', '#ffb3e6'),
+    ('original', '/home-editorial-panorama.webp', '/home-editorial-panorama.webp', '#7fd8ff')
+) AS cover(slug,image_url,thumb_url,accent)
+JOIN gallery_categories category ON category.slug=cover.slug
 ON CONFLICT (category_id) DO UPDATE SET
     image_url = EXCLUDED.image_url, thumb_url = EXCLUDED.thumb_url,
     accent = EXCLUDED.accent, updated_at = NOW();

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	_ "github.com/lib/pq"
+	"github.com/yueli-official/foundation/go/identifier"
 	"github.com/yueli-official/gallery/api/internal/bootstrap"
 )
 
@@ -41,6 +42,41 @@ func main() {
 	}
 	if err := bootstrap.Apply(ctx, transaction); err != nil {
 		fatal("%v", err)
+	}
+
+	if _, err := transaction.ExecContext(ctx, `LOCK TABLE gallery_images IN SHARE ROW EXCLUSIVE MODE; CREATE TEMP TABLE gallery_seed_image_keys(id UUID PRIMARY KEY, public_id TEXT UNIQUE NOT NULL) ON COMMIT DROP`); err != nil {
+		fatal("prepare image keys: %v", err)
+	}
+	for i := 1; i <= 128; i++ {
+		id := fmt.Sprintf("019b1000-0000-7000-9000-%012d", i)
+		var existing sql.NullString
+		err := transaction.QueryRowContext(ctx, `SELECT public_id FROM gallery_images WHERE id=$1::uuid`, id).Scan(&existing)
+		if err != nil && err != sql.ErrNoRows {
+			fatal("read image key: %v", err)
+		}
+		if existing.Valid {
+			if _, err := transaction.ExecContext(ctx, `INSERT INTO gallery_seed_image_keys VALUES($1::uuid,$2)`, id, existing.String); err != nil {
+				fatal("preserve image key: %v", err)
+			}
+			continue
+		}
+		_, err = identifier.Allocate(ctx, identifier.CompactURLV1, func(ctx context.Context, key identifier.Key) (identifier.ClaimResult, error) {
+			result, err := transaction.ExecContext(ctx, `INSERT INTO gallery_seed_image_keys SELECT $1::uuid,$2 WHERE NOT EXISTS(SELECT 1 FROM gallery_images WHERE public_id=$2) ON CONFLICT(public_id) DO NOTHING`, id, key.String())
+			if err != nil {
+				return 0, err
+			}
+			n, err := result.RowsAffected()
+			if err != nil {
+				return 0, err
+			}
+			if n == 0 {
+				return identifier.Collision, nil
+			}
+			return identifier.Claimed, nil
+		})
+		if err != nil {
+			fatal("allocate image key: %v", err)
+		}
 	}
 	statement, err := seedFiles.ReadFile("sql/content.sql")
 	if err != nil {

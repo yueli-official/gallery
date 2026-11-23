@@ -81,9 +81,7 @@ useSeoMeta({ title: "我的收藏", robots: "noindex,nofollow" });
 <template>
   <GalleryPublicPage>
     <GalleryArchiveHero
-      kicker="月离图库 / FAVORITES"
       title="我的收藏"
-      description="只对你可见。按收藏时间或标题整理，点击图片查看完整详情。"
       :count="collection?.itemCount"
       count-label="张收藏"
     >
@@ -123,7 +121,6 @@ useSeoMeta({ title: "我的收藏", robots: "noindex,nofollow" });
       v-else
       icon="i-tabler-heart"
       title="还没有收藏图片"
-      description="遇到想再看的图片时，点一下收藏。"
     >
       <template #actions>
         <UButton

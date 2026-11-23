@@ -87,7 +87,7 @@ function updateTarget(itemID: string, value: unknown) {
       >
         <div class="min-w-0">
           <p class="truncate font-medium text-highlighted">{{ item.inputValue }}</p>
-          <NuxtLink v-if="item.imageId" :to="`/images/${item.imageId}`" target="_blank" class="mt-1 block truncate text-xs text-primary">{{ item.imageTitle || '查看图片' }} ↗</NuxtLink>
+          <NuxtLink v-if="item.imageId" :to="`/images/${item.imagePublicId}`" target="_blank" class="mt-1 block truncate text-xs text-primary">{{ item.imageTitle || '查看图片' }} ↗</NuxtLink>
           <p class="mt-1 text-xs text-muted">{{ item.submissionId ? '投稿标签' : item.proposerKind === 'guest' ? '游客补充' : '用户补充' }}<span v-if="item.proposerId"> · {{ item.proposerId }}</span></p>
         </div>
         <USelect

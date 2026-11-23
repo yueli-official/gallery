@@ -244,7 +244,7 @@ const metricCards = computed(() => [
             <div class="flex justify-end gap-1">
               <UTooltip text="查看公开图片">
                 <UButton
-                  :to="`/images/${image.id}`"
+                  :to="`/images/${image.publicId}`"
                   target="_blank"
                   rel="noopener"
                   icon="i-tabler-external-link"

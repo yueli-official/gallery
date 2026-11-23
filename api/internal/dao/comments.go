@@ -115,7 +115,7 @@ func (store *PG) AdminComments(ctx context.Context, input gallerycomments.AdminQ
 	if err != nil {
 		return nil, 0, err
 	}
-	ordered := query.Fields("c.*, i.title AS image_title, CASE WHEN i.public_rendition_ready AND i.deleted_at IS NULL THEN i.asset_id::text ELSE NULL END AS image_asset_id, COALESCE(parent.user_key, '') AS parent_user_key, COALESCE(parent.author_name, '') AS parent_author_name, COALESCE(LEFT(parent.content, 160), '') AS parent_content")
+	ordered := query.Fields("c.*, i.public_id AS image_public_id,i.title AS image_title, CASE WHEN i.public_rendition_ready AND i.deleted_at IS NULL THEN i.asset_id::text ELSE NULL END AS image_asset_id, COALESCE(parent.user_key, '') AS parent_user_key, COALESCE(parent.author_name, '') AS parent_author_name, COALESCE(LEFT(parent.content, 160), '') AS parent_content")
 	if input.Ascending {
 		ordered = ordered.OrderAsc("c.created_at").OrderAsc("c.id")
 	} else {

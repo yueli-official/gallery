@@ -14,6 +14,7 @@ type CommentView struct {
 }
 
 type AdminCommentView struct {
+	ImagePublicID    string `json:"imagePublicId"`
 	ImageAssetID     string `json:"imageAssetId,omitempty"`
 	ParentAuthorName string `json:"parentAuthorName,omitempty"`
 	ParentContent    string `json:"parentContent,omitempty"`

@@ -31,7 +31,7 @@ const emit = defineEmits<{
 
 const image = computed(() => props.image);
 const reportOpen = ref(false);
-const reportKind = ref<"report" | "source_correction">("report");
+const contributionOpen = ref(false);
 const zoom = ref<number | null>(null);
 const fullscreen = ref(false);
 const fullscreenSupported = ref(false);
@@ -119,7 +119,7 @@ function navigate(target?: GalleryImageCard): void {
 function share(): void {
   if (!props.image || !import.meta.client) return;
   const url = new URL(
-    `/images/${encodeURIComponent(props.image.id)}`,
+    `/images/${encodeURIComponent(props.image.publicId)}`,
     window.location.origin,
   ).href;
   void shareImage(url);
@@ -127,7 +127,7 @@ function share(): void {
 
 function onKeydown(event: KeyboardEvent): void {
   if (event.defaultPrevented || (event.target instanceof Element && event.target.closest("input,textarea,select,[contenteditable=true],[role=menu],[role=dialog]"))) return;
-  if (reportOpen.value) return;
+  if (reportOpen.value || contributionOpen.value) return;
   if (event.key === "ArrowLeft" && props.previous) {
     event.preventDefault();
     navigate(props.previous);
@@ -304,14 +304,14 @@ async function download(format: "webp" | "jpg" = "webp"){
       <template v-for="item in assignedGroups" :key="item.group.id"><GalleryVisualChoice v-for="node in item.values" :key="node.id" :node="node" compact :aria-label="`${item.group.name}：${node.name}`" :title="`${item.group.name}：${node.name}`" @select="facetLink(item.group.slug,node.slug)" /></template>
      </section>
      <section class="detail-metadata-group"><h2>文件信息</h2><dl><div><dt>分辨率</dt><dd>{{ image.width }} × {{ image.height }}</dd></div><div><dt>比例</dt><dd>{{ ratio }}</dd></div><template v-if="fileFacts"><div><dt>格式</dt><dd>{{ fileFacts.mime.replace('image/','').toUpperCase() }}</dd></div><div><dt>文件大小</dt><dd>{{ (fileFacts.sizeBytes/1024/1024).toFixed(2) }} MiB</dd></div></template></dl><p v-if="factsFailed" class="detail-facts-error">文件信息未能读取 <button type="button" @click="loadFacts">重试</button></p></section>
-     <section class="detail-metadata-group"><h2>标签</h2><div v-if="image.tags.length" class="detail-tags mb-2"><NuxtLink v-for="tag in image.tags" :key="tag" :to="{path:'/images',query:{tag}}">{{ tag }}</NuxtLink></div><GalleryTagContribution :image-id="image.id" :tags="image.tags" /></section>
+     <section v-if="image.tags.length" class="detail-metadata-group"><h2>标签</h2><div v-if="image.tags.length" class="detail-tags mb-2"><NuxtLink v-for="tag in image.tags" :key="tag" :to="{path:'/images',query:{tag}}">{{ tag }}</NuxtLink></div></section>
      <section class="detail-metadata-group"><h2>来源</h2><a v-if="image.sourceUrl" :href="image.sourceUrl" target="_blank" rel="noopener noreferrer nofollow" referrerpolicy="no-referrer" class="detail-source">查看原始页面 <UIcon name="i-tabler-arrow-up-right" /></a><p v-else class="detail-facts-error">未填写</p></section>
-     <div class="detail-secondary-actions"><UButton v-if="can('gallery.image.update')" :to="`/manage/images?q=${encodeURIComponent(image.title)}`" icon="i-tabler-edit" label="编辑信息" color="neutral" variant="ghost" size="xs" /><UButton icon="i-tabler-flag" label="报告问题" color="neutral" variant="ghost" size="xs" @click="reportKind='report';reportOpen=true" /><UButton icon="i-tabler-link" label="补充来源" color="neutral" variant="ghost" size="xs" @click="reportKind='source_correction';reportOpen=true" /></div>
+     <div class="detail-secondary-actions"><UButton v-if="can('gallery.image.update')" :to="`/manage/images/${encodeURIComponent(image.id)}`" icon="i-tabler-edit" label="编辑信息" color="neutral" variant="ghost" size="xs" /><GalleryInformationContribution v-else v-model:open="contributionOpen" :image="image" /><UButton icon="i-tabler-flag" label="报告问题" color="neutral" variant="ghost" size="xs" @click="void (reportOpen=true)" /></div>
     </aside>
    </div>
    <section v-if="related.length" class="detail-related"><div class="gallery-section-heading"><h2>相关图片</h2><NuxtLink v-if="relatedBrowse" :to="relatedBrowse.to" class="text-xs text-muted">{{ relatedBrowse.label }} →</NuxtLink></div><GalleryImageGrid :items="related.slice(0,8)" heading-level="h3" view="related" /></section>
    <GalleryCommentSection :image-id="image.id" />
-   <GalleryReportDialog v-model:open="reportOpen" :image-id="image.id" :kind="reportKind" />
+   <GalleryReportDialog v-model:open="reportOpen" :image-id="image.id" kind="report" />
   </template>
  </article>
 </template>

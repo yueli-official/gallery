@@ -55,7 +55,7 @@
 | `POST /api/v1/gallery/admin/classification/governance/execute` | Execute a freshly previewed classification governance plan | `gallery.classification.govern` |
 | `POST /api/v1/gallery/admin/classification/governance/preview` | Preview an immutable classification governance plan | `gallery.classification.govern` |
 | `POST /api/v1/gallery/admin/classification/identities` | Create a classification category, facet, facet value or tag | `gallery.classification.govern` |
-| `PATCH /api/v1/gallery/admin/classification/identities/{identityId}` | Update the name and slug of a classification identity | `gallery.classification.govern` |
+| `PATCH /api/v1/gallery/admin/classification/identities/{identityId}` | Update classification identity fields, icon and cover | `gallery.classification.govern` |
 | `GET /api/v1/gallery/admin/classification/tag-proposals` | List tag proposals awaiting or completing governance | `gallery.classification.read` |
 | `POST /api/v1/gallery/admin/classification/tag-proposals/{proposalId}/review` | Resolve, create, alias or reject a tag proposal | `gallery.classification.proposal_review` |
 | `GET /api/v1/gallery/admin/classification/tags` | List classification tags with a stable keyset cursor | `gallery.classification.read` |
@@ -86,6 +86,7 @@
 | `GET /api/v1/gallery/collections/{slug}` | Get a public editorial collection | 无额外 scope |
 | `GET /api/v1/gallery/discovery` | Get a stable seeded random image batch | 无额外 scope |
 | `GET /api/v1/gallery/images` | List eligible public images with page-based filtering | 无额外 scope |
+| `GET /api/v1/gallery/images/by-key/{key}` | Get an image by its eight-character public URL key | 无额外 scope |
 | `GET /api/v1/gallery/images/{imageId}` | Get one eligible public image | 无额外 scope |
 | `GET /api/v1/gallery/images/{imageId}/comments` | List approved comments for a public image | 无额外 scope |
 | `POST /api/v1/gallery/images/{imageId}/comments` | Comment on a public image | `gallery.comment.create` |

@@ -15,11 +15,22 @@ import (
 
 func main() {
 	initialize := flag.Bool("initialize", false, "initialize current business objects after stopping the old writer")
+	refreshURLs := flag.Bool("refresh-image-urls", false, "project migrated image page URLs through reference transactions")
 	archive := flag.String("archive-retired", "", "archive confirmed retired indexes for an initialization run even though Work history stays")
 	actor := flag.String("actor", "", "trusted maintenance operator recorded with this run")
 	flag.Parse()
-	if *initialize == (*archive != "") || *actor == "" {
-		fmt.Fprintln(os.Stderr, "choose -initialize or -archive-retired RUN_ID, and supply -actor")
+	actions := 0
+	if *initialize {
+		actions++
+	}
+	if *refreshURLs {
+		actions++
+	}
+	if *archive != "" {
+		actions++
+	}
+	if actions != 1 || *actor == "" {
+		fmt.Fprintln(os.Stderr, "choose -initialize, -refresh-image-urls or -archive-retired RUN_ID, and supply -actor")
 		os.Exit(2)
 	}
 	if err := runtime.EnableEnvironmentConfig(); err != nil {
@@ -34,6 +45,16 @@ func main() {
 	module, _, err := assetreferences.New(ctx, db)
 	if err != nil {
 		panic(err)
+	}
+	if *refreshURLs {
+		count, err := assetreferences.RefreshImageURLs(ctx, module, *actor, g.Cfg().MustGet(ctx, "gallery.siteUrl").String())
+		if err != nil {
+			panic(err)
+		}
+		if err = json.NewEncoder(os.Stdout).Encode(map[string]any{"actor": *actor, "queued": count}); err != nil {
+			panic(err)
+		}
+		return
 	}
 	if *archive != "" {
 		count, err := module.ArchiveRetired(ctx, *archive)

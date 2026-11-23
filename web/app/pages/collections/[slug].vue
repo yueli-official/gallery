@@ -108,8 +108,7 @@ function setPage(value: number): void {
     <template v-else-if="collection">
       <GalleryCompactEmpty
         icon="i-tabler-stack-2"
-        title="专题正在整理"
-        description="这个专题还没有图片。"
+        title="专题里还没有图片"
       />
     </template>
 

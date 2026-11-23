@@ -632,7 +632,7 @@ function formatDateTime(value?: string) {
               <div :class="viewMode === 'grid' ? 'flex justify-end gap-1 px-2.5 pb-2.5' : 'flex justify-end gap-1'">
                 <UTooltip v-if="item.imageId" text="查看公开图片">
                   <UButton
-                    :to="`/images/${item.imageId}`"
+                    :to="`/images/${item.imagePublicId}`"
                     target="_blank"
                     rel="noopener"
                     color="neutral"

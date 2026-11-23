@@ -62,6 +62,7 @@ type ImageHead struct {
 }
 
 type AdminComment struct {
+	ImagePublicID    string
 	ImageAssetID     string
 	ParentUserKey    string
 	ParentAuthorName string

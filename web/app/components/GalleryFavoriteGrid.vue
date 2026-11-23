@@ -15,7 +15,7 @@ const emit = defineEmits<{
       class="favorite-tile group relative min-w-0"
     >
       <NuxtLink
-        :to="`/images/${encodeURIComponent(image.id)}`"
+        :to="`/images/${encodeURIComponent(image.publicId)}`"
         class="block focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--gallery-accent)]"
       >
         <div

@@ -27,7 +27,7 @@ function sourcePolicy(image: GalleryImageCard, index: number) {
       class="gallery-masonry-item group relative mb-3 block break-inside-avoid rounded-[0.9rem] active:translate-y-px sm:mb-[0.8rem] lg:mb-4"
     >
       <NuxtLink
-        :to="`/images/${encodeURIComponent(image.id)}`"
+        :to="`/images/${encodeURIComponent(image.publicId)}`"
         class="gallery-masonry-link block rounded-[0.9rem] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
       >
         <div

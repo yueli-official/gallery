@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { compactCollectionClasses, imageManagePageClasses } from "~/utils/compact-collection-layout";
 import { classificationPath } from "~/utils/classification-tree";
-import type { FailureFeedback } from "@yueli/http-runtime";
-const editFailure = ref<FailureFeedback | null>(null);
 import { galleryAdminMutationErrorMessage } from "~/utils/galleryAdminErrors";
 import { ManagePage } from "@yueli/ui/admin";
 import { createGalleryNotifier } from "~/utils/feedback";
@@ -27,7 +25,6 @@ import { ManageTaxonomyChips } from "~/utils/manageComponents";
 import type {
   GalleryAdminImage,
   GalleryAdminImagePage,
-  GalleryClassificationTagPage,
   GalleryCollection,
   GallerySubmissionOptions,
 } from "~/types/gallery";
@@ -274,19 +271,6 @@ const facetOptions = computed(() => [
     })),
   ),
 ]);
-const { data: tagData } = await useAsyncData(
-  "gallery-manage-image-tags",
-  () =>
-    call<GalleryClassificationTagPage>(
-      "/admin/classification/tags?size=100",
-    ),
-  { server: false, default: () => ({ items: [], nextCursor: "" }) },
-);
-const tagOptions = computed(() =>
-  tagData.value.items
-    .filter((item) => item.status === "active")
-    .map((item) => ({ label: item.name, value: item.id })),
-);
 const { data: collectionData, refresh: refreshCollections } =
   await useAsyncData(
     "gallery-manage-image-collection-options",
@@ -416,175 +400,8 @@ function clearSelection() {
 const imageKey = (image: GalleryAdminImage) => image.id;
 const imageLabel = (image: GalleryAdminImage) => image.title;
 
-const editing = shallowRef<GalleryAdminImage>();
-const editCategoryOptions = computed(() => {
-  const items = categoryOptions.value.filter((item) => item.value !== ALL);
-  const current = editing.value;
-  if (
-    current?.primaryCategoryId &&
-    current.primaryCategory &&
-    !items.some((item) => item.value === current.primaryCategoryId)
-  ) {
-    return [
-      ...items,
-      { label: current.primaryCategory, value: current.primaryCategoryId },
-    ];
-  }
-  return items;
-});
-const editTagOptions = computed(() => {
-  const items = new Map(
-    tagOptions.value.map((item) => [item.value, item] as const),
-  );
-  for (const tag of editing.value?.tags || []) {
-    items.set(tag.id, { label: tag.name, value: tag.id });
-  }
-  return [...items.values()];
-});
-const editPending = ref(false);
-const editLoading = ref(false);
-const deleteConfirming = ref(false);
-const deletePending = ref(false);
-const deleteError = ref("");
-const publicationOptions = computed(() => {
- const current = editing.value;
- if (!current) return [];
- return [
-  { label: publicationLabel(current.publicationState), value: current.publicationState },
-  ...(canImagePublish.value && current.publicationState !== "published" && current.publicationState !== "deleted"
-    ? [{ label: "公开", value: "published" as const }] : []),
-  ...(canImageHide.value && current.publicationState === "published" ? [{label: "下架（隐藏）", value: "hidden" as const}] : []),
- ];
-});
-const editForm = reactive({
-  publicationState: "draft" as GalleryAdminImage["publicationState"],
-  title: "",
-  description: "",
-  altText: "",
-  sourceUrl: "",
-  primaryCategoryId: ALL,
-  facetValueIds: {} as Record<string, string[]>,
-  tagIds: [] as string[],
-});
-function hydrateEditForm(item: GalleryAdminImage) {
-  editFailure.value = null;
-  editing.value = item;
-  deleteConfirming.value = false;
-  deleteError.value = "";
-  Object.assign(editForm, {
-    publicationState: item.publicationState,
-    title: item.title,
-    description: item.description,
-    altText: item.altText,
-    sourceUrl: item.sourceUrl,
-    primaryCategoryId: item.primaryCategoryId || ALL,
-    facetValueIds: (item.facets || []).reduce<Record<string, string[]>>((groups, assignment) => {
-      (groups[assignment.facetId] ||= []).push(assignment.valueId);
-      return groups;
-    }, {}),
-    tagIds: (item.tags || []).map((tag) => tag.id),
-  });
-}
-
-function toggleEditFacet(group: GallerySubmissionOptions["facets"][number], id: string) {
-  const current = editForm.facetValueIds[group.id] || [];
-  const next = current.includes(id) ? current.filter(value => value !== id) : group.maxValues === 1 ? [id] : [...current, id];
-  if (next.length <= group.maxValues) editForm.facetValueIds[group.id] = next;
-}
-
-function closeEdit() {
-  editing.value = undefined;
-  deleteConfirming.value = false;
-  deleteError.value = "";
-}
-
-function setEditOpen(open: boolean) {
-  if (!open) closeEdit();
-}
-
-function beginDelete() {
-  deleteConfirming.value = true;
-}
-
-function cancelDelete() {
-  deleteConfirming.value = false;
-  deleteError.value = "";
-}
-async function openEdit(item: GalleryAdminImage) {
-  if (!canImageUpdate.value) return;
-  hydrateEditForm(item);
-  editLoading.value = true;
-  try {
-    const response = await call<{ image: GalleryAdminImage }>(
-      `/admin/images/${encodeURIComponent(item.id)}`,
-    );
-    hydrateEditForm(response.image);
-  } catch (reason: any) {
-    editing.value = undefined;
-    toast.add({
-      title: "无法打开图片编辑器",
-      description:
-        galleryFailureMessage(reason, "图片记录可能已变化，请刷新后重试。"),
-      color: "error",
-    });
-  } finally {
-    editLoading.value = false;
-  }
-}
-async function saveEdit() {
-  if (
-    !canImageUpdate.value ||
-    !editing.value?.updatedAt ||
-    !editForm.title.trim() ||
-    !editForm.altText.trim() ||
-    editForm.primaryCategoryId === ALL
-  )
-    return;
-  editPending.value = true;
-  editFailure.value = null;
-  try {
-    await call(`/admin/images/${encodeURIComponent(editing.value.id)}`, {
-      method: "PATCH",
-      body: {
-        expectedUpdatedAt: editing.value.updatedAt,
-        publicationState: editForm.publicationState !== editing.value.publicationState ? editForm.publicationState : undefined,
-        title: editForm.title,
-        description: editForm.description,
-        altText: editForm.altText,
-        sourceUrl: editForm.sourceUrl,
-        classification: {
-          primaryCategoryId: editForm.primaryCategoryId,
-          facetValueIds: Object.values(editForm.facetValueIds).flat(),
-          tagIds: editForm.tagIds,
-        },
-      },
-    });
-    editing.value = undefined;
-    await refresh();
-  } catch (reason: any) {
-    editFailure.value = galleryFailureFeedback(reason,"图片信息没有保存，请检查后重试。",{"/title":"title","/altText":"altText","/description":"description","/sourceUrl":"sourceUrl","/primaryCategoryId":"primaryCategoryId","/classification/primaryCategoryId":"primaryCategoryId","/tagIds":"tagIds","/classification/tagIds":"tagIds"});
-  } finally {
-    editPending.value = false;
-  }
-}
-
-async function deleteEditingImage() {
-  if (!canImageHide.value || !editing.value?.updatedAt || deletePending.value)
-    return;
-  deletePending.value = true;
-  deleteError.value = "";
-  try {
-    await call(`/admin/images/${encodeURIComponent(editing.value.id)}`, {
-      method: "DELETE",
-      body: { expectedUpdatedAt: editing.value.updatedAt },
-    });
-    closeEdit();
-    await refresh();
-  } catch (reason: any) {
-    deleteError.value = galleryAdminMutationErrorMessage(reason);
-  } finally {
-    deletePending.value = false;
-  }
+async function openEdit(image: GalleryAdminImage) {
+  if (canImageUpdate.value) await navigateTo(`/manage/images/${encodeURIComponent(image.id)}`);
 }
 
 const singleCollectionImage = shallowRef<GalleryAdminImage>();
@@ -939,7 +756,7 @@ function applyHeaderSort(by: string, order: ImageSortOrder) {
               text="查看公开图片"
             >
               <UButton
-                :to="`/images/${image.id}`"
+                :to="`/images/${image.publicId}`"
                 target="_blank"
                 rel="noopener"
                 color="neutral"
@@ -1042,7 +859,7 @@ function applyHeaderSort(by: string, order: ImageSortOrder) {
                   text="查看公开图片"
                 >
                   <UButton
-                    :to="`/images/${image.id}`"
+                    :to="`/images/${image.publicId}`"
                     target="_blank"
                     rel="noopener"
                     color="neutral"
@@ -1108,171 +925,6 @@ function applyHeaderSort(by: string, order: ImageSortOrder) {
         @click="batchResult = undefined"
       />
     </div>
-
-    <UModal
-      :open="canImageUpdate && Boolean(editing)"
-      title="编辑图片"
-      description="统一维护目录文案、主分类、维度和标签。"
-      :ui="{ content: 'sm:max-w-3xl' }"
-      @update:open="setEditOpen"
-    >
-      <template #body>
-        <div v-if="editLoading" class="space-y-3 py-2">
-          <USkeleton class="h-10 rounded-lg" />
-          <USkeleton class="h-24 rounded-lg" />
-          <USkeleton class="h-32 rounded-lg" />
-        </div>
-        <form
-          v-else
-          id="gallery-image-edit-form"
-          class="space-y-5"
-          @submit.prevent="saveEdit"
-        >
-          <div
-            v-if="editing"
-            data-image-editor-preview
-            class="grid max-h-72 min-h-48 place-items-center overflow-hidden rounded-xl bg-elevated p-2"
-          >
-            <img
-              :src="galleryRendition(editing, 'preview')"
-              :alt="editForm.altText || editing.title"
-              class="max-h-68 max-w-full rounded-lg object-contain"
-            />
-          </div>
-          <UAlert
-            v-if="deleteError"
-            color="error"
-            variant="subtle"
-            title="图片没有删除"
-            :description="deleteError"
-          />
-          <GalleryFailureNotice :feedback="editFailure" />
-          <UFormField label="发布状态" :error="editFailure?.fieldErrors.publicationState?.join(' ')">
-            <USelect v-model="editForm.publicationState" :items="publicationOptions" aria-label="发布状态" class="w-full" :disabled="publicationOptions.length < 2" />
-            <p class="mt-1 text-xs text-muted">公开后会显示在图库中，可加入专题；下架后不再公开展示。</p>
-            <p v-if="editing && (editing.processingState !== 'ready' || !['approved', 'not_required'].includes(editing.reviewState) || editing.safetyState !== 'safe')" class="mt-1 text-xs text-warning">图片须处理完成并通过审核后才能公开。</p>
-          </UFormField>
-          <UFormField :error="editFailure?.fieldErrors.title?.join(' ')" label="标题" required
-            ><UInput v-model="editForm.title" maxlength="160" class="w-full"
-          /></UFormField>
-          <UFormField :error="editFailure?.fieldErrors.altText?.join(' ')" label="替代文本" required
-            ><UInput v-model="editForm.altText" class="w-full"
-          /></UFormField>
-          <UFormField :error="editFailure?.fieldErrors.description?.join(' ')" label="说明"
-            ><UTextarea v-model="editForm.description" :rows="4" class="w-full"
-          /></UFormField>
-          <UFormField :error="editFailure?.fieldErrors.sourceUrl?.join(' ')" label="来源地址"
-            ><UInput
-              v-model="editForm.sourceUrl"
-              type="url"
-              placeholder="https://"
-              class="w-full"
-          /></UFormField>
-          <div class="border-t border-default pt-5">
-            <h3 class="text-sm font-semibold text-highlighted">目录信息</h3>
-            <p class="mt-1 text-xs text-muted">
-              主分类用于导航；每个维度最多选择一个值。
-            </p>
-          </div>
-          <UFormField :error="editFailure?.fieldErrors.primaryCategoryId?.join(' ')" label="主分类" required>
-            <USelectMenu
-              v-model="editForm.primaryCategoryId"
-              aria-label="主分类"
-              :items="editCategoryOptions"
-              value-key="value"
-              class="w-full"
-              :search-input="{ placeholder: '搜索分类…' }"
-            />
-          </UFormField>
-          <div class="grid gap-4 sm:grid-cols-2">
-            <UFormField
-              v-for="group in options?.facets || []"
-              :key="group.id"
-              :label="group.name"
-            >
-              <GalleryWorkChoices v-if="group.slug === 'work'" :nodes="group.values" :selected-ids="editForm.facetValueIds[group.id] || []" @select="toggleEditFacet(group, $event.id)" />
-              <USelectMenu
-                v-else
-                v-model="editForm.facetValueIds[group.id]"
-                multiple
-                placeholder="未设置"
-                :items="[
-                  ...group.values.map((item) => ({
-                    label: classificationPath(item, group.values),
-                    value: item.id,
-                  })),
-                ]"
-                value-key="value"
-                class="w-full"
-              />
-            </UFormField>
-          </div>
-          <UFormField :error="editFailure?.fieldErrors.tagIds?.join(' ')" label="标签" hint="可多选">
-            <USelectMenu
-              v-model="editForm.tagIds"
-              aria-label="标签"
-              :items="editTagOptions"
-              value-key="value"
-              multiple
-              class="w-full"
-              :search-input="{ placeholder: '搜索标签…' }"
-              placeholder="选择标签"
-            />
-          </UFormField>
-        </form>
-      </template>
-      <template v-if="!editLoading" #footer>
-        <div
-          v-if="deleteConfirming"
-          class="flex w-full flex-wrap items-center justify-between gap-3"
-        >
-          <p class="min-w-0 text-sm font-medium text-error">
-            确定删除「{{ editing?.title }}」吗？
-          </p>
-          <div class="flex gap-2">
-            <UButton
-              color="neutral"
-              variant="ghost"
-              label="取消删除"
-              @click="cancelDelete"
-            />
-            <UButton
-              color="error"
-              icon="i-tabler-trash"
-              label="确认删除"
-              :loading="deletePending"
-              @click="deleteEditingImage"
-            />
-          </div>
-        </div>
-        <div v-else class="flex w-full items-center justify-between gap-3">
-          <UButton
-            v-if="canImageHide"
-            color="error"
-            variant="ghost"
-            icon="i-tabler-trash"
-            label="删除图片"
-            @click="beginDelete"
-          />
-          <span v-else />
-          <div class="flex gap-2">
-            <UButton
-              color="neutral"
-              variant="outline"
-              label="取消"
-              @click="closeEdit"
-            />
-            <UButton
-              form="gallery-image-edit-form"
-              type="submit"
-              label="保存更改"
-              :loading="editPending"
-              :disabled="editForm.primaryCategoryId === ALL"
-            />
-          </div>
-        </div>
-      </template>
-    </UModal>
 
     <UModal
       v-if="canBulkManage"

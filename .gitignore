@@ -17,3 +17,5 @@ web/*.log
 
 /flightdeck/
 /web/.task/
+
+/api/.task/

@@ -111,7 +111,7 @@
           "gallery.classification.govern"
         ]
       ],
-      "summary": "Update the name and slug of a classification identity"
+      "summary": "Update classification identity fields, icon and cover"
     },
     {
       "authentication": "pat",
@@ -503,6 +503,17 @@
     },
     {
       "authentication": "public-or-pat",
+      "id": "get_api_v1_gallery_images_by_key_key",
+      "method": "GET",
+      "openapiPointer": "#/paths/~1api~1v1~1gallery~1images~1by-key~1{key}/get",
+      "path": "/api/v1/gallery/images/by-key/{key}",
+      "scopeAnyOf": [
+        []
+      ],
+      "summary": "Get an image by its eight-character public URL key"
+    },
+    {
+      "authentication": "public-or-pat",
       "id": "get_api_v1_gallery_images_imageId",
       "method": "GET",
       "openapiPointer": "#/paths/~1api~1v1~1gallery~1images~1{imageId}/get",
@@ -831,5 +842,5 @@
     "openapi": "../../contracts/openapi/gallery.json"
   },
   "schemaVersion": 1,
-  "sourceDigest": "32c4f2b2df7f44d1dcbf476603b226f6eb331146a9c4612cbdd80e2a4185213f"
+  "sourceDigest": "992b799b1e2125ec05ecfe98e3c6c77bf077aab3eb0484053eeb0ce45813d9f8"
 }

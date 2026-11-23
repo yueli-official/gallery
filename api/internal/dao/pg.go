@@ -22,6 +22,7 @@ import (
 	workpostgres "github.com/yueli-official/foundation/go/work/postgres"
 
 	"github.com/yueli-official/foundation/go/classification"
+	"github.com/yueli-official/foundation/go/identifier"
 	"github.com/yueli-official/gallery/api/internal/collection"
 	"github.com/yueli-official/gallery/api/internal/galleryerr"
 	"github.com/yueli-official/gallery/api/internal/gallerywebhook"
@@ -116,7 +117,7 @@ AND i.safety_state = 'safe'
 AND i.public_rendition_ready`
 
 const imageCardSelect = `
-SELECT i.id, i.asset_id, i.title, i.alt_text, i.width, i.height, i.dominant_color, i.published_at, i.updated_at,
+SELECT i.id, i.public_id, i.asset_id, i.title, i.alt_text, i.width, i.height, i.dominant_color, i.published_at, i.updated_at,
        COALESCE(primary_category.id::text, '') AS primary_category_id,
        COALESCE(primary_category.name, '') AS primary_category,
        COALESCE(primary_category.slug, '') AS primary_category_slug,
@@ -137,7 +138,7 @@ LEFT JOIN LATERAL (
 ) metric ON TRUE`
 
 const adminImageSelect = `
-SELECT i.id::text AS id, i.asset_id::text AS asset_id, i.title, i.description,
+SELECT i.id::text AS id, i.public_id, i.asset_id::text AS asset_id, i.title, i.description,
        COALESCE(i.source_url, '') AS source_url, i.alt_text, i.width, i.height, i.dominant_color,
        i.processing_state, i.review_state, i.publication_state, i.safety_state,
        i.public_rendition_ready, i.published_at, i.created_at, i.updated_at,
@@ -722,7 +723,7 @@ func publicImagePredicates(input model.ImageQuery, plan classification.FilterPla
 		args = append(args, input.MinLongEdge)
 	}
 	for _, group := range input.RequiredFacetGroups {
-		if group.OwnerID == input.OmitFacetOwner {
+		if group.OwnerID == input.OmitFacetOwner && group.OwnerID != input.ConjunctiveFacetOwner {
 			continue
 		}
 		where = append(where, `EXISTS (SELECT 1 FROM gallery_image_facet_assignments required_assignment
@@ -1284,7 +1285,7 @@ INSERT INTO gallery_submissions (
 )
 VALUES (?::uuid, ?, ?, ?::uuid, ?, ?, NULLIF(?, ''), ?, ?)
 RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
-          COALESCE(image_id::text, '') AS image_id, title, description, COALESCE(source_url, '') AS source_url,
+          COALESCE(image_id::text, '') AS image_id, COALESCE((SELECT linked_image.public_id FROM gallery_images linked_image WHERE linked_image.id = image_id), '') AS image_public_id, title, description, COALESCE(source_url, '') AS source_url,
           alt_text, processing_state, review_state, safety_state,
           outcome, failure_code, review_note, created_at, updated_at`
 	var value *model.Submission
@@ -1399,7 +1400,7 @@ func (p *PG) MySubmissions(ctx context.Context, subject model.Subject, input mod
 	}
 	query := `
 SELECT submission.id::text AS id, submission.subject_kind, submission.subject_id, submission.asset_id::text AS asset_id,
-       COALESCE(submission.image_id::text, '') AS image_id, submission.title, submission.description,
+       COALESCE(submission.image_id::text, '') AS image_id, COALESCE((SELECT public_id FROM gallery_images WHERE id=submission.image_id), '') AS image_public_id, submission.title, submission.description,
        COALESCE(submission.source_url, '') AS source_url, submission.alt_text,
        COALESCE(primary_category.category_id::text, '') AS primary_category_id,
        submission.processing_state, submission.review_state, submission.safety_state,
@@ -1441,7 +1442,7 @@ SET outcome = 'withdrawn', updated_at = NOW()
 WHERE id = ?::uuid AND subject_kind = ? AND subject_id = ?
   AND outcome IN ('pending', 'published')
 RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
-          COALESCE(image_id::text, '') AS image_id, title, description, COALESCE(source_url, '') AS source_url,
+          COALESCE(image_id::text, '') AS image_id, COALESCE((SELECT linked_image.public_id FROM gallery_images linked_image WHERE linked_image.id = image_id), '') AS image_public_id, title, description, COALESCE(source_url, '') AS source_url,
 		  alt_text, COALESCE((SELECT category_id::text FROM gallery_submission_primary_categories
 		    WHERE submission_id = gallery_submissions.id), '') AS primary_category_id,
 		  processing_state, review_state, safety_state,
@@ -1527,14 +1528,54 @@ func (p *PG) SubmissionAssetID(ctx context.Context, id string) (string, error) {
 }
 
 func (p *PG) CreateCase(ctx context.Context, subject model.Subject, imageID string, input model.CaseInput) (*model.Case, error) {
-	const query = `
-INSERT INTO gallery_cases (id, image_id, kind, reporter_kind, reporter_id, reason, description, proposed_source_url)
-SELECT ?::uuid, i.id, ?, NULLIF(?, ''), ?, ?, ?, NULLIF(?, '')
-FROM gallery_images i WHERE i.id = ?::uuid AND ` + eligibleImage + `
-RETURNING id::text AS id, COALESCE(image_id::text, '') AS image_id,
-          COALESCE(submission_id::text, '') AS submission_id, kind, status, reason, description,
-          COALESCE(proposed_source_url, '') AS proposed_source_url, resolution_note, created_at, updated_at`
-	record, err := p.db.GetOne(ctx, query, newIdentifier(), input.Kind, subject.Kind, subject.ID, input.Reason, input.Description, input.ProposedSourceURL, imageID)
+	const query = `INSERT INTO gallery_cases (id, image_id, kind, reporter_kind, reporter_id, reason, description, proposed_source_url, proposed_metadata)
+ SELECT ?::uuid, i.id, ?, NULLIF(?, ''), ?, ?, ?, NULLIF(?, ''), NULLIF(?, '')::jsonb
+ FROM gallery_images i WHERE i.id = ?::uuid AND ` + eligibleImage + `
+ RETURNING id::text, COALESCE(image_id::text, '') AS image_id,
+ COALESCE((SELECT linked_image.public_id FROM gallery_images linked_image WHERE linked_image.id = image_id), '') AS image_public_id,
+ COALESCE(submission_id::text, '') AS submission_id, kind, status, reason, description,
+ COALESCE(proposed_source_url, '') AS proposed_source_url, COALESCE(proposed_metadata::text, '') AS proposed_metadata_json, resolution_note, created_at, updated_at`
+	metadata := ""
+	if input.ProposedMetadata != nil {
+		raw, err := json.Marshal(input.ProposedMetadata)
+		if err != nil {
+			return nil, err
+		}
+		metadata = string(raw)
+	}
+	args := []any{newIdentifier(), input.Kind, subject.Kind, subject.ID, input.Reason, input.Description, input.ProposedSourceURL, metadata, imageID}
+	var record gdb.Record
+	var err error
+	if input.Kind == "metadata_correction" {
+		err = p.db.Transaction(ctx, func(ctx context.Context, tx gdb.TX) error {
+			tx = tx.Ctx(ctx)
+			if _, err := tx.Exec(`SELECT pg_advisory_xact_lock(hashtextextended(?, 0))`, "gallery:metadata-contributor:"+subject.Kind+":"+subject.ID); err != nil {
+				return err
+			}
+			count, err := tx.GetValue(`SELECT count(*) FROM gallery_cases WHERE kind='metadata_correction' AND reporter_kind=? AND reporter_id=? AND created_at >= NOW() - INTERVAL '1 minute'`, subject.Kind, subject.ID)
+			if err != nil {
+				return err
+			}
+			if count.Int() >= 10 {
+				return galleryerr.RateLimited()
+			}
+			image, err := tx.GetOne(`SELECT i.updated_at FROM gallery_images i WHERE i.id=?::uuid AND `+eligibleImage+` FOR SHARE`, imageID)
+			if err != nil {
+				return err
+			}
+			if len(image) == 0 {
+				return galleryerr.NotFound("image", imageID)
+			}
+			expected, _ := time.Parse(time.RFC3339Nano, input.ProposedMetadata.ExpectedImageUpdatedAt)
+			if !image["updated_at"].Time().Equal(expected) {
+				return galleryerr.Conflict("image_version")
+			}
+			record, err = tx.GetOne(query, args...)
+			return err
+		})
+	} else {
+		record, err = p.db.GetOne(ctx, query, args...)
+	}
 	if err != nil {
 		return nil, gerror.Wrap(err, "create gallery case")
 	}
@@ -1575,7 +1616,7 @@ GROUP BY day ORDER BY day`, days).Scan(&value.Series); err != nil {
 		return nil, gerror.Wrap(err, "query gallery dashboard series")
 	}
 	if err := p.db.Ctx(ctx).Raw(`
-SELECT image.id::text AS id, image.title,
+SELECT image.id::text AS id, image.public_id, image.title,
        COALESCE(SUM(metric.qualified_views), 0)::bigint AS views,
        COALESCE(SUM(metric.favorites), 0)::bigint AS favorites
 FROM gallery_images image
@@ -1717,6 +1758,17 @@ func (p *PG) UpdateAdminImage(ctx context.Context, id string, input model.AdminI
 		return sets, nil
 	}, func(ctx context.Context, tx gdb.TX) error {
 		tx = tx.Ctx(ctx)
+		if input.MetadataCaseID != "" {
+			record, err := tx.GetOne(`UPDATE gallery_cases SET status='resolved', operator_sub=?, resolution_note=?, resolved_at=NOW(), updated_at=NOW()
+             WHERE id=?::uuid AND image_id=?::uuid AND kind='metadata_correction' AND status IN ('open','reviewing') AND updated_at=?::timestamptz RETURNING id`, input.Operator, input.MetadataCaseNote, input.MetadataCaseID, id, input.MetadataCaseVersion)
+			if err != nil {
+				return err
+			}
+			if len(record) == 0 {
+				return galleryerr.Conflict("case_version")
+			}
+		}
+
 		if input.PublicationState == "hidden" {
 			if err := lockUnusedPresentationImage(tx, id); err != nil {
 				return err
@@ -1751,6 +1803,13 @@ VALUES (?::uuid, ?::uuid, 'takedown', 'resolved', 'operator', ?, '管理员在�
 		}
 
 		classificationInput := input.Classification
+		catalog, err := tx.GetOne(`SELECT revision FROM gallery_classification_catalogs WHERE catalog_key = 'gallery' FOR SHARE`)
+		if err != nil {
+			return gerror.Wrap(err, "lock image classification revision")
+		}
+		if len(catalog) == 0 || catalog["revision"].Uint64() != classificationInput.CatalogRevision {
+			return galleryerr.Conflict("classification_revision")
+		}
 		category, err := tx.GetValue(`SELECT EXISTS (SELECT 1 FROM gallery_categories WHERE id = ?::uuid AND status = 'active')`, classificationInput.PrimaryCategoryID)
 		if err != nil {
 			return gerror.Wrap(err, "validate gallery image primary category")
@@ -1765,7 +1824,6 @@ VALUES (?::uuid, ?::uuid, 'takedown', 'resolved', 'operator', ?, '管理员在�
 			return gerror.Wrap(err, "update gallery image primary category")
 		}
 
-		facetGroups := map[string]struct{}{}
 		for _, valueID := range classificationInput.FacetValueIDs {
 			facetID, err := tx.GetValue(`SELECT facet_id::text FROM gallery_facet_values WHERE id = ?::uuid AND status = 'active'`, valueID)
 			if err != nil {
@@ -1774,10 +1832,6 @@ VALUES (?::uuid, ?::uuid, 'takedown', 'resolved', 'operator', ?, '管理员在�
 			if facetID.String() == "" {
 				return galleryerr.NotFound("facet_value", valueID)
 			}
-			if _, duplicate := facetGroups[facetID.String()]; duplicate {
-				return galleryerr.Validation("facetValueIds", "only one value may be selected for each facet")
-			}
-			facetGroups[facetID.String()] = struct{}{}
 		}
 		if _, err := tx.Ctx(ctx).Exec(`DELETE FROM gallery_image_facet_assignments WHERE image_id = ?::uuid`, id); err != nil {
 			return gerror.Wrap(err, "replace gallery image facets")
@@ -1886,7 +1940,7 @@ func (p *PG) ReviewQueue(ctx context.Context, input model.AdminSubmissionQuery) 
 	}
 	query := `
 SELECT submission.id::text AS id, submission.subject_kind, submission.subject_id, submission.asset_id::text AS asset_id,
-       COALESCE(submission.image_id::text, '') AS image_id, submission.title, submission.description,
+       COALESCE(submission.image_id::text, '') AS image_id, COALESCE((SELECT public_id FROM gallery_images WHERE id=submission.image_id), '') AS image_public_id, submission.title, submission.description,
        COALESCE(submission.source_url, '') AS source_url, submission.alt_text,
        COALESCE(primary_category.category_id::text, '') AS primary_category_id,
        submission.processing_state, submission.review_state, submission.safety_state,
@@ -1909,167 +1963,191 @@ func (p *PG) ReviewSubmission(ctx context.Context, operator, id string, input mo
 		return nil, err
 	}
 	var value *model.Submission
-	err = p.reviewReferences(ctx, id, plan, func(ctx context.Context, tx gdb.TX) error {
-		tx = tx.Ctx(ctx)
-		catalog, err := tx.GetOne(`
+	apply := func() error {
+		return p.reviewReferences(ctx, id, plan, func(ctx context.Context, tx gdb.TX) error {
+			tx = tx.Ctx(ctx)
+			catalog, err := tx.GetOne(`
 SELECT id
 FROM gallery_classification_catalogs
 WHERE catalog_key = 'gallery'
 FOR SHARE`)
-		if err != nil {
-			return gerror.Wrap(err, "lock gallery classification catalog for review")
-		}
-		if len(catalog) == 0 {
-			return galleryerr.NotInitialized("classification_catalog")
-		}
-		var current *struct {
-			model.Submission
-			Width                int    `orm:"width"`
-			Height               int    `orm:"height"`
-			DominantColor        string `orm:"dominant_color"`
-			PublicRenditionReady bool   `orm:"public_rendition_ready"`
-		}
-		if err := tx.Raw(`
+			if err != nil {
+				return gerror.Wrap(err, "lock gallery classification catalog for review")
+			}
+			if len(catalog) == 0 {
+				return galleryerr.NotInitialized("classification_catalog")
+			}
+			var current *struct {
+				model.Submission
+				Width                int    `orm:"width"`
+				Height               int    `orm:"height"`
+				DominantColor        string `orm:"dominant_color"`
+				PublicRenditionReady bool   `orm:"public_rendition_ready"`
+			}
+			if err := tx.Raw(`
 SELECT id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
-       COALESCE(image_id::text, '') AS image_id, title, description, COALESCE(source_url, '') AS source_url,
+       COALESCE(image_id::text, '') AS image_id, COALESCE((SELECT linked_image.public_id FROM gallery_images linked_image WHERE linked_image.id = image_id), '') AS image_public_id, title, description, COALESCE(source_url, '') AS source_url,
 	   alt_text, COALESCE((SELECT category_id::text FROM gallery_submission_primary_categories
 	     WHERE submission_id = gallery_submissions.id), '') AS primary_category_id,
 	   processing_state, review_state, safety_state,
        outcome, failure_code, review_note, created_at, updated_at, width, height, dominant_color, public_rendition_ready
 FROM gallery_submissions WHERE id = ?::uuid FOR UPDATE`, id).Scan(&current); err != nil {
-			return gerror.Wrap(err, "lock gallery submission review")
-		}
-		if current == nil {
-			return referencesync.ErrOwnerChanged
-		}
-		if current.UpdatedAt == nil || !current.UpdatedAt.Time.Equal(plan.updatedAt) {
-			return referencesync.ErrOwnerChanged
-		}
-		if current.ReviewState != "pending" || current.Outcome != "pending" {
-			if input.Decision == "approve" && current.ReviewState == "approved" && current.Outcome == "published" && current.ImageID != "" {
-				value = &current.Submission
+				return gerror.Wrap(err, "lock gallery submission review")
 			}
-			return nil
-		}
-		if input.Decision == "reject" {
-			record, err := tx.GetOne(`
+			if current == nil {
+				return referencesync.ErrOwnerChanged
+			}
+			if current.UpdatedAt == nil || !current.UpdatedAt.Time.Equal(plan.updatedAt) {
+				return referencesync.ErrOwnerChanged
+			}
+			if current.ReviewState != "pending" || current.Outcome != "pending" {
+				if input.Decision == "approve" && current.ReviewState == "approved" && current.Outcome == "published" && current.ImageID != "" {
+					value = &current.Submission
+				}
+				return nil
+			}
+			if input.Decision == "reject" {
+				record, err := tx.GetOne(`
 UPDATE gallery_submissions
 SET review_state = 'rejected', outcome = 'rejected', review_note = ?, reviewed_by = ?, reviewed_at = NOW(), updated_at = NOW()
 WHERE id = ?::uuid
 RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
-          COALESCE(image_id::text, '') AS image_id, title, description, COALESCE(source_url, '') AS source_url,
+          COALESCE(image_id::text, '') AS image_id, COALESCE((SELECT linked_image.public_id FROM gallery_images linked_image WHERE linked_image.id = image_id), '') AS image_public_id, title, description, COALESCE(source_url, '') AS source_url,
 		  alt_text, COALESCE((SELECT category_id::text FROM gallery_submission_primary_categories
 		    WHERE submission_id = gallery_submissions.id), '') AS primary_category_id,
 		  processing_state, review_state, safety_state,
           outcome, failure_code, review_note, created_at, updated_at`, input.Note, operator, id)
+				if err != nil {
+					return gerror.Wrap(err, "reject gallery submission")
+				}
+				value, err = recordAs[model.Submission](record)
+				if err != nil {
+					return err
+				}
+				return p.publishSubmissionReviewedTx(ctx, tx, value, input.Decision)
+			}
+			if current.ProcessingState != "ready" || !current.PublicRenditionReady || current.Width <= 0 || current.Height <= 0 || !oneOf(current.SafetyState, "safe", "uncertain") {
+				return nil
+			}
+			if _, err := tx.Ctx(ctx).Exec(`
+SELECT pg_advisory_xact_lock(hashtextextended(encode(exact_sha256, 'hex'), 0))
+FROM gallery_submissions WHERE id = ?::uuid`, id); err != nil {
+				return gerror.Wrap(err, "lock gallery exact duplicate hash")
+			}
+			duplicateValue, err := tx.GetValue(`
+SELECT public_image.id::text
+FROM gallery_submissions source
+JOIN gallery_images public_image ON public_image.exact_sha256 = source.exact_sha256
+WHERE source.id = ?::uuid AND source.exact_sha256 IS NOT NULL
+LIMIT 1`, id)
 			if err != nil {
-				return gerror.Wrap(err, "reject gallery submission")
+				return gerror.Wrap(err, "find exact gallery duplicate")
+			}
+			duplicateID := duplicateValue.String()
+			if duplicateID != "" {
+				image, err := tx.GetOne(`SELECT asset_id::text,title,deleted_at IS NOT NULL OR publication_state='deleted' AS deleted FROM gallery_images WHERE id=?::uuid FOR UPDATE`, duplicateID)
+				if err != nil {
+					return err
+				}
+				if len(image) == 0 || image["deleted"].Bool() {
+					return galleryerr.Conflict("image_deleted")
+				}
+				if duplicateID != plan.imageID || image["asset_id"].String() != plan.imageAsset || image["title"].String() != plan.imageTitle {
+					return referencesync.ErrOwnerChanged
+				}
+			} else if !plan.newImage {
+				return referencesync.ErrOwnerChanged
+			}
+			imageID := duplicateID
+			outcome := "duplicate"
+			if imageID == "" {
+				record, err := tx.GetOne(`
+INSERT INTO gallery_images (
+    id, public_id, asset_id, origin_submission_id, title, description, source_url, alt_text, width, height,
+    dominant_color, processing_state, review_state, publication_state, safety_state,
+    public_rendition_ready, exact_sha256, pdq_hash, published_at
+)
+SELECT ?::uuid, ?, asset_id, id, title, description, source_url, alt_text, width, height,
+       dominant_color, 'ready', 'approved', 'published', 'safe', FALSE, exact_sha256, pdq_hash, NOW()
+FROM gallery_submissions WHERE id = ?::uuid
+RETURNING id::text AS id`, plan.imageID, plan.imagePublicKey, id)
+				if err != nil {
+					return gerror.Wrap(err, "publish approved gallery submission")
+				}
+				imageID = record["id"].String()
+				outcome = "published"
+				if _, err := tx.Ctx(ctx).Exec(`
+INSERT INTO gallery_image_category_assignments (image_id, category_id)
+SELECT ?::uuid, category_id
+FROM gallery_submission_category_assignments
+WHERE submission_id = ?::uuid`, imageID, id); err != nil {
+					return gerror.Wrap(err, "copy approved gallery categories")
+				}
+				if _, err := tx.Ctx(ctx).Exec(`
+INSERT INTO gallery_image_primary_categories (image_id, category_id)
+SELECT ?::uuid, category_id
+FROM gallery_submission_primary_categories
+WHERE submission_id = ?::uuid`, imageID, id); err != nil {
+					return gerror.Wrap(err, "copy approved gallery primary category")
+				}
+				if _, err := tx.Ctx(ctx).Exec(`
+INSERT INTO gallery_image_facet_assignments (image_id, facet_value_id)
+SELECT ?::uuid, facet_value_id
+FROM gallery_submission_facet_assignments
+WHERE submission_id = ?::uuid`, imageID, id); err != nil {
+					return gerror.Wrap(err, "copy approved gallery facets")
+				}
+				if _, err := tx.Ctx(ctx).Exec(`
+INSERT INTO gallery_image_tag_assignments (image_id, tag_id)
+SELECT ?::uuid, tag_id
+FROM gallery_submission_tag_assignments
+WHERE submission_id = ?::uuid`, imageID, id); err != nil {
+					return gerror.Wrap(err, "copy approved gallery tags")
+				}
+			}
+			record, err := tx.GetOne(`
+UPDATE gallery_submissions
+SET review_state = 'approved', safety_state = 'safe', outcome = ?, image_id = ?::uuid,
+    review_note = ?, reviewed_by = ?, reviewed_at = NOW(), updated_at = NOW()
+WHERE id = ?::uuid
+RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
+          COALESCE(image_id::text, '') AS image_id, COALESCE((SELECT linked_image.public_id FROM gallery_images linked_image WHERE linked_image.id = image_id), '') AS image_public_id, title, description, COALESCE(source_url, '') AS source_url,
+		  alt_text, COALESCE((SELECT category_id::text FROM gallery_submission_primary_categories
+		    WHERE submission_id = gallery_submissions.id), '') AS primary_category_id,
+		  processing_state, review_state, safety_state,
+          outcome, failure_code, review_note, created_at, updated_at`, outcome, imageID, input.Note, operator, id)
+			if err != nil {
+				return gerror.Wrap(err, "complete gallery submission review")
 			}
 			value, err = recordAs[model.Submission](record)
 			if err != nil {
 				return err
 			}
 			return p.publishSubmissionReviewedTx(ctx, tx, value, input.Decision)
-		}
-		if current.ProcessingState != "ready" || !current.PublicRenditionReady || current.Width <= 0 || current.Height <= 0 || !oneOf(current.SafetyState, "safe", "uncertain") {
-			return nil
-		}
-		if _, err := tx.Ctx(ctx).Exec(`
-SELECT pg_advisory_xact_lock(hashtextextended(encode(exact_sha256, 'hex'), 0))
-FROM gallery_submissions WHERE id = ?::uuid`, id); err != nil {
-			return gerror.Wrap(err, "lock gallery exact duplicate hash")
-		}
-		duplicateValue, err := tx.GetValue(`
-SELECT public_image.id::text
-FROM gallery_submissions source
-JOIN gallery_images public_image ON public_image.exact_sha256 = source.exact_sha256
-WHERE source.id = ?::uuid AND source.exact_sha256 IS NOT NULL
-LIMIT 1`, id)
-		if err != nil {
-			return gerror.Wrap(err, "find exact gallery duplicate")
-		}
-		duplicateID := duplicateValue.String()
-		if duplicateID != "" {
-			image, err := tx.GetOne(`SELECT asset_id::text,title,deleted_at IS NOT NULL OR publication_state='deleted' AS deleted FROM gallery_images WHERE id=?::uuid FOR UPDATE`, duplicateID)
+		})
+	}
+	if plan.newImage {
+		_, err = identifier.Allocate(ctx, identifier.CompactURLV1, func(ctx context.Context, key identifier.Key) (identifier.ClaimResult, error) {
+			plan.imagePublicKey = key.String()
+			for i := range plan.sets {
+				if plan.sets[i].RefType == "gallery-image" {
+					plan.sets[i].URL = p.referenceSet("gallery-image", plan.imageID, plan.imageTitle, "/images/"+plan.imagePublicKey, plan.imageAsset).URL
+				}
+			}
+			err := apply()
+			var conflict *pq.Error
+			if errors.As(err, &conflict) && conflict.Code == "23505" && conflict.Constraint == "gallery_images_public_id_unique" {
+				return identifier.Collision, nil
+			}
 			if err != nil {
-				return err
+				return 0, err
 			}
-			if len(image) == 0 || image["deleted"].Bool() {
-				return galleryerr.Conflict("image_deleted")
-			}
-			if duplicateID != plan.imageID || image["asset_id"].String() != plan.imageAsset || image["title"].String() != plan.imageTitle {
-				return referencesync.ErrOwnerChanged
-			}
-		} else if !plan.newImage {
-			return referencesync.ErrOwnerChanged
-		}
-		imageID := duplicateID
-		outcome := "duplicate"
-		if imageID == "" {
-			record, err := tx.GetOne(`
-INSERT INTO gallery_images (
-    id, asset_id, origin_submission_id, title, description, source_url, alt_text, width, height,
-    dominant_color, processing_state, review_state, publication_state, safety_state,
-    public_rendition_ready, exact_sha256, pdq_hash, published_at
-)
-SELECT ?::uuid, asset_id, id, title, description, source_url, alt_text, width, height,
-       dominant_color, 'ready', 'approved', 'published', 'safe', FALSE, exact_sha256, pdq_hash, NOW()
-FROM gallery_submissions WHERE id = ?::uuid
-RETURNING id::text AS id`, plan.imageID, id)
-			if err != nil {
-				return gerror.Wrap(err, "publish approved gallery submission")
-			}
-			imageID = record["id"].String()
-			outcome = "published"
-			if _, err := tx.Ctx(ctx).Exec(`
-INSERT INTO gallery_image_category_assignments (image_id, category_id)
-SELECT ?::uuid, category_id
-FROM gallery_submission_category_assignments
-WHERE submission_id = ?::uuid`, imageID, id); err != nil {
-				return gerror.Wrap(err, "copy approved gallery categories")
-			}
-			if _, err := tx.Ctx(ctx).Exec(`
-INSERT INTO gallery_image_primary_categories (image_id, category_id)
-SELECT ?::uuid, category_id
-FROM gallery_submission_primary_categories
-WHERE submission_id = ?::uuid`, imageID, id); err != nil {
-				return gerror.Wrap(err, "copy approved gallery primary category")
-			}
-			if _, err := tx.Ctx(ctx).Exec(`
-INSERT INTO gallery_image_facet_assignments (image_id, facet_value_id)
-SELECT ?::uuid, facet_value_id
-FROM gallery_submission_facet_assignments
-WHERE submission_id = ?::uuid`, imageID, id); err != nil {
-				return gerror.Wrap(err, "copy approved gallery facets")
-			}
-			if _, err := tx.Ctx(ctx).Exec(`
-INSERT INTO gallery_image_tag_assignments (image_id, tag_id)
-SELECT ?::uuid, tag_id
-FROM gallery_submission_tag_assignments
-WHERE submission_id = ?::uuid`, imageID, id); err != nil {
-				return gerror.Wrap(err, "copy approved gallery tags")
-			}
-		}
-		record, err := tx.GetOne(`
-UPDATE gallery_submissions
-SET review_state = 'approved', safety_state = 'safe', outcome = ?, image_id = ?::uuid,
-    review_note = ?, reviewed_by = ?, reviewed_at = NOW(), updated_at = NOW()
-WHERE id = ?::uuid
-RETURNING id::text AS id, subject_kind, subject_id, asset_id::text AS asset_id,
-          COALESCE(image_id::text, '') AS image_id, title, description, COALESCE(source_url, '') AS source_url,
-		  alt_text, COALESCE((SELECT category_id::text FROM gallery_submission_primary_categories
-		    WHERE submission_id = gallery_submissions.id), '') AS primary_category_id,
-		  processing_state, review_state, safety_state,
-          outcome, failure_code, review_note, created_at, updated_at`, outcome, imageID, input.Note, operator, id)
-		if err != nil {
-			return gerror.Wrap(err, "complete gallery submission review")
-		}
-		value, err = recordAs[model.Submission](record)
-		if err != nil {
-			return err
-		}
-		return p.publishSubmissionReviewedTx(ctx, tx, value, input.Decision)
-	})
+			return identifier.Claimed, nil
+		})
+	} else {
+		err = apply()
+	}
+
 	return value, err
 }
 
@@ -2169,9 +2247,9 @@ func (p *PG) Cases(ctx context.Context, input model.AdminCaseQuery) ([]model.Cas
 		"status":    {"asc": "status ASC, id ASC", "desc": "status DESC, id DESC"},
 	}
 	query := `
-SELECT id::text AS id, COALESCE(image_id::text, '') AS image_id,
+SELECT id::text AS id, COALESCE(image_id::text, '') AS image_id, COALESCE((SELECT linked_image.public_id FROM gallery_images linked_image WHERE linked_image.id = image_id), '') AS image_public_id,
        COALESCE(submission_id::text, '') AS submission_id, kind, status, reason, description,
-       COALESCE(proposed_source_url, '') AS proposed_source_url, resolution_note, created_at, updated_at
+       COALESCE(proposed_source_url, '') AS proposed_source_url, COALESCE(proposed_metadata::text, '') AS proposed_metadata_json, resolution_note, created_at, updated_at
 FROM gallery_cases WHERE ` + predicate + `
 ORDER BY ` + orders[input.SortBy][input.SortOrder] + ` LIMIT ? OFFSET ?`
 	pageArgs := append(append([]any{}, args...), input.PageSize, (input.Page-1)*input.PageSize)
@@ -2190,11 +2268,11 @@ func (p *PG) ResolveCase(ctx context.Context, operator, id string, input model.C
 	query := `
 UPDATE gallery_cases
 SET status = ?, operator_sub = ?, resolution_note = ?, resolved_at = ` + resolvedAt + `, updated_at = NOW()
-WHERE id = ?::uuid AND status IN ('open', 'reviewing') AND updated_at = ?::timestamptz
-RETURNING id::text AS id, COALESCE(image_id::text, '') AS image_id,
+WHERE id = ?::uuid AND status IN ('open', 'reviewing') AND updated_at = ?::timestamptz AND NOT (kind='metadata_correction' AND ?='resolved')
+RETURNING id::text AS id, COALESCE(image_id::text, '') AS image_id, COALESCE((SELECT linked_image.public_id FROM gallery_images linked_image WHERE linked_image.id = image_id), '') AS image_public_id,
           COALESCE(submission_id::text, '') AS submission_id, kind, status, reason, description,
-          COALESCE(proposed_source_url, '') AS proposed_source_url, resolution_note, created_at, updated_at`
-	record, err := p.db.GetOne(ctx, query, input.Status, operator, input.Note, id, input.ExpectedUpdatedAt)
+          COALESCE(proposed_source_url, '') AS proposed_source_url, COALESCE(proposed_metadata::text, '') AS proposed_metadata_json, resolution_note, created_at, updated_at`
+	record, err := p.db.GetOne(ctx, query, input.Status, operator, input.Note, id, input.ExpectedUpdatedAt, input.Status)
 	if err != nil {
 		return nil, gerror.Wrap(err, "resolve gallery case")
 	}

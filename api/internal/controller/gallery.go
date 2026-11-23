@@ -62,6 +62,15 @@ func (c *Public) GetImage(ctx context.Context, req *v1.GetImageReq) (*v1.GetImag
 	return &v1.GetImageRes{Image: *value}, nil
 }
 
+func (c *Public) GetImageByKey(ctx context.Context, req *v1.GetImageByKeyReq) (*v1.GetImageByKeyRes, error) {
+	subject, _ := optionalSubject(ctx)
+	value, err := c.service.ImageByPublicKey(ctx, req.Key, subject.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.GetImageByKeyRes{Image: *value}, nil
+}
+
 func (c *Public) ListRelatedImages(ctx context.Context, req *v1.ListRelatedImagesReq) (*v1.ListRelatedImagesRes, error) {
 	values, err := c.service.RelatedImages(ctx, req.ImageID, req.Size)
 	if err != nil {
@@ -93,6 +102,13 @@ func (c *Public) GetRankings(ctx context.Context, req *v1.GetRankingsReq) (*v1.G
 
 func (c *Public) CreateCase(ctx context.Context, req *v1.CreateCaseReq) (*v1.CreateCaseRes, error) {
 	subject, _ := optionalSubject(ctx)
+	if req.Kind == "metadata_correction" {
+		var err error
+		subject, err = requiredSubject(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
 	value, err := c.service.Report(ctx, subject, req.ImageID, req.CaseInput)
 	if err != nil {
 		return nil, err

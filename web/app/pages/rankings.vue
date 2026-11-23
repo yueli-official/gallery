@@ -37,9 +37,7 @@ useSeoMeta({
 <template>
   <GalleryPublicPage class="rankings-page">
     <GalleryArchiveHero
-      kicker="月离图库 / RANKING"
       title="排行榜"
-      description="发现最近受到关注的图片。"
     >
       <template #actions>
         <USelect
@@ -88,8 +86,7 @@ useSeoMeta({
     <GalleryCompactEmpty
       v-else
       icon="i-tabler-chart-bar"
-      title="还没有形成排行"
-      description="有更多公开浏览和收藏后，这里会开始更新。"
+      title="该时段暂无排行"
     />
   </GalleryPublicPage>
 </template>

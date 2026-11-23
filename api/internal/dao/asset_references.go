@@ -75,10 +75,10 @@ func (p *PG) SynchronizeImagePublication(ctx context.Context, item model.ImagePu
 }
 
 type reviewReferencePlan struct {
-	sets                            []referencesync.ObjectSet
-	updatedAt                       time.Time
-	imageID, imageAsset, imageTitle string
-	newImage                        bool
+	sets                                            []referencesync.ObjectSet
+	updatedAt                                       time.Time
+	imageID, imageAsset, imageTitle, imagePublicKey string
+	newImage                                        bool
 }
 
 func (p *PG) reviewReferences(ctx context.Context, id string, plan reviewReferencePlan, action func(context.Context, gdb.TX) error) error {
@@ -115,7 +115,7 @@ func (p *PG) planReviewReferences(ctx context.Context, id, decision string) (rev
 		plan.imageID = newIdentifier()
 		plan.newImage = true
 	} else {
-		image, err := p.db.GetOne(ctx, `SELECT asset_id::text,title,deleted_at IS NOT NULL OR publication_state='deleted' AS deleted FROM gallery_images WHERE id=?::uuid`, plan.imageID)
+		image, err := p.db.GetOne(ctx, `SELECT public_id,asset_id::text,title,deleted_at IS NOT NULL OR publication_state='deleted' AS deleted FROM gallery_images WHERE id=?::uuid`, plan.imageID)
 		if err != nil {
 			return plan, err
 		}
@@ -124,8 +124,9 @@ func (p *PG) planReviewReferences(ctx context.Context, id, decision string) (rev
 		}
 		plan.imageAsset = image["asset_id"].String()
 		plan.imageTitle = image["title"].String()
+		plan.imagePublicKey = image["public_id"].String()
 	}
-	plan.sets = append(plan.sets, p.referenceSet("gallery-image", plan.imageID, plan.imageTitle, "/images/"+plan.imageID, plan.imageAsset))
+	plan.sets = append(plan.sets, p.referenceSet("gallery-image", plan.imageID, plan.imageTitle, "/images/"+plan.imagePublicKey, plan.imageAsset))
 	return plan, nil
 }
 

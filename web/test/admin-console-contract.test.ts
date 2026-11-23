@@ -11,7 +11,7 @@ function source(relativePath: string) {
 
 const layout = source("../app/layouts/manage.vue");
 const dashboard = source("../app/pages/manage/index.vue");
-const images = source("../app/pages/manage/images.vue");
+const images = source("../app/pages/manage/images/index.vue");
 const submissions = source("../app/pages/manage/submissions.vue");
 const cases = source("../app/pages/manage/cases.vue");
 const collections = source("../app/pages/manage/collections/index.vue");

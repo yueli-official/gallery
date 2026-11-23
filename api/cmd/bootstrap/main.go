@@ -11,6 +11,7 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/yueli-official/gallery/api/internal/bootstrap"
+	"github.com/yueli-official/gallery/api/internal/imagekeys"
 )
 
 func main() {
@@ -29,6 +30,9 @@ func main() {
 	}
 	if err := bootstrap.Reconcile(ctx, database); err != nil {
 		fail("%v", err)
+	}
+	if _, err := imagekeys.Backfill(ctx, database); err != nil {
+		fail("image public keys: %v", err)
 	}
 	fmt.Println("Gallery initial site records are ready")
 }

@@ -23,7 +23,7 @@ func Apply(ctx context.Context, executor Execer) error {
 	if executor == nil {
 		return fmt.Errorf("gallery bootstrap executor is nil")
 	}
-	if _, err := executor.ExecContext(ctx, siteSQL+"\n"+tagPresetsSQL); err != nil {
+	if _, err := executor.ExecContext(ctx, siteSQL+"\n"+tagPresetsSQL+"\nSELECT gallery_seed_image_features();"); err != nil {
 		return fmt.Errorf("apply Gallery site bootstrap: %w", err)
 	}
 	return nil

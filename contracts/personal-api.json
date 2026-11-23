@@ -212,6 +212,14 @@
     {
       "authentication": "public-or-pat",
       "method": "GET",
+      "path": "/api/v1/gallery/images/by-key/{key}",
+      "scopeAnyOf": [
+        []
+      ]
+    },
+    {
+      "authentication": "public-or-pat",
+      "method": "GET",
       "path": "/api/v1/gallery/images/{imageId}/related",
       "scopeAnyOf": [
         []

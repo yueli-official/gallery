@@ -2,7 +2,7 @@ package assetreferences
 
 import "github.com/yueli-official/asset/referencesync"
 
-const imageFactsSQL = `SELECT i.id::text,i.title,'/images/'||i.id::text,
+const imageFactsSQL = `SELECT i.id::text,i.title,'/images/'||i.public_id,
  CASE WHEN i.deleted_at IS NULL AND i.publication_state<>'deleted' THEN i.asset_id::text ELSE '' END FROM gallery_images i`
 const submissionFactsSQL = `SELECT s.id::text,s.title,'/submissions/'||s.id::text,
  CASE WHEN s.outcome<>'withdrawn' AND (s.image_id IS NULL OR (i.deleted_at IS NULL AND i.publication_state<>'deleted')) THEN s.asset_id::text ELSE '' END

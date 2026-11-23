@@ -119,7 +119,7 @@ func TestPublishImageRegistersPublicRenditionWithServiceCredential(t *testing.T)
 		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
 			t.Fatal(err)
 		}
-		if body["siteKey"] != "gallery-main" || body["refId"] != "image-1" || body["refUrl"] != "/images/image-1" {
+		if body["siteKey"] != "gallery-main" || body["refId"] != "image-1" || body["refUrl"] != "/images/testKey1" {
 			t.Fatalf("body = %#v", body)
 		}
 		if _, coupled := body["refType"]; coupled {
@@ -133,7 +133,7 @@ func TestPublishImageRegistersPublicRenditionWithServiceCredential(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := client.PublishImage(context.Background(), "asset-1", "image-1", "Approved"); err != nil {
+	if err := client.PublishImage(context.Background(), "asset-1", "image-1", "Approved", "testKey1"); err != nil {
 		t.Fatal(err)
 	}
 }

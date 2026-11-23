@@ -4,6 +4,14 @@
 
 Gallery 复用 Identity 账户中心的个人访问令牌（PAT）。令牌只通过 `Authorization: Bearer pat_…` 使用，不换取浏览器 Cookie；每次请求都检查“令牌勾选权限 ∩ 当前账号在 Gallery 的实时权限”。撤销令牌或撤销运营角色后，下次请求立即失效。
 
+## 生产入口
+
+网页取图、上传与审核发布可使用[Gallery 图片发布油猴脚本](../userscripts/README.md)。
+
+在[账户中心 → 开发者令牌](https://account.yuelili.com/developer-tokens)选择“月离图库”，勾选需要的操作。生产 Gallery Origin 为 `https://gallery.yuelili.com`，Asset Origin 为 `https://asset.yuelili.com`，站点 ID 为 `gallery-main-web`。
+
+2026-11-03 已在当前生产镜像上启用 Gallery 验证、Identity 应用目录与 Asset 媒体授权回查。配置与服务健康已核对；本次未取得生产账号会话，真实权限展示、创建令牌及上传闭环尚未验收，见[上线记录](deployment-20261103-developer-tokens.md)。
+
 ## 权限
 
 普通账号可选择：
@@ -82,6 +90,10 @@ Asset 只接受带 `X-Yueli-Token-Site: gallery-main-web` 的本站 PAT，并在
 
 成功返回直接 DTO 或空的 204；失败返回 `application/problem+json`。权限不足为 403，无效或已撤销令牌为 401，资源归属、状态和版本冲突沿用现有 404/409 合同。携带失败 PAT 的请求不会回退浏览器登录状态。
 
+## 图片网页地址
+
+API 资源 ID 与网页定位键独立。图片 DTO 的 `publicId` 和投稿结果的 `imagePublicId` 用于 `/images/<8位键>`；按网页键读取使用 `GET /api/v1/gallery/images/by-key/{key}`。现有资源 ID 继续用于收藏、评论、下载和治理请求，不应自行拼成网页链接。迁移与旧地址处理见[图片公开地址](image-public-keys.md)。
+
 ## 本地接入
 
 从 Workspace 运行：
@@ -98,4 +110,4 @@ Asset 只接受带 `X-Yueli-Token-Site: gallery-main-web` 的本站 PAT，并在
 - Gallery `gallery.personalToken.*`：site ID、Identity `/api/v1/pat/verify` 和可信 HTTP 策略。
 - Asset `asset.personalTokens.authorities`：把 `gallery-main-web` 映射到 Gallery `/api/v1/personal-token/media-authorization`。
 
-本地实现不代表生产已部署；使用生产 Origin 前必须先核对正式部署记录。
+其他独立实例需自行完成上述三方配置；本地实现不代表相应实例已启用。

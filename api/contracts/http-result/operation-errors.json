@@ -1008,6 +1008,17 @@
       "gallery.not_found",
       "gallery.conflict",
       "gallery.upstream_failed"
+    ],
+    "GET /api/v1/gallery/images/by-key/{key}": [
+      "common.internal",
+      "common.rate_limited",
+      "common.validation_failed",
+      "gallery.not_initialized",
+      "gallery.authorization_unavailable",
+      "gallery.forbidden",
+      "gallery.not_found",
+      "gallery.gone",
+      "common.unauthorized"
     ]
   }
 }

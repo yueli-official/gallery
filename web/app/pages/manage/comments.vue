@@ -409,7 +409,7 @@ function moderationItem(comment: GalleryAdminComment): CommentModerationItem {
     status: statusMeta[comment.status],
     source: {
       label: comment.imageTitle || "图片已删除",
-      ...(comment.imageId ? { to: `/images/${comment.imageId}` } : {}),
+      ...(comment.imageId ? { to: `/images/${comment.imagePublicId}` } : {}),
       icon: "i-tabler-photo",
     },
   };

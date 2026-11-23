@@ -62,6 +62,7 @@ type Store interface {
 	CollectionDetail(context.Context, string, int, int) (*model.CollectionDetail, error)
 	FavoritesDetail(context.Context, string, int, int, string) (*model.CollectionDetail, error)
 	CreateCase(context.Context, model.Subject, string, model.CaseInput) (*model.Case, error)
+	Case(context.Context, string) (*model.Case, error)
 	AdminOverview(context.Context, int) (*model.AdminOverview, error)
 	AdminImages(context.Context, model.AdminImageQuery) ([]model.AdminImage, int, error)
 	AdminImage(context.Context, string) (*model.AdminImage, error)
@@ -114,7 +115,7 @@ type AssetReferencePort interface {
 	RegisterSubmission(context.Context, string, string, string, string) error
 	UnregisterSubmission(context.Context, string, string, string) error
 	PrepareSubmission(context.Context, string) (model.SubmissionAssetFacts, error)
-	PublishImage(context.Context, string, string, string) error
+	PublishImage(context.Context, string, string, string, string) error
 	UnpublishImage(context.Context, string, string) error
 }
 
@@ -587,8 +588,21 @@ func (s *Service) Images(ctx context.Context, query model.ImageQuery) (*model.Im
 		return nil, err
 	}
 	discoverRequest.CandidateProjection = classification.CandidateProjectionAvailable
-	if query.MatchAll {
-		for _, filter := range discoverRequest.Facets {
+	featuresID := ""
+	if len(discoverRequest.Facets) > 0 {
+		facets, projectionErr := activeFacetCandidates(catalog)
+		if projectionErr != nil {
+			return nil, projectionErr
+		}
+		for _, facet := range facets {
+			if facet.Slug == imageFeaturesSlug {
+				featuresID = facet.ID
+			}
+		}
+	}
+	query.ConjunctiveFacetOwner = featuresID
+	for _, filter := range discoverRequest.Facets {
+		if query.MatchAll || filter.Facet.Value == imageFeaturesSlug || (featuresID != "" && filter.Facet.Value == featuresID) {
 			for _, reference := range filter.Values {
 				p := catalog.Discover(classification.DiscoverRequest{PolicyKey: "gallery.image.public", Facets: []classification.FacetFilter{{Facet: filter.Facet, Values: []classification.Reference{reference}}}})
 				facts := p.FactRequest()
@@ -1762,8 +1776,8 @@ func (s *Service) Report(ctx context.Context, subject model.Subject, rawImageID 
 		return nil, galleryerr.NotFound("image", rawImageID)
 	}
 	input.Kind = defaultString(strings.TrimSpace(input.Kind), "report")
-	if !oneOf(input.Kind, "report", "source_correction") {
-		return nil, galleryerr.Validation("kind", "public cases must be reports or source corrections")
+	if !oneOf(input.Kind, "report", "source_correction", "metadata_correction") {
+		return nil, galleryerr.Validation("kind", "unsupported public case kind")
 	}
 	input.Reason = strings.TrimSpace(input.Reason)
 	input.Description = strings.TrimSpace(input.Description)
@@ -1777,12 +1791,29 @@ func (s *Service) Report(ctx context.Context, subject model.Subject, rawImageID 
 			return nil, galleryerr.Validation("proposedSourceUrl", "an absolute HTTP or HTTPS URL is required")
 		}
 	}
+	if input.Kind == "metadata_correction" {
+		if !oneOf(subject.Kind, "user", "guest") || strings.TrimSpace(subject.ID) == "" {
+			return nil, galleryerr.Forbidden()
+		}
+		if len([]rune(input.Description)) > 2000 {
+			return nil, galleryerr.Validation("description", "correction note is too long")
+		}
+		if err := s.validateMetadataCorrection(ctx, input.ProposedMetadata); err != nil {
+			return nil, err
+		}
+		input.Reason = "图片信息补充"
+		input.ProposedSourceURL = ""
+	} else if input.ProposedMetadata != nil {
+		return nil, galleryerr.Validation("proposedMetadata", "metadata belongs to a metadata correction")
+	}
 	value, err := s.store.CreateCase(ctx, subject, imageID, input)
 	if err == nil && input.Kind == "report" {
 		_ = s.store.RecordEvent(ctx, subject, imageID, model.EventInput{Type: "report"})
 	}
-	if value != nil {
-		value.ID, value.ImageID = PublicID(value.ID), PublicID(value.ImageID)
+	if err == nil {
+		if normalizeErr := normalizeCase(value); normalizeErr != nil {
+			return nil, normalizeErr
+		}
 	}
 	return value, err
 }
@@ -1897,46 +1928,13 @@ func (s *Service) AdminImage(ctx context.Context, rawID string) (*model.AdminIma
 }
 
 func (s *Service) UpdateAdminImage(ctx context.Context, rawID string, input model.AdminImageUpdateInput) (*model.AdminImage, error) {
+	input.MetadataCaseID, input.MetadataCaseVersion, input.MetadataCaseNote = "", "", ""
 	id, err := DatabaseID(rawID)
 	if err != nil {
 		return nil, galleryerr.NotFound("image", rawID)
 	}
-	input.Title, input.Description = strings.TrimSpace(input.Title), strings.TrimSpace(input.Description)
-	input.AltText, input.SourceURL = strings.TrimSpace(input.AltText), strings.TrimSpace(input.SourceURL)
-	input.ExpectedUpdatedAt = strings.TrimSpace(input.ExpectedUpdatedAt)
-	if input.Title == "" || len([]rune(input.Title)) > 160 {
-		return nil, galleryerr.Validation("title", "title is required and must be at most 160 characters")
-	}
-	if input.AltText == "" {
-		return nil, galleryerr.Validation("altText", "alt text is required")
-	}
-	if _, parseErr := time.Parse(time.RFC3339Nano, input.ExpectedUpdatedAt); parseErr != nil {
-		return nil, galleryerr.Validation("expectedUpdatedAt", "a current RFC3339 timestamp is required")
-	}
-	if input.SourceURL != "" {
-		parsed, parseErr := url.ParseRequestURI(input.SourceURL)
-		if parseErr != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-			return nil, galleryerr.Validation("sourceUrl", "source URL must be HTTP or HTTPS")
-		}
-	}
-	if input.Classification != nil {
-		classificationInput := input.Classification
-		classificationInput.PrimaryCategoryID, err = DatabaseID(strings.TrimSpace(classificationInput.PrimaryCategoryID))
-		if err != nil {
-			return nil, galleryerr.Validation("primaryCategoryId", "an active primary category is required")
-		}
-		for index, rawValueID := range classificationInput.FacetValueIDs {
-			classificationInput.FacetValueIDs[index], err = DatabaseID(strings.TrimSpace(rawValueID))
-			if err != nil {
-				return nil, galleryerr.Validation("facetValueIds", "facet values must be UUIDs or compact UUIDs")
-			}
-		}
-		for index, rawTagID := range classificationInput.TagIDs {
-			classificationInput.TagIDs[index], err = DatabaseID(strings.TrimSpace(rawTagID))
-			if err != nil {
-				return nil, galleryerr.Validation("tagIds", "tags must be UUIDs or compact UUIDs")
-			}
-		}
+	if err := s.normalizeAdminImageUpdate(ctx, &input); err != nil {
+		return nil, err
 	}
 	input.PublicationReady = false
 	if input.PublicationState != "" {
@@ -2244,7 +2242,7 @@ func (s *Service) Cases(ctx context.Context, query model.AdminCaseQuery) (*model
 	if query.Status != "all" && !oneOf(query.Status, "open", "reviewing", "resolved", "dismissed") {
 		return nil, galleryerr.Validation("status", "unsupported case status")
 	}
-	if query.Kind != "" && !oneOf(query.Kind, "report", "source_correction", "safety_uncertain", "near_duplicate", "takedown") {
+	if query.Kind != "" && !oneOf(query.Kind, "report", "source_correction", "metadata_correction", "safety_uncertain", "near_duplicate", "takedown") {
 		return nil, galleryerr.Validation("kind", "unsupported case kind")
 	}
 	values, total, err := s.store.Cases(ctx, query)
@@ -2252,9 +2250,9 @@ func (s *Service) Cases(ctx context.Context, query model.AdminCaseQuery) (*model
 		values = []model.Case{}
 	}
 	for index := range values {
-		values[index].ID = PublicID(values[index].ID)
-		values[index].ImageID = PublicID(values[index].ImageID)
-		values[index].SubmissionID = PublicID(values[index].SubmissionID)
+		if normalizeErr := normalizeCase(&values[index]); normalizeErr != nil {
+			return nil, normalizeErr
+		}
 	}
 	if err != nil {
 		return nil, err
@@ -2283,6 +2281,9 @@ func (s *Service) ResolveCase(ctx context.Context, operator, rawID string, input
 	if _, parseErr := time.Parse(time.RFC3339Nano, input.ExpectedUpdatedAt); parseErr != nil {
 		return nil, galleryerr.Validation("expectedUpdatedAt", "a current RFC3339 timestamp is required")
 	}
+	if input.ApplyMetadata {
+		return s.applyMetadataCorrection(ctx, strings.TrimSpace(operator), id, input)
+	}
 	value, err := s.store.ResolveCase(ctx, strings.TrimSpace(operator), id, input)
 	if err != nil {
 		return nil, err
@@ -2290,7 +2291,9 @@ func (s *Service) ResolveCase(ctx context.Context, operator, rawID string, input
 	if value == nil {
 		return nil, galleryerr.InvalidState("case", "not_open")
 	}
-	value.ID, value.ImageID, value.SubmissionID = PublicID(value.ID), PublicID(value.ImageID), PublicID(value.SubmissionID)
+	if err := normalizeCase(value); err != nil {
+		return nil, err
+	}
 	return value, nil
 }
 

@@ -13,7 +13,7 @@ type publicationFixture struct {
 	fail               bool
 }
 
-func (p *publicationFixture) PublishImage(context.Context, string, string, string) error {
+func (p *publicationFixture) PublishImage(context.Context, string, string, string, string) error {
 	p.published++
 	if p.fail {
 		return fmt.Errorf("publication temporarily unavailable")
@@ -40,8 +40,8 @@ func TestPublicationDeliveryUsesCurrentStateAndRetries(t *testing.T) {
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(1)
-	_, err = db.Exec(`CREATE TEMP TABLE gallery_publication_retirements(image_id uuid,asset_id uuid);CREATE TEMP TABLE gallery_images(id uuid PRIMARY KEY,asset_id uuid,title text,publication_state text,processing_state text,review_state text,safety_state text,public_rendition_ready boolean,deleted_at timestamptz);
- INSERT INTO gallery_images VALUES('019c1000-0000-7000-8100-000000000001','019c1000-0000-7000-8100-000000000002','Image','published','ready','approved','safe',false,NULL)`)
+	_, err = db.Exec(`CREATE TEMP TABLE gallery_publication_retirements(image_id uuid,asset_id uuid);CREATE TEMP TABLE gallery_images(id uuid PRIMARY KEY,asset_id uuid,title text,publication_state text,processing_state text,review_state text,safety_state text,public_rendition_ready boolean,deleted_at timestamptz,public_id text);
+ INSERT INTO gallery_images VALUES('019c1000-0000-7000-8100-000000000001','019c1000-0000-7000-8100-000000000002','Image','published','ready','approved','safe',false,NULL,'testKey1')`)
 	if err != nil {
 		t.Fatal(err)
 	}

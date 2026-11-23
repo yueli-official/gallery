@@ -10,7 +10,7 @@ import {
   CollectionSortHeader,
   CollectionTableToolbar,
 } from "@yueli/ui/collection/pattern";
-import type { GalleryAdminCasePage, GalleryCase } from "~/types/gallery";
+import type { GalleryAdminCasePage, GalleryCase, GallerySubmissionOptions } from "~/types/gallery";
 
 definePageMeta({ layout: "manage", middleware: ["auth", "admin"] });
 useSeoMeta({ title: "处理单 · 图库管理" });
@@ -20,6 +20,32 @@ const { call } = useGalleryApi();
 const { can } = useGalleryMe();
 const hydrated = useClientHydrated();
 const canResolveCases = computed(() => can("gallery.case.resolve"));
+const canEditImages = computed(() => can("gallery.image.update"));
+const { data: classificationOptions } = await useFetch<GallerySubmissionOptions>("/api/gallery/submission-options", { server: false });
+function metadataRows(item: GalleryCase) {
+  const value = item.proposedMetadata;
+  if (!value) return [];
+  const rows: { label: string; value: string }[] = [];
+  for (const [key, label] of [["title", "标题"], ["altText", "替代文本"], ["description", "说明"], ["sourceUrl", "来源地址"]] as const) {
+    if (value[key] !== undefined) rows.push({ label, value: value[key] || "（清空）" });
+  }
+  if (value.classification) {
+    const options = classificationOptions.value;
+    rows.push({ label: "主分类", value: options?.categories.find(node => node.id === value.classification!.primaryCategoryId)?.name || "分类选项尚未就绪" });
+    rows.push({ label: "作品角色与图片特征", value: value.classification.facetValueIds.map(id => {
+      for (const group of options?.facets || []) { const node = group.values.find(node => node.id === id); if (node) return `${group.name}：${node.name}`; }
+      return "选项已调整，请核对目录";
+    }).join("、") || "（清空）" });
+  }
+  return rows;
+}
+function canApplyMetadata(item: GalleryCase) {
+  if (!canEditImages.value) return false;
+  const selection = item.proposedMetadata?.classification;
+  if (!selection) return true;
+  const options = classificationOptions.value;
+  return Boolean(options?.categories.some(node => node.id === selection.primaryCategoryId) && selection.facetValueIds.every(id => options.facets.some(group => group.values.some(node => node.id === id))));
+}
 const page = computed(() => Math.max(1, Number(route.query.page) || 1));
 const pageSize = computed(() => [20, 40, 60].includes(Number(route.query.size)) ? Number(route.query.size) : 20);
 const q = computed(() => String(route.query.q || ""));
@@ -82,6 +108,7 @@ const kindItems = [
   { label: "全部类型", value: "all" },
   { label: "内容举报", value: "report" },
   { label: "来源修正", value: "source_correction" },
+  { label: "信息补充", value: "metadata_correction" },
   { label: "安全不确定", value: "safety_uncertain" },
   { label: "近重复", value: "near_duplicate" },
   { label: "下架调查", value: "takedown" },
@@ -172,7 +199,7 @@ async function resolve(
   item: GalleryCase,
   nextStatus: "reviewing" | "resolved" | "dismissed",
 ) {
-  if (!canResolveCases.value || !item.updatedAt) return;
+  if (!canResolveCases.value || !item.updatedAt || (item.kind === "metadata_correction" && nextStatus === "resolved" && !canApplyMetadata(item))) return;
   acting.value = item.id;
   actionErrors.value = Object.fromEntries(
     Object.entries(actionErrors.value).filter(([id]) => id !== item.id),
@@ -185,6 +212,7 @@ async function resolve(
         body: {
           expectedUpdatedAt: item.updatedAt,
           status: nextStatus,
+          applyMetadata: item.kind === "metadata_correction" && nextStatus === "resolved" ? true : undefined,
           note: notes.value[item.id] || "",
         },
       },
@@ -283,6 +311,11 @@ async function resolve(
               >查看建议来源</a
             >
           </div>
+          <details v-if="item.proposedMetadata" class="mt-3 rounded-lg border border-default p-3" :open="resolvingId === item.id">
+            <summary class="cursor-pointer text-sm">建议修改（{{ metadataRows(item).length }} 项）</summary>
+            <dl class="mt-3 space-y-3"><div v-for="row in metadataRows(item)" :key="row.label"><dt class="text-xs text-muted">{{ row.label }}</dt><dd class="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words text-sm">{{ row.value }}</dd></div></dl>
+            <UButton v-if="canEditImages" :to="`/manage/images/${encodeURIComponent(item.imageId)}`" label="查看当前图片信息" color="neutral" variant="outline" size="xs" class="mt-3" />
+          </details>
           <UAlert
             v-if="actionErrors[item.id]"
             class="mt-3"
@@ -295,9 +328,12 @@ async function resolve(
             v-if="canResolveCases && resolvingId === item.id"
             class="mt-4 rounded-lg border border-default bg-elevated/35 p-3"
           >
+            <p v-if="item.kind === 'metadata_correction' && !canApplyMetadata(item)" class="mb-3 text-xs text-muted">采纳需要图片编辑权限，且建议中的分类选项仍然有效。</p>
             <UFormField label="处理结论" required>
               <UTextarea
                 v-model="notes[item.id]"
+                aria-label="处理结论"
+                class="w-full"
                 :rows="3"
                 placeholder="说明核查依据和最终判断"
               />
@@ -317,9 +353,9 @@ async function resolve(
                 :disabled="!item.updatedAt || !notes[item.id]?.trim()"
                 @click="resolve(item, 'dismissed')"
               /><UButton
-                label="标记已解决"
+                :label="item.kind === 'metadata_correction' ? '采纳并保存' : '标记已解决'"
                 :loading="acting === item.id"
-                :disabled="!item.updatedAt || !notes[item.id]?.trim()"
+                :disabled="!item.updatedAt || !notes[item.id]?.trim() || (item.kind === 'metadata_correction' && !canApplyMetadata(item))"
                 @click="resolve(item, 'resolved')"
               />
             </div>
@@ -355,7 +391,7 @@ async function resolve(
           />
           <UTooltip v-if="item.imageId" text="查看关联图片">
             <UButton
-              :to="`/images/${item.imageId}`"
+              :to="`/images/${item.imagePublicId}`"
               target="_blank"
               color="neutral"
               variant="ghost"

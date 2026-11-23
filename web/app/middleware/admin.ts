@@ -3,6 +3,10 @@ const routeCapabilities: Array<{
   capabilities: string[];
 }> = [
   {
+    matches: (path) => /^\/manage\/images\/[^/]+$/.test(path),
+    capabilities: ["gallery.image.update"],
+  },
+  {
     matches: (path) => path === "/manage/authorization",
     capabilities: ["authorization.manage"],
   },

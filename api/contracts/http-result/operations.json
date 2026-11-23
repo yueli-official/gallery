@@ -612,6 +612,27 @@
       ]
     },
     {
+      "id": "gallery.get.api.v1.gallery.images.by-key.by-key",
+      "method": "GET",
+      "path": "/api/v1/gallery/images/by-key/{key}",
+      "success": {
+        "status": 200,
+        "kind": "resource",
+        "schemaRef": "#/components/schemas/github.com.yueli-official.gallery.api.api.v1.GetImageRes"
+      },
+      "errors": [
+        "common.internal",
+        "common.rate_limited",
+        "common.validation_failed",
+        "gallery.not_initialized",
+        "gallery.authorization_unavailable",
+        "gallery.forbidden",
+        "gallery.not_found",
+        "gallery.gone",
+        "common.unauthorized"
+      ]
+    },
+    {
       "id": "gallery.get.api.v1.gallery.me",
       "method": "GET",
       "path": "/api/v1/gallery/me",
@@ -1584,7 +1605,8 @@
         "gallery.conflict",
         "gallery.invalid_state",
         "gallery.upstream_failed",
-        "common.unauthorized"
+        "common.unauthorized",
+        "gallery.rate_limited"
       ]
     },
     {
