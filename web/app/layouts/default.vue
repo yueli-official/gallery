@@ -33,11 +33,9 @@ useHead({ bodyAttrs: { class: "gallery-public-active" } });
         <UButton class="gallery-mobile-menu" icon="i-tabler-menu-2" color="neutral" variant="ghost" aria-label="打开导航" @click="void (mobileOpen = true)" />
         <GalleryGlobalSearch compact :placeholder="gallerySite?.searchPlaceholder" />
         <div class="gallery-workspace-actions">
-          <div class="hidden items-center gap-2 md:flex">
-            <UButton icon="i-tabler-moon-stars" color="neutral" variant="ghost" aria-label="切换明暗主题" title="切换明暗主题" @click="toggleTheme" />
-            <ConsumerAccountControl :context-actions="actions" />
-          </div>
+          <UButton class="hidden md:inline-flex" icon="i-tabler-moon-stars" color="neutral" variant="ghost" aria-label="切换明暗主题" title="切换明暗主题" @click="toggleTheme" />
           <YSiteLauncher />
+          <ConsumerAccountControl class="hidden md:block" :context-actions="actions" />
         </div>
       </header>
       <main id="public-main" tabindex="-1" class="gallery-workspace-main"><slot /></main>
