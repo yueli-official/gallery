@@ -2,7 +2,14 @@ FROM golang:1.26.10-bookworm AS build
 
 WORKDIR /src
 COPY go.mod go.sum ./
-RUN go mod download
+ENV GOPRIVATE=github.com/yueli-official/*
+RUN --mount=type=secret,id=yueli_git_auth \
+    if [ -s /run/secrets/yueli_git_auth ]; then \
+        export GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0=http.https://github.com/yueli-official/.extraheader \
+            GIT_CONFIG_VALUE_0="$(cat /run/secrets/yueli_git_auth)"; \
+    fi; \
+    go mod download
 
 COPY api ./api
 COPY cmd ./cmd

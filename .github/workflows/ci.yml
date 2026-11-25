@@ -21,7 +21,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           fetch-depth: 0
+      - name: Authenticate private Go dependencies
+        env:
+          YUELI_CI_READ_TOKEN: ${{ secrets.YUELI_CI_READ_TOKEN }}
+        run: |
+          if [ -z "$YUELI_CI_READ_TOKEN" ]; then
+            echo '::error::YUELI_CI_READ_TOKEN must have read access to the private dependency repositories.'
+            exit 1
+          fi
+          auth=$(printf 'x-access-token:%s' "$YUELI_CI_READ_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
+          {
+            echo 'GOPRIVATE=github.com/yueli-official/*'
+            echo 'GIT_CONFIG_COUNT=1'
+            echo 'GIT_CONFIG_KEY_0=http.https://github.com/yueli-official/.extraheader'
+            printf 'GIT_CONFIG_VALUE_0=AUTHORIZATION: basic %s\n' "$auth"
+          } >> "$GITHUB_ENV"
       - uses: actions/setup-go@v5
         with:
           go-version: 1.26.10
@@ -120,8 +137,27 @@ jobs:
             context: web
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Authenticate private Go dependencies
+        if: matrix.name == 'api'
+        env:
+          YUELI_CI_READ_TOKEN: ${{ secrets.YUELI_CI_READ_TOKEN }}
+        run: |
+          if [ -z "$YUELI_CI_READ_TOKEN" ]; then
+            echo '::error::YUELI_CI_READ_TOKEN must have read access to the private dependency repositories.'
+            exit 1
+          fi
+          auth=$(printf 'x-access-token:%s' "$YUELI_CI_READ_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
+          {
+            echo 'GOPRIVATE=github.com/yueli-official/*'
+            echo 'GIT_CONFIG_COUNT=1'
+            echo 'GIT_CONFIG_KEY_0=http.https://github.com/yueli-official/.extraheader'
+            printf 'GIT_CONFIG_VALUE_0=AUTHORIZATION: basic %s\n' "$auth"
+          } >> "$GITHUB_ENV"
       - name: 构建 ${{ matrix.name }} 容器
-        run: docker build --tag yueli-gallery-${{ matrix.name }}:ci ${{ matrix.context }}
+        run: docker build ${{ matrix.name == 'api' && '--secret id=yueli_git_auth,env=GIT_CONFIG_VALUE_0' || '' }} --tag yueli-gallery-${{ matrix.name }}:ci ${{ matrix.context }}
 
   compose:
     runs-on: ubuntu-latest
