@@ -24,10 +24,11 @@ async function claim() {
     failure.value = status.value?.claimed ? "本站已完成初始化，当前账号没有获得管理员权限。" : galleryFailureMessage(reason, "初始化未完成，请稍后重试。");
   } finally { pending.value = false; }
 }
+const { loggedIn: headerLoggedIn } = useAuth();
 </script>
 <template>
   <div class="setup-page">
-    <header><NuxtLink to="/" class="setup-brand"><img src="/favicon.svg?v=20261024-brand" width="32" height="32" alt="" /><span>月离图库</span></NuxtLink><ConsumerAccountControl /></header>
+    <header><NuxtLink to="/" class="setup-brand"><img src="/favicon.svg?v=20261024-brand" width="32" height="32" alt="" /><span>月离图库</span></NuxtLink><ConsumerAccountControl :trigger-mode="headerLoggedIn ? 'collapsed' : 'inline'" /></header>
     <main>
       <UIcon name="i-tabler-user-shield" class="setup-icon" />
       <h1>初始化图库</h1>

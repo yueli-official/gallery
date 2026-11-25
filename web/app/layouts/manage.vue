@@ -211,6 +211,7 @@ const searchGroups = computed<readonly AdminSearchGroup[]>(() => {
       : []),
   ];
 });
+const { loggedIn: headerLoggedIn } = useAuth();
 </script>
 
 <template>
@@ -233,9 +234,9 @@ const searchGroups = computed<readonly AdminSearchGroup[]>(() => {
   >
     <template #topbar-right>
       <ConsumerManageAccountControl
+        :trigger-mode="headerLoggedIn ? 'collapsed' : 'inline'"
         home-to=""
         show-appearance
-        trigger-mode="inline"
       />
     </template>
     <slot />

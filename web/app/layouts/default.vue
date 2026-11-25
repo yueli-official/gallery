@@ -13,10 +13,6 @@ const { data: response, refresh: refreshSite } = await useFetch<{ site: GalleryS
 useGalleryMediaRefresh(response, refreshSite);
 watch(() => response.value?.site, value => { if (value) gallerySite.value = value; }, { immediate: true });
 const mobileOpen = ref(false);
-const colorMode = useColorMode();
-function toggleTheme(): void {
-  colorMode.preference = colorMode.value === "dark" ? "light" : "dark";
-}
 const { canManage, refreshMe } = useGalleryMe();
 const { loggedIn } = useAuth();
 const actions = computed(() => canManage.value ? [{ label: "图库管理", icon: "i-tabler-settings", to: "/manage" }] : []);
@@ -33,9 +29,9 @@ useHead({ bodyAttrs: { class: "gallery-public-active" } });
         <UButton class="gallery-mobile-menu" icon="i-tabler-menu-2" color="neutral" variant="ghost" aria-label="打开导航" @click="void (mobileOpen = true)" />
         <GalleryGlobalSearch compact :placeholder="gallerySite?.searchPlaceholder" />
         <div class="gallery-workspace-actions">
-          <UButton class="hidden md:inline-flex" icon="i-tabler-moon-stars" color="neutral" variant="ghost" aria-label="切换明暗主题" title="切换明暗主题" @click="toggleTheme" />
+          <UColorModeButton class="hidden md:inline-flex" aria-label="切换明暗主题" />
           <YSiteLauncher />
-          <ConsumerAccountControl class="hidden md:block" :context-actions="actions" />
+          <ConsumerAccountControl :trigger-mode="loggedIn ? 'collapsed' : 'inline'" class="hidden md:block" :context-actions="actions" />
         </div>
       </header>
       <main id="public-main" tabindex="-1" class="gallery-workspace-main"><slot /></main>

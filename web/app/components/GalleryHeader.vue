@@ -122,7 +122,7 @@ watch(
           variant="ghost"
           aria-label="切换颜色模式"
         />
-        <ConsumerAccountControl :context-actions="contextActions" />
+        <ConsumerAccountControl :trigger-mode="loggedIn ? 'collapsed' : 'inline'" :context-actions="contextActions" />
       </div>
     </GalleryPublicContainer>
     <nav
