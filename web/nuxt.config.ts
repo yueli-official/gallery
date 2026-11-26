@@ -22,7 +22,16 @@ export default defineNuxtConfig({
   },
 
   extends: ["@yueli/identity-nuxt", "@yueli/asset-nuxt"],
-  modules: ["@nuxt/ui", "@yueli/ui", "@yueli/nuxt-runtime"],
+  modules: ["@nuxt/ui", "@yueli/ui", "@yueli/nuxt-runtime", ["@yueli/traffic-nuxt", {
+    origin: "https://gallery.yuelili.com",
+    routes: [
+      { pattern: "^/$", resource: "/" },
+      { pattern: "^/images$", resource: "/images" },
+      { pattern: "^/images/[^/]+$", resource: "/images/:id" },
+      { pattern: "^/collections$", resource: "/collections" },
+      { pattern: "^/collections/[^/]+$", resource: "/collections/:slug" },
+    ],
+  }]],
   // Fontsource files are bundled locally; automatic font discovery must not
   // make rendering depend on remote font-provider requests.
   ui: { fonts: false },
